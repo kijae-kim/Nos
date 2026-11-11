@@ -1,6 +1,8 @@
 import secrets
 
 from django.db import models
+
+from .storage import photo_upload_to, taste_upload_to
 from django.utils import timezone
 
 # 헷갈리는 글자(0/O, 1/I)를 뺀 초대 코드용 문자
@@ -125,7 +127,7 @@ class Taste(models.Model):
     title = models.CharField("제목", max_length=100)
     link = models.URLField("링크", blank=True)
     comment = models.TextField("한마디", blank=True)
-    image = models.ImageField("사진", upload_to="tastes/%Y/%m/", blank=True, null=True)
+    image = models.ImageField("사진", upload_to=taste_upload_to, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -157,7 +159,7 @@ class Photo(models.Model):
     couple = models.ForeignKey(Couple, on_delete=models.CASCADE, related_name="photos")
     album = models.ForeignKey(Album, on_delete=models.SET_NULL, null=True, blank=True, related_name="photos")
     uploaded_by = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="photos")
-    image = models.ImageField("사진", upload_to="photos/%Y/%m/")
+    image = models.ImageField("사진", upload_to=photo_upload_to)
     caption = models.TextField("한마디", blank=True)
     taken_on = models.DateField("찍은 날", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
