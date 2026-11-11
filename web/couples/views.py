@@ -1,7 +1,10 @@
+import calendar as month_calendar
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from anniversaries import services as anniversary_services
@@ -78,7 +81,13 @@ def home(request):
     return render(
         request,
         "couples/home.html",
-        {"couple": couple, "partner": request.user.partner, "anniversaries": upcoming[:3]},
+        {
+            "couple": couple,
+            "partner": request.user.partner,
+            "days": couple.days_together,
+            "next_item": upcoming[0] if upcoming else None,
+            "anniversaries": upcoming[:3],
+        },
     )
 
 
@@ -96,7 +105,19 @@ def us(request):
             return redirect("us")
     else:
         form = ProfileForm(initial={"nickname": user.nickname, "start_date": couple.start_date})
-    return render(request, "couples/us.html", {"form": form, "couple": couple, "partner": user.partner})
+    return render(
+        request,
+        "couples/us.html",
+        {"form": form, "couple": couple, "partner": user.partner, "days": couple.days_together},
+    )
+
+
+@login_required
+def calendar(request):
+    today = timezone.localdate()
+    # 일요일부터 시작하는 달력. 앞뒤 달의 날짜도 함께 받아 주차를 채운다.
+    weeks = month_calendar.Calendar(firstweekday=6).monthdatescalendar(today.year, today.month)
+    return render(request, "couples/calendar.html", {"today": today, "weeks": weeks})
 
 
 @login_required

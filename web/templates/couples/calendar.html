@@ -1,0 +1,24 @@
+{% extends "layout_app.html" %}
+{% block head_title %}캘린더 · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between">
+  <h1 class="page-title">{{ today|date:"n월" }} <span class="sub">{{ today|date:"Y" }}</span></h1>
+</header>
+{% endblock %}
+{% block content %}
+<section class="month card">
+  <div class="week-names"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+  <div class="days">
+    {% for week in weeks %}
+      {% for day in week %}
+        <div class="day{% if forloop.first %} sun{% endif %}{% if day.month != today.month %} out{% endif %}{% if day == today %} today{% endif %}">
+          <b>{{ day.day }}</b>
+        </div>
+      {% endfor %}
+    {% endfor %}
+  </div>
+</section>
+
+<h2 class="group">일정</h2>
+<p class="empty">일정 기능은 준비 중이에요. 곧 여기에서 함께 볼 수 있어요.</p>
+{% endblock %}

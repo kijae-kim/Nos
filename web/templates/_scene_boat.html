@@ -1,0 +1,17 @@
+<!-- 배 테마 장면: 바다 위를 항해해 다음 기념일 깃발까지 -->
+<div class="scene t-boat" aria-hidden="true">
+  <svg class="land" viewBox="0 0 342 150" fill="none">
+    <g class="drift" fill="#fff" fill-opacity=".2"><rect x="24" y="30" width="54" height="14" rx="7"/><rect x="44" y="20" width="30" height="16" rx="8"/><rect x="170" y="48" width="44" height="12" rx="6"/></g>
+    <path class="swell" d="M-20 98C40 70 90 90 150 82S260 60 322 86S380 96 380 96V150H-20Z" fill="#4D68FF" fill-opacity=".7"/>
+    <path d="M0 116C70 90 130 120 200 104S300 90 342 108V150H0Z" fill="#1F38D9"/>
+    <path class="route" d="M0 116C70 90 130 120 200 104S300 90 342 108" stroke="#fff" stroke-opacity=".6" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M303 100V70" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M303 70l-14 5 14 5z" fill="#FFD978"/>
+    <path d="M296 99h14l-2 7h-10z" fill="#FF5A5F"/>
+    <path d="M0 136C60 122 130 142 200 130S300 122 342 132V150H0Z" fill="#1429A8"/>
+    <g stroke="#fff" stroke-opacity=".5" stroke-width="1.5" stroke-linecap="round"><path d="M40 141q6-4 12 0"/><path d="M150 145q6-4 12 0"/><path d="M250 138q6-4 12 0"/></g>
+  </svg>
+  <i class="mark" style="offset-distance:10%"></i><i class="mark" style="offset-distance:27%"></i>
+  <i class="mark" style="offset-distance:44%"></i><i class="mark" style="offset-distance:61%"></i>
+  {% if next_item %}<span class="goal-label">{{ next_item.title }}</span>{% endif %}
+  <div class="mover"><svg width="27" height="30"><use href="#boat"/></svg></div>
+</div>

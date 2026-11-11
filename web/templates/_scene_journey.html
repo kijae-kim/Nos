@@ -1,0 +1,24 @@
+<!-- 여정 테마 장면: 밤 사막을 걸어 다음 오아시스까지 -->
+<div class="scene t-journey" aria-hidden="true">
+  <svg class="land" viewBox="0 0 342 150" fill="none">
+    <defs><linearGradient id="dune" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E58C5C"/><stop offset="1" stop-color="#B9573F"/></linearGradient></defs>
+    <g fill="#FFE7A8">
+      <circle class="tw" cx="30" cy="22" r="1.4"/><circle class="tw" cx="82" cy="46" r="1" style="animation-delay:.6s"/>
+      <circle class="tw" cx="142" cy="16" r="1.6" style="animation-delay:1.1s"/><circle class="tw" cx="192" cy="42" r="1" style="animation-delay:.3s"/>
+      <circle class="tw" cx="232" cy="20" r="1.3" style="animation-delay:1.7s"/><circle class="tw" cx="120" cy="62" r="1" style="animation-delay:.9s"/>
+      <circle class="tw" cx="58" cy="68" r="1.2" style="animation-delay:1.4s"/><circle class="tw" cx="316" cy="50" r="1.1" style="animation-delay:2s"/>
+    </g>
+    <path class="shoot" d="M70 6l44 16" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M236 84l24-32 24 32zM270 86l15-20 15 20z" fill="#3A2F70"/>
+    <path d="M0 98C60 70 110 90 170 82S280 60 342 86V150H0Z" fill="#4A3A82"/>
+    <path d="M0 116C70 90 130 120 200 104S300 90 342 108V150H0Z" fill="url(#dune)"/>
+    <path d="M0 116C70 90 130 120 200 104S300 90 342 108" stroke="#FFE7A8" stroke-opacity=".55" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="1 6"/>
+    <ellipse cx="313" cy="103" rx="13" ry="3" fill="#7CD3C8"/>
+    <g stroke="#17403D" stroke-width="2.5" stroke-linecap="round"><path d="M300 99q2-12-1-22"/><path d="M299 77q-10-6-16 2"/><path d="M299 77q-6-10-14-8"/><path d="M299 77q8-8 16-2"/><path d="M299 77q10-2 14 8"/><path d="M299 77q0-10 6-13"/></g>
+    <path d="M0 136C60 122 130 142 200 130S300 122 342 132V150H0Z" fill="#F0C592"/>
+  </svg>
+  <i class="mark" style="offset-distance:10%"></i><i class="mark" style="offset-distance:27%"></i>
+  <i class="mark" style="offset-distance:44%"></i><i class="mark" style="offset-distance:61%"></i>
+  {% if next_item %}<span class="goal-label">{{ next_item.title }}</span>{% endif %}
+  <div class="mover"><svg width="22" height="20" viewBox="0 0 22 20"><path d="M1 6v13" stroke="#F2B544" stroke-width="1.4" stroke-linecap="round"/><rect x="3" y="7.5" width="6" height="12" rx="3" fill="#D9623B"/><circle cx="6" cy="4" r="3" fill="#F6D9A8"/><rect x="12.2" y="8.5" width="5.6" height="11" rx="2.8" fill="#FFFDF9"/><circle cx="15" cy="5.2" r="2.8" fill="#F6D9A8"/></svg></div>
+</div>
