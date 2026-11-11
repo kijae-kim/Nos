@@ -1,0 +1,14 @@
+<li class="rise">
+  <a class="event-row" href="{% url 'event_update' event.pk %}">
+    <i class="bar" style="background:var(--{{ event.color }})"></i>
+    <span class="main">
+      <small>{{ event.date|date:"n. j." }}{% if event.start_time %} · {{ event.start_time|time:"A g:i" }}{% if event.end_time %} – {{ event.end_time|time:"g:i" }}{% endif %}{% else %} · 하루 종일{% endif %}{% if event.place %} · {{ event.place }}{% endif %}</small>
+      <strong>{{ event.title }}{% if event.scope == 'personal' %}<span class="kind">개인</span>{% endif %}</strong>
+      {% if event.labels.all %}
+        <span class="label-chips">
+          {% for l in event.labels.all %}<span class="label-chip" style="--c: var(--{{ l.color }})">{{ l.token }}</span>{% endfor %}
+        </span>
+      {% endif %}
+    </span>
+  </a>
+</li>

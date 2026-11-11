@@ -1,36 +1,58 @@
 {% extends "base.html" %}
 {% block body %}
-<header class="topbar">
-  <h1>{% block page_title %}{{ APP_NAME }}{% endblock %}</h1>
-</header>
-<main class="page">
-  {% if messages %}
-    {% for message in messages %}<p class="notice">{{ message }}</p>{% endfor %}
-  {% endif %}
-  {% block content %}{% endblock %}
-</main>
+{% include "_icons.html" %}
 {% with tab=request.resolver_match.url_name %}
-<nav class="tabbar" aria-label="주 메뉴">
-  <a href="{% url 'home' %}" {% if tab == 'home' %}class="active" aria-current="page"{% endif %}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
-    <span>홈</span>
-  </a>
-  <a href="{% url 'calendar' %}" {% if tab == 'calendar' %}class="active" aria-current="page"{% endif %}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-    <span>캘린더</span>
-  </a>
-  <a href="{% url 'tastes' %}" {% if tab == 'tastes' %}class="active" aria-current="page"{% endif %}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>
-    <span>취향</span>
-  </a>
-  <a href="{% url 'albums' %}" {% if tab == 'albums' %}class="active" aria-current="page"{% endif %}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>
-    <span>앨범</span>
-  </a>
-  <a href="{% url 'us' %}" {% if tab == 'us' or 'anniversary' in tab %}class="active" aria-current="page"{% endif %}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-8-5.3-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.7-8 11-8 11z"/></svg>
-    <span>우리</span>
-  </a>
-</nav>
+<div class="app{% block app_class %}{% endblock %}" id="app">
+  {# 넓은 화면에서만 보이는 왼쪽 메뉴 #}
+  <aside class="sidebar" aria-label="주 메뉴">
+    <span class="logo">
+      <svg class="t-boat" width="24" height="26"><use href="#boat"/></svg>
+      <svg class="t-journey" width="24" height="24"><use href="#star"/></svg>
+    </span>
+    <nav class="side-menu">
+      <a class="{% if tab == 'home' %}on{% endif %}" href="{% url 'home' %}" aria-label="홈"><svg class="i"><use href="#i-home"/></svg></a>
+      <a class="{% if tab == 'calendar' %}on{% endif %}" href="{% url 'calendar' %}" aria-label="캘린더"><svg class="i"><use href="#i-cal"/></svg></a>
+      <a class="{% if tab == 'tastes' %}on{% endif %}" href="{% url 'tastes' %}" aria-label="취향"><svg class="i"><use href="#i-note"/></svg></a>
+      <a class="{% if tab == 'albums' %}on{% endif %}" href="{% url 'albums' %}" aria-label="앨범"><svg class="i"><use href="#i-album"/></svg></a>
+      <a href="{% url 'anniversary_index' %}" aria-label="기념일"><svg class="i"><use href="#i-gift"/></svg></a>
+    </nav>
+    <a class="us" href="{% url 'us' %}" aria-label="우리"><i class="av a"></i><i class="av b"></i></a>
+  </aside>
+
+  <main class="page">
+    {% block header %}{% endblock %}
+    {% if messages %}
+      {% for message in messages %}<p class="notice">{{ message }}</p>{% endfor %}
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <div class="dim" id="dim"></div>
+  <nav class="tabbar" aria-label="주 메뉴">
+    <svg class="bar" viewBox="0 0 342 64" aria-hidden="true"><path d="M22 0H126Q133 0 134 6A38 38 0 0 0 208 6Q209 0 216 0H320A22 22 0 0 1 342 22V42A22 22 0 0 1 320 64H22A22 22 0 0 1 0 42V22A22 22 0 0 1 22 0Z"/></svg>
+
+    <a class="quick" style="--x:-112px;--y:-74px" href="{% url 'event_create' %}"><i style="background:var(--sky)"><svg class="i"><use href="#i-cal"/></svg></i>일정</a>
+    <a class="quick" style="--x:-40px;--y:-116px" href="{% url 'taste_create' %}"><i style="background:var(--rose)"><svg class="i"><use href="#i-note"/></svg></i>취향</a>
+    <a class="quick" style="--x:40px;--y:-116px" href="{% url 'photo_create' %}"><i style="background:var(--lav)"><svg class="i"><use href="#i-album"/></svg></i>사진</a>
+    <a class="quick" style="--x:112px;--y:-74px" href="{% url 'anniversary_create' %}"><i style="background:var(--sand)"><svg class="i"><use href="#i-gift"/></svg></i>기념일</a>
+
+    <a class="tab{% if tab == 'home' %} on{% endif %}" style="left:11.7%" href="{% url 'home' %}"{% if tab == 'home' %} aria-current="page"{% endif %} aria-label="홈">
+      <svg class="i"><use href="#i-home"/></svg>
+    </a>
+    <a class="tab{% if tab == 'calendar' %} on{% endif %}" style="left:28.7%" href="{% url 'calendar' %}"{% if tab == 'calendar' %} aria-current="page"{% endif %} aria-label="캘린더">
+      <svg class="i"><use href="#i-cal"/></svg>
+    </a>
+    <a class="tab{% if tab == 'tastes' %} on{% endif %}" style="left:71.3%" href="{% url 'tastes' %}"{% if tab == 'tastes' %} aria-current="page"{% endif %} aria-label="취향">
+      <svg class="i"><use href="#i-note"/></svg>
+    </a>
+    <a class="tab{% if tab == 'albums' %} on{% endif %}" style="left:88.3%" href="{% url 'albums' %}"{% if tab == 'albums' %} aria-current="page"{% endif %} aria-label="앨범">
+      <svg class="i"><use href="#i-album"/></svg>
+    </a>
+    <button class="fab" id="fab" type="button" aria-label="추가" aria-expanded="false">
+      <svg class="i"><use href="#i-plus"/></svg>
+    </button>
+  </nav>
+
+</div>
 {% endwith %}
 {% endblock %}

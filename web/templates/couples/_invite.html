@@ -1,5 +1,13 @@
-<section class="card invite">
-  <p class="muted">상대방을 기다리고 있어요. 아래 초대 코드를 보내 주세요.</p>
-  <p class="code" id="invite-code">{{ couple.invite_code }}</p>
-  <button type="button" class="btn" data-copy="{{ couple.invite_code }}">코드 복사</button>
+<section class="card">
+  <div class="pair center">
+    <figure><i class="av a big"></i><figcaption>나</figcaption></figure>
+    <div class="link"><span></span><span></span></div>
+    <figure><i class="av big vacant">?</i><figcaption>상대방</figcaption></figure>
+  </div>
+  <p class="muted" style="text-align:center">상대방을 기다리고 있어요. 아래 초대 코드를 보내 주세요.</p>
+  <div class="code-card">
+    <small>초대 코드</small>
+    <p class="code" id="invite-code">{{ couple.invite_code }}</p>
+    <button type="button" class="ghost" data-copy="{{ couple.invite_code }}">코드 복사</button>
+  </div>
 </section>

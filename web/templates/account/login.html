@@ -1,7 +1,10 @@
 {% extends "layout_auth.html" %}
 {% block head_title %}로그인 · {{ APP_NAME }}{% endblock %}
 {% block content %}
-<h2>로그인</h2>
+<div class="segment two">
+  <a class="on" href="{% url 'account_login' %}">로그인</a>
+  <a href="{% url 'account_signup' %}">회원가입</a>
+</div>
 <form method="post" action="{% url 'account_login' %}">
   {% csrf_token %}
   {% for error in form.non_field_errors %}<p class="error">{{ error }}</p>{% endfor %}
@@ -10,5 +13,4 @@
   <button type="submit" class="btn primary">로그인</button>
 </form>
 {% include "_social_buttons.html" %}
-<p class="switch">처음이신가요? <a href="{% url 'account_signup' %}">회원가입</a></p>
 {% endblock %}

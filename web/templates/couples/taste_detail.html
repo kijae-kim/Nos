@@ -1,0 +1,27 @@
+{% extends "layout_app.html" %}
+{% block head_title %}{{ taste.title }} · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'tastes' %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">취향</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<article class="taste-detail card" style="--cat: var(--{{ taste.color }})">
+  <span class="chip">{{ taste.category }}</span>
+  <h2>{{ taste.title }}</h2>
+  {% if taste.comment %}<p class="comment">{{ taste.comment|linebreaksbr }}</p>{% else %}<p class="muted">한마디는 없어요.</p>{% endif %}
+  {% if taste.link %}
+    <a class="link-row" href="{{ taste.link }}" target="_blank" rel="noopener noreferrer">{{ taste.link }}</a>
+  {% endif %}
+  <p class="muted">{{ taste.author.display_name }} · {{ taste.created_at|date:"Y. n. j." }}{% if taste.updated_at > taste.created_at %} · 고침{% endif %}</p>
+</article>
+<div class="action-row">
+  <a class="btn" href="{% url 'taste_update' taste.pk %}">고치기</a>
+  <form method="post" action="{% url 'taste_delete' taste.pk %}" data-confirm="이 취향을 지울까요?">
+    {% csrf_token %}
+    <button type="submit" class="btn danger">지우기</button>
+  </form>
+</div>
+{% endblock %}

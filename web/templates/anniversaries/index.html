@@ -1,25 +1,47 @@
 {% extends "layout_app.html" %}
 {% block head_title %}기념일 · {{ APP_NAME }}{% endblock %}
-{% block page_title %}기념일{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'us' %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">기념일</h1>
+  <a class="circle" href="{% url 'anniversary_create' %}" aria-label="기념일 추가"><svg class="i"><use href="#i-plus"/></svg></a>
+</header>
+{% endblock %}
 {% block content %}
-<a class="btn primary" href="{% url 'anniversary_create' %}">기념일 추가</a>
+{% if next_item %}
+<article class="next-card">
+  <small>다음 기념일</small>
+  <h3>{{ next_item.title }}</h3>
+  <p>{{ next_item.date|date:"Y. n. j." }}</p>
+  <span class="dd-big">{{ next_item.dday }}</span>
+  {% if progress %}
+    <div class="progress"><i style="width: {{ progress.percent }}%"></i></div>
+    <div class="progress-labels"><span>{{ progress.start }}</span><span>오늘 {{ progress.today }}일</span><span>{{ progress.end }}</span></div>
+  {% endif %}
+</article>
+{% else %}
+  <a class="empty" href="{% url 'anniversary_create' %}">생일이나 특별한 날을 추가해 보세요</a>
+{% endif %}
 
-<section class="section">
-  <h2>다가오는 기념일</h2>
-  {% if upcoming %}
-    {% include "anniversaries/_rows.html" with items=upcoming %}
-  {% else %}
-    <p class="empty">생일이나 특별한 날을 추가해 보세요.</p>
-  {% endif %}
-  {% if not user.couple.start_date %}
-    <p class="muted"><a href="{% url 'us' %}">사귀기 시작한 날을 설정</a>하면 100일 단위와 주년이 자동으로 표시돼요.</p>
-  {% endif %}
-</section>
+{% if not user.couple.start_date %}
+  <p class="muted"><a href="{% url 'us' %}" style="color:var(--primary);font-weight:600">사귀기 시작한 날을 설정</a>하면 100일 단위와 주년이 자동으로 표시돼요.</p>
+{% endif %}
+
+{% if ahead %}
+<h2 class="group">다가오는 날</h2>
+<ol class="timeline">
+  {% for item in ahead %}
+    {% include "anniversaries/_timeline_item.html" %}
+  {% endfor %}
+</ol>
+{% endif %}
 
 {% if past %}
-<section class="section">
-  <h2>지난 기념일</h2>
-  {% include "anniversaries/_rows.html" with items=past %}
-</section>
+<h2 class="group">지나온 날</h2>
+<ol class="timeline past">
+  {% for item in past %}
+    {% include "anniversaries/_timeline_item.html" %}
+  {% endfor %}
+</ol>
 {% endif %}
 {% endblock %}

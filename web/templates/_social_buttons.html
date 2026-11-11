@@ -5,8 +5,9 @@
 {% for provider in providers %}
 <form method="post" action="{% provider_login_url provider %}">
   {% csrf_token %}
-  <button type="submit" class="btn social {{ provider.id }}">
-    {% if provider.id == "kakao" %}카카오로 계속하기{% elif provider.id == "google" %}Google로 계속하기{% else %}{{ provider.name }}로 계속하기{% endif %}
+  <button type="submit" class="btn {{ provider.id }}">
+    {% if provider.id == "google" %}<span class="g">G</span>{% endif %}
+    {% if provider.id == "kakao" %}카카오로 시작하기{% elif provider.id == "google" %}Google로 시작하기{% else %}{{ provider.name }}로 시작하기{% endif %}
   </button>
 </form>
 {% endfor %}

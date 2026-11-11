@@ -1,42 +1,77 @@
 {% extends "layout_app.html" %}
 {% block head_title %}우리 · {{ APP_NAME }}{% endblock %}
-{% block page_title %}우리{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'home' %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">우리</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
 {% block content %}
-{% if not partner %}{% include "couples/_invite.html" %}{% endif %}
-
-<a class="card link-card" href="{% url 'anniversary_index' %}">
-  <strong>기념일</strong>
-  <span class="muted">생일, 100일, 주년 관리</span>
-</a>
-
-<section class="card">
-  <h2>프로필</h2>
-  <form method="post" class="stack">
-    {% csrf_token %}
-    {% for field in form %}{% include "_field.html" %}{% endfor %}
-    <button type="submit" class="btn primary">저장</button>
-  </form>
-</section>
-
-<section class="card">
-  <h2>화면 테마</h2>
-  <div class="segmented" role="radiogroup" aria-label="화면 테마">
-    <button type="button" role="radio" data-theme-choice="system">기기 설정</button>
-    <button type="button" role="radio" data-theme-choice="light">라이트</button>
-    <button type="button" role="radio" data-theme-choice="dark">다크</button>
+<section class="couple card">
+  <div class="pair">
+    <figure><i class="av a big"></i><figcaption>{{ user.display_name }}</figcaption></figure>
+    <div class="link">
+      <span></span>
+      <svg class="t-boat" width="22" height="24"><use href="#boat"/></svg>
+      <svg class="t-journey" width="20" height="20"><use href="#star"/></svg>
+      <span></span>
+    </div>
+    <figure>
+      {% if partner %}
+        <i class="av b big"></i><figcaption>{{ partner.display_name }}</figcaption>
+      {% else %}
+        <i class="av big vacant">?</i><figcaption>상대방</figcaption>
+      {% endif %}
+    </figure>
   </div>
+  {% if couple.start_date %}
+    <p class="since"><b>{{ couple.start_date|date:"Y. n. j." }}</b>부터{% if days %} · {{ days }}일째{% endif %}</p>
+  {% else %}
+    <p class="since">사귀기 시작한 날을 정해 보세요</p>
+  {% endif %}
+
+  <details class="profile"{% if form.errors %} open{% endif %}>
+    <summary class="ghost">프로필 수정</summary>
+    <form method="post">
+      {% csrf_token %}
+      {% for field in form %}{% include "_field.html" %}{% endfor %}
+      <button type="submit" class="btn primary">저장</button>
+    </form>
+  </details>
 </section>
 
-<section class="card">
-  <h2>계정</h2>
-  <p class="muted">{{ user.email|default:user.username }}</p>
+<h2 class="group">테마</h2>
+<div class="theme-cards">
+  <button type="button" class="theme-card boat" data-palette-choice="boat"><i></i><span>배 · 함께 항해하기</span></button>
+  <button type="button" class="theme-card journey" data-palette-choice="journey"><i></i><span>여정 · 함께 걸어가기</span></button>
+</div>
+<div class="segment three" role="radiogroup" aria-label="화면 모드">
+  <button type="button" role="radio" data-mode-choice="system">기기 설정</button>
+  <button type="button" role="radio" data-mode-choice="light">라이트</button>
+  <button type="button" role="radio" data-mode-choice="dark">다크</button>
+</div>
+
+<h2 class="group">설정</h2>
+<ul class="menu card">
+  <li>
+    <a href="{% url 'anniversary_index' %}">
+      <span class="icon-tile" style="background:var(--sand)"><svg class="i"><use href="#i-gift"/></svg></span>
+      <span class="main"><strong>기념일</strong><small>생일, 100일, 주년 관리</small></span>
+      <svg class="i chev"><use href="#i-right"/></svg>
+    </a>
+  </li>
+</ul>
+
+<div class="foot-actions">
   <form method="post" action="{% url 'account_logout' %}">
     {% csrf_token %}
-    <button type="submit" class="btn">로그아웃</button>
+    <button type="submit" class="link-btn">로그아웃</button>
   </form>
   <form method="post" action="{% url 'couple_leave' %}" data-confirm="정말 연결을 끊을까요? 이 공간에서 나가게 됩니다.">
     {% csrf_token %}
-    <button type="submit" class="btn danger">연결 끊기</button>
+    <button type="submit" class="link-btn danger">연결 끊기</button>
   </form>
-</section>
+</div>
+<p class="muted" style="text-align:center">{{ user.email|default:user.username }}</p>
 {% endblock %}

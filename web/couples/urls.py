@@ -9,8 +9,23 @@ urlpatterns = [
     path("couple/create/", views.create, name="couple_create"),
     path("couple/join/", views.join, name="couple_join"),
     path("couple/leave/", views.leave, name="couple_leave"),
-    # 아직 만들지 않은 탭
-    path("calendar/", views.coming_soon, {"title": "캘린더"}, name="calendar"),
-    path("tastes/", views.coming_soon, {"title": "취향"}, name="tastes"),
-    path("albums/", views.coming_soon, {"title": "앨범"}, name="albums"),
+    # 캘린더
+    path("calendar/", views.calendar, name="calendar"),
+    path("calendar/events/new/", views.event_create, name="event_create"),
+    path("calendar/events/<int:pk>/", views.event_update, name="event_update"),
+    path("calendar/events/<int:pk>/delete/", views.event_delete, name="event_delete"),
+    # 취향
+    path("tastes/", views.taste, name="tastes"),
+    path("tastes/new/", views.taste_create, name="taste_create"),
+    path("tastes/<int:pk>/", views.taste_detail, name="taste_detail"),
+    path("tastes/<int:pk>/edit/", views.taste_update, name="taste_update"),
+    path("tastes/<int:pk>/delete/", views.taste_delete, name="taste_delete"),
+    # 앨범
+    path("albums/", views.album, name="albums"),
+    path("albums/<int:pk>/", views.album_detail, name="album_detail"),
+    path("albums/<int:pk>/delete/", views.album_delete, name="album_delete"),
+    path("albums/photos/new/", views.photo_create, name="photo_create"),
+    path("albums/photos/<int:pk>/", views.photo_detail, name="photo_detail"),
+    path("albums/photos/<int:pk>/edit/", views.photo_update, name="photo_update"),
+    path("albums/photos/<int:pk>/delete/", views.photo_delete, name="photo_delete"),
 ]

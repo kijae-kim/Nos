@@ -1,16 +1,39 @@
 {% extends "layout_app.html" %}
 {% block content %}
-<section class="hero">
-  <p class="names">{{ user.display_name }} <span class="heart">♥</span> {% if partner %}{{ partner.display_name }}{% else %}?{% endif %}</p>
-  {% if couple.days_together %}
-    <p class="dday">D+{{ couple.days_together }}</p>
-    <p class="since">{{ couple.start_date|date:"Y년 n월 j일" }}부터</p>
-  {% else %}
-    <p class="since"><a href="{% url 'us' %}">사귀기 시작한 날을 설정</a>하면 D+day가 표시돼요.</p>
-  {% endif %}
-</section>
+<header class="row-between home-head">
+  <a class="us" href="{% url 'us' %}" aria-label="우리 화면 열기"><i class="av a"></i><i class="av b"></i></a>
+</header>
+
+<header class="hello">
+  <h1 class="page-title">{{ user.display_name }} · {{ partner.display_name|default:"상대방" }}</h1>
+  <p><span class="t-boat">오늘도 나란히 흘러가는 중</span><span class="t-journey">오늘도 같은 방향으로 걷는 중</span></p>
+</header>
 
 {% if not partner %}{% include "couples/_invite.html" %}{% endif %}
+
+<div class="stack">
+  <article class="dday sailing">
+    <i class="orb"></i>
+    <span class="label"><span class="t-boat">함께한 지</span><span class="t-journey">함께 걸어온 길</span></span>
+    {% if days %}
+      <p class="count"><b data-count="{{ days }}">{{ days }}</b><em><span class="t-boat">일</span><span class="t-journey">번째 날</span></em></p>
+    {% else %}
+      <p class="count-empty"><a href="{% url 'us' %}">사귀기 시작한 날</a>을 정하면 함께 보낸 날을 세어 드려요.</p>
+    {% endif %}
+    {% if next_item %}
+      <span class="next">
+        {% if next_item.days_left == 0 %}오늘이에요
+        {% else %}
+          <span class="t-boat">{{ next_item.title }}까지 {{ next_item.days_left }}일</span>
+          <span class="t-journey">다음 오아시스 {{ next_item.title }}까지 {{ next_item.days_left }}일</span>
+        {% endif %}
+      </span>
+    {% endif %}
+    {% include "_scene_boat.html" %}
+    {% include "_scene_journey.html" %}
+  </article>
+  <i class="under u1"></i><i class="under u2"></i>
+</div>
 
 <section class="section">
   <div class="section-head">
@@ -18,21 +41,17 @@
     <a href="{% url 'anniversary_index' %}">전체 보기</a>
   </div>
   {% if anniversaries %}
-    {% include "anniversaries/_rows.html" with items=anniversaries %}
+    <ul class="rows">
+      {% for item in anniversaries %}
+      <li class="rise">
+        <span class="icon-tile" style="background:var(--sand)"><svg class="i"><use href="#i-gift"/></svg></span>
+        <span class="main"><small>{{ item.date|date:"Y. n. j." }}</small><strong>{{ item.title }}</strong></span>
+        <span class="meta">{{ item.dday }}</span>
+      </li>
+      {% endfor %}
+    </ul>
   {% else %}
-    <p class="empty">생일이나 특별한 날을 추가해 보세요.</p>
+    <a class="empty" href="{% url 'anniversary_create' %}">생일이나 특별한 날을 추가해 보세요</a>
   {% endif %}
-</section>
-<section class="section">
-  <h2>다가오는 일정</h2>
-  <p class="empty">아직 등록된 일정이 없어요.</p>
-</section>
-<section class="section">
-  <h2>최근 공유한 취향</h2>
-  <p class="empty">음악, 영화, 영상 링크를 공유해 보세요.</p>
-</section>
-<section class="section">
-  <h2>최근 사진</h2>
-  <p class="empty">데이트 사진이 여기에 모여요.</p>
 </section>
 {% endblock %}

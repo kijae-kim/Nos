@@ -1,16 +1,17 @@
 {% load static %}<!doctype html>
-<html lang="ko">
+<html lang="ko" data-theme="boat" data-mode="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block head_title %}{{ APP_NAME }}{% endblock %}</title>
-  <meta name="theme-color" content="#faf8f7" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#131212" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#E4EDFB" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0B1026" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="{{ APP_NAME }}">
   <link rel="manifest" href="{% url 'manifest' %}">
   <link rel="icon" href="{% static 'icons/icon.svg' %}" type="image/svg+xml">
   <link rel="apple-touch-icon" href="{% static 'icons/icon.svg' %}">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <script src="{% static 'js/theme.js' %}"></script>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   {% block extra_head %}{% endblock %}
