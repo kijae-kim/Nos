@@ -41,22 +41,41 @@ python web/manage.py runserver
 | DB | Neon Free | `DATABASE_URL` |
 | 사진 | Cloudflare R2 (무료) | `MEDIA_BUCKET_NAME`, `MEDIA_ENDPOINT_URL`, `MEDIA_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` |
 
-1. Neon에서 프로젝트를 만들고 연결 문자열(`postgres://...?sslmode=require`)을 복사합니다.
-2. 아래 명령으로 DB 표를 만듭니다. 자기 컴퓨터에서 한 번만 실행하면 됩니다.
+### 처음 배포할 때
+
+1. **Neon**: 프로젝트를 만들고 연결 문자열 두 가지를 복사합니다.
+   - 풀링 주소 (호스트에 `-pooler` 가 붙음): 앱이 씁니다. Vercel 의 `DATABASE_URL` 에 넣습니다.
+   - 직접 연결 주소: 자기 컴퓨터에서 `migrate` 를 돌릴 때 씁니다.
+2. **DB 표 만들기**: 자기 컴퓨터에서 직접 연결 주소로 실행합니다.
 
    ```bash
-   DATABASE_URL="<Neon 연결 문자열>" DJANGO_SECRET_KEY="<긴 임의 문자열>" DJANGO_DEBUG=0 python web/manage.py migrate
+   DATABASE_URL="<Neon 직접 연결 주소>" DJANGO_SECRET_KEY="<긴 임의 문자열>" DJANGO_DEBUG=0 python web/manage.py migrate
    ```
 
-3. Cloudflare에서 R2 버킷을 만들고 API 토큰을 발급합니다. 버킷은 공개하지 않습니다.
-4. Vercel에서 이 저장소를 가져옵니다. 설정은 기본값으로 두고(진입점 `index.py`, 의존성 `requirements.txt`), 환경 변수를 넣습니다.
+3. **Cloudflare R2**: 버킷을 만들고 API 토큰을 발급합니다. 버킷은 공개하지 않습니다. `MEDIA_REGION` 은 `auto` 입니다.
+4. **Vercel**: 이 저장소를 가져오고 **Root Directory 를 `web`** 으로 지정합니다. Vercel 이 `manage.py` 를 찾아 Django 로 인식하고, 정적 파일도 빌드할 때 알아서 모읍니다.
+5. **환경 변수**: Vercel 프로젝트 설정에서 **Production** 환경에 넣습니다. 빌드할 때도 읽으므로 배포 전에 넣어야 합니다.
    - `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=0`
-   - `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` (배포 도메인)
-   - `DATABASE_URL`, `MEDIA_*`, `AWS_*` (위 표)
-   - 카카오·구글 로그인을 쓰면 해당 키와 redirect URI도 넣습니다.
-5. 배포 도메인으로 접속해 로그인이 되는지 확인합니다.
+   - `DJANGO_ALLOWED_HOSTS` (예: `nos-xxxx.vercel.app`), `DJANGO_CSRF_TRUSTED_ORIGINS` (예: `https://nos-xxxx.vercel.app`)
+   - `DATABASE_URL` (풀링 주소), `MEDIA_*`, `AWS_*`
+   - 카카오·구글 로그인을 쓰면 해당 키를 넣고, 각 개발자 콘솔에 배포 도메인의 redirect URI 를 등록합니다.
+6. 배포 도메인으로 접속해 회원가입과 로그인, 사진 올리기가 되는지 확인합니다.
 
-> 주의: Vercel Hobby는 개인·비상업 용도로만 쓸 수 있습니다. 배포 기록이 10GB를 넘으면 오래된 기록이 지워질 수 있습니다.
+`DATABASE_URL` 이나 `MEDIA_BUCKET_NAME` 이 빠진 채로 Vercel 에 올리면 앱이 시작하지 않고 오류로 알려 줍니다. 데이터가 조용히 사라지는 일을 막기 위해서입니다.
+
+### 운영하면서
+
+- **모델을 바꿨을 때**: 배포 전에 2번의 `migrate` 명령을 다시 실행합니다. 처음 한 번으로 끝나지 않습니다.
+- **관리자 계정**: 2번과 같은 환경 변수를 붙여 `python web/manage.py createsuperuser` 를 실행합니다.
+- **더미 데이터**: `seed_demo` 는 개발용입니다. 배포 DB에는 실행하지 마세요.
+- **미리보기 배포**: 도메인이 달라 `DJANGO_ALLOWED_HOSTS` 에 걸립니다. 환경 변수를 Production 에만 넣어 두면 미리보기가 운영 DB를 건드리지 않습니다.
+- **백업**: Neon 무료 플랜은 복구할 수 있는 기간이 짧고, R2 에서 지운 사진은 되살릴 수 없습니다. 중요한 데이터는 따로 내려받아 두세요.
+
+> 주의: Vercel Hobby 는 개인·비상업 용도로만 쓸 수 있습니다. 무료 한도는 바뀔 수 있으니 각 서비스의 요금 페이지를 확인하세요.
+
+### 나중에 확장할 때
+
+코드를 바꿀 필요는 없습니다. Vercel Pro(상업 용도), Neon 유료 플랜, R2 종량제로 각각 따로 올리면 됩니다. 그때 `SECURE_HSTS_SECONDS` 를 늘리고 오류 추적 도구를 붙이는 것을 권합니다.
 
 ## 업로드 사진 저장소
 
