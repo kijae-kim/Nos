@@ -1,24 +1,89 @@
 {% extends "layout_app.html" %}
 {% block head_title %}캘린더 · {{ APP_NAME }}{% endblock %}
-{% block header %}
-<header class="row-between">
-  <h1 class="page-title">{{ today|date:"n월" }} <span class="sub">{{ today|date:"Y" }}</span></h1>
-</header>
-{% endblock %}
+{% block app_class %} wide{% endblock %}
 {% block content %}
-<section class="month card">
-  <div class="week-names"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
-  <div class="days">
-    {% for week in weeks %}
-      {% for day in week %}
-        <div class="day{% if forloop.first %} sun{% endif %}{% if day.month != today.month %} out{% endif %}{% if day == today %} today{% endif %}">
-          <b>{{ day.day }}</b>
-        </div>
-      {% endfor %}
-    {% endfor %}
-  </div>
-</section>
+{# 휴대폰: 달력과 선택한 날의 일정 #}
+<div class="mobile-only">
+  <header class="row-between cal-head">
+    <h1 class="page-title">{{ first|date:"n월" }} <span>{{ first|date:"Y" }}</span></h1>
+    <div class="arrows">
+      <a class="circle" href="{{ prev_url }}" aria-label="이전 달"><svg class="i"><use href="#i-left"/></svg></a>
+      <a class="circle" href="{{ next_url }}" aria-label="다음 달"><svg class="i"><use href="#i-right"/></svg></a>
+    </div>
+  </header>
 
-<h2 class="group">일정</h2>
-<p class="empty">일정 기능은 준비 중이에요. 곧 여기에서 함께 볼 수 있어요.</p>
+  <section class="month card">
+    <div class="week-names"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+    <div class="days">
+      {% for week in weeks %}{% for cell in week %}
+        <a class="day{% if forloop.first %} sun{% endif %}{% if not cell.in_month %} out{% endif %}{% if cell.is_today %} today{% endif %}{% if cell.is_selected %} sel{% endif %}"
+           href="?month={{ cell.date|date:'Y-m' }}&amp;day={{ cell.date|date:'Y-m-d' }}">
+          <b>{{ cell.day }}</b>
+          <span class="bars">{% for e in cell.events %}<i style="background:var(--{{ e.color }})"></i>{% endfor %}</span>
+        </a>
+      {% endfor %}{% endfor %}
+    </div>
+  </section>
+
+  <div class="list-head row-between">
+    <h2>{{ list_title }}</h2>
+    <a class="add-link" href="{{ new_event_url }}"><svg class="i"><use href="#i-plus"/></svg>일정 추가</a>
+  </div>
+  <ul class="events">
+    {% for e in day_events %}
+      {% include "couples/_event_item.html" with event=e %}
+    {% empty %}
+      <li class="empty-line">이 날은 일정이 없어요</li>
+    {% endfor %}
+  </ul>
+</div>
+
+{# 넓은 화면: 왼쪽에 다가오는 일정, 오른쪽에 큰 달력 #}
+<div class="desktop-only">
+  <aside class="panel">
+    <div>
+      <h2>다가오는 일정</h2>
+      <p class="sub">놓치면 안 되는 날들</p>
+      <ul class="events">
+        {% for e in upcoming %}
+          {% include "couples/_event_item.html" with event=e %}
+        {% empty %}
+          <li class="empty-line">다가오는 일정이 없어요</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% if days %}
+      <article class="dday small sailing">
+        <i class="orb"></i>
+        <span class="label"><span class="t-boat">함께한 지</span><span class="t-journey">함께 걸어온 길</span></span>
+        <p class="count"><b>{{ days }}</b><em><span class="t-boat">일</span><span class="t-journey">번째 날</span></em></p>
+        {% if next_item %}<span class="next">{{ next_item.title }}까지 {{ next_item.days_left }}일</span>{% endif %}
+        {% include "_scene.html" %}
+      </article>
+    {% endif %}
+  </aside>
+
+  <div class="big-cal">
+    <header>
+      <div>
+        <h2>{{ first|date:"Y년 n월" }}</h2>
+      </div>
+      <div class="cal-controls">
+        <a class="circle" href="{{ prev_url }}" aria-label="이전 달"><svg class="i"><use href="#i-left"/></svg></a>
+        <a class="circle" href="{{ next_url }}" aria-label="다음 달"><svg class="i"><use href="#i-right"/></svg></a>
+        <a class="add" href="{{ new_event_url }}"><svg class="i"><use href="#i-plus"/></svg>일정 추가</a>
+      </div>
+    </header>
+    <div class="big-names"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+    <div class="big-days">
+      {% for week in weeks %}{% for cell in week %}
+        <a class="cell{% if forloop.first %} sun{% endif %}{% if not cell.in_month %} out{% endif %}{% if cell.is_today %} today{% endif %}{% if cell.is_selected %} sel{% endif %}"
+           href="?month={{ cell.date|date:'Y-m' }}&amp;day={{ cell.date|date:'Y-m-d' }}">
+          <b>{{ cell.day }}</b>
+          {% for e in cell.events %}<span style="background:color-mix(in srgb, var(--{{ e.color }}) 60%, var(--surface))">{{ e.title }}</span>{% endfor %}
+        </a>
+      {% endfor %}{% endfor %}
+    </div>
+  </div>
+</div>
 {% endblock %}
