@@ -229,3 +229,91 @@ class ScreenTests(TestCase):
         self.assertEqual(self.client.get(reverse("albums")).status_code, 200)
         album = Album.objects.create(couple=self.couple, title="첫 캠핑")
         self.assertEqual(self.client.get(reverse("album_detail", args=[album.pk])).status_code, 200)
+
+
+class HomeDataTests(TestCase):
+    def setUp(self):
+        self.couple = Couple.objects.create(start_date=timezone.localdate() - timedelta(days=99))
+        self.a = User.objects.create_user("a", password="pw", couple=self.couple, nickname="기재")
+        self.b = User.objects.create_user("b", password="pw", couple=self.couple, nickname="혜인")
+        self.client.force_login(self.a)
+
+    def add_event(self, user, title, scope):
+        return services.save_event(
+            Event(created_by=user),
+            self.couple,
+            {"text": title, "date": timezone.localdate() + timedelta(days=2), "start_time": None, "end_time": None, "place": "", "scope": scope, "color": "sky"},
+        )
+
+    def test_home_lists_shared_and_own_personal_events_only(self):
+        shared = self.add_event(self.a, "공통 데이트", Event.SHARED)
+        mine = self.add_event(self.a, "내 운동", Event.PERSONAL)
+        partners = self.add_event(self.b, "혜인의 개인 약속", Event.PERSONAL)
+        response = self.client.get(reverse("home"))
+        events = list(response.context["events"])
+        self.assertIn(shared, events)
+        self.assertIn(mine, events)
+        self.assertNotIn(partners, events)
+
+    def test_home_shows_recent_tastes_and_photos(self):
+        Taste.objects.create(couple=self.couple, author=self.b, category="영화", title="헤어질 결심")
+        Photo.objects.create(couple=self.couple, uploaded_by=self.b, image="photos/x.png")
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, "헤어질 결심")
+        self.assertEqual(len(response.context["photos"]), 1)
+
+    def test_home_empty_state_links_to_create_pages(self):
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, reverse("event_create"))
+        self.assertContains(response, reverse("taste_create"))
+        self.assertContains(response, reverse("photo_create"))
+
+
+class TastePhotoTests(TestCase):
+    def setUp(self):
+        self.couple = Couple.objects.create()
+        self.user = User.objects.create_user("a", password="pw", couple=self.couple)
+        self.client.force_login(self.user)
+        self.media = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media)
+        self.override.enable()
+
+    def tearDown(self):
+        self.override.disable()
+
+    def image_file(self):
+        from io import BytesIO
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        buffer = BytesIO()
+        Image.new("RGB", (4, 4), (90, 140, 220)).save(buffer, "PNG")
+        return SimpleUploadedFile("cover.png", buffer.getvalue(), content_type="image/png")
+
+    def test_taste_can_be_created_with_a_photo(self):
+        response = self.client.post(
+            reverse("taste_create"),
+            {"category": "음악", "title": "밤편지", "link": "", "comment": "", "image": self.image_file()},
+        )
+        taste = Taste.objects.get()
+        self.assertRedirects(response, reverse("taste_detail", args=[taste.pk]))
+        self.assertTrue(taste.image.name)
+        self.assertContains(self.client.get(reverse("taste_detail", args=[taste.pk])), taste.image.url)
+
+    def test_taste_without_photo_still_saves(self):
+        self.client.post(reverse("taste_create"), {"category": "책", "title": "작은 것들의 신", "link": "", "comment": ""})
+        self.assertFalse(Taste.objects.get().image)
+
+    def test_clear_image_removes_the_photo(self):
+        taste = Taste.objects.create(couple=self.couple, author=self.user, category="영화", title="헤어질 결심", image=self.image_file())
+        self.client.post(
+            reverse("taste_update", args=[taste.pk]),
+            {"category": "영화", "title": "헤어질 결심", "link": "", "comment": "", "clear_image": "on"},
+        )
+        taste.refresh_from_db()
+        self.assertFalse(taste.image)
+
+    def test_forms_render_drop_zone(self):
+        self.assertContains(self.client.get(reverse("taste_create")), 'data-dropzone')
+        self.assertContains(self.client.get(reverse("photo_create")), 'data-dropzone')

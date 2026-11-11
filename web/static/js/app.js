@@ -88,6 +88,62 @@
     });
   });
 
+  // 일정 시간: 시작을 고르면 끝은 2시간 뒤로 들어가고, +15분·+30분·+1시간 버튼으로 끝 시간을 조정한다
+  var startTime = document.getElementById("id_start_time");
+  var endTime = document.getElementById("id_end_time");
+  if (startTime && endTime) {
+    var AUTO_MINUTES = 120;
+    var autoEnd = !endTime.value;
+    var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+    var toMinutes = function (v) { var p = v.split(":"); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); };
+    var fromMinutes = function (m) { m = ((m % 1440) + 1440) % 1440; return pad(Math.floor(m / 60)) + ":" + pad(m % 60); };
+    var nextQuarter = function () {
+      var now = new Date();
+      return fromMinutes(Math.ceil((now.getHours() * 60 + now.getMinutes()) / 15) * 15);
+    };
+
+    startTime.addEventListener("change", function () {
+      if (!startTime.value) return;
+      if (autoEnd) endTime.value = fromMinutes(toMinutes(startTime.value) + AUTO_MINUTES);
+    });
+    endTime.addEventListener("input", function () { autoEnd = false; });
+
+    $$("[data-end-add]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        if (!startTime.value) startTime.value = nextQuarter();
+        var base = endTime.value ? toMinutes(endTime.value) : toMinutes(startTime.value) + AUTO_MINUTES;
+        endTime.value = fromMinutes(base + parseInt(b.dataset.endAdd, 10));
+      });
+    });
+  }
+
+  // 사진 칸: 누르거나 파일을 끌어 놓아 고르고, 고른 사진을 미리 보여 준다
+  $$("[data-dropzone]").forEach(function (zone) {
+    var input = zone.querySelector('input[type="file"]');
+    var preview = zone.querySelector("[data-preview]");
+    var hint = zone.querySelector("[data-hint]");
+    if (!input) return;
+    var show = function (file) {
+      if (!file || file.type.indexOf("image/") !== 0) return;
+      preview.src = URL.createObjectURL(file);
+      preview.hidden = false;
+      if (hint) hint.textContent = file.name;
+    };
+    input.addEventListener("change", function () { show(input.files[0]); });
+    zone.addEventListener("dragover", function (e) { e.preventDefault(); zone.classList.add("dragging"); });
+    zone.addEventListener("dragleave", function () { zone.classList.remove("dragging"); });
+    zone.addEventListener("drop", function (e) {
+      e.preventDefault();
+      zone.classList.remove("dragging");
+      var file = e.dataTransfer.files[0];
+      if (!file) return;
+      var transfer = new DataTransfer();
+      transfer.items.add(file);
+      input.files = transfer.files;
+      show(file);
+    });
+  });
+
   // 초대 코드 6칸: 한 글자 입력하면 다음 칸으로, 지우면 이전 칸으로. 숨은 입력에 합쳐서 보낸다.
   $$("[data-code-inputs]").forEach(function (wrap) {
     var boxes = $$("input", wrap);

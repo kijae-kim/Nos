@@ -9,6 +9,7 @@
 {% endblock %}
 {% block content %}
 <article class="taste-detail card" style="--cat: var(--{{ taste.color }})">
+  {% if taste.image %}<img class="taste-photo" src="{{ taste.image.url }}" alt="{{ taste.title }}">{% endif %}
   <span class="chip">{{ taste.category }}</span>
   <h2>{{ taste.title }}</h2>
   {% if taste.comment %}<p class="comment">{{ taste.comment|linebreaksbr }}</p>{% else %}<p class="muted">한마디는 없어요.</p>{% endif %}

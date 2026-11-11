@@ -47,8 +47,8 @@ class EventForm(forms.Form):
     )
     date = forms.DateField(label="날짜", widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
     all_day = forms.BooleanField(label="하루 종일", required=False)
-    start_time = forms.TimeField(label="시작", required=False, widget=forms.TimeInput(attrs={"type": "time"}, format="%H:%M"))
-    end_time = forms.TimeField(label="끝", required=False, widget=forms.TimeInput(attrs={"type": "time"}, format="%H:%M"))
+    start_time = forms.TimeField(label="시작", required=False, widget=forms.TimeInput(attrs={"type": "time", "step": 900}, format="%H:%M"))
+    end_time = forms.TimeField(label="끝", required=False, widget=forms.TimeInput(attrs={"type": "time", "step": 900}, format="%H:%M"))
     place = forms.CharField(label="장소", max_length=100, required=False)
     scope = forms.ChoiceField(label="공개", choices=[("shared", "공통 일정"), ("personal", "개인 일정")], widget=forms.RadioSelect, initial="shared")
     color = forms.ChoiceField(label="색", choices=COLOR_CHOICES, widget=forms.RadioSelect, initial="sky")
@@ -71,15 +71,34 @@ class EventForm(forms.Form):
 
 
 class TasteForm(forms.ModelForm):
+    image = forms.ImageField(
+        label="사진",
+        required=False,
+        widget=forms.FileInput(attrs={"accept": "image/*"}),
+        help_text="없어도 괜찮아요. 캡처 화면이나 앨범 커버를 올려 보세요.",
+    )
+    clear_image = forms.BooleanField(label="사진 빼기", required=False)
+
     class Meta:
         model = Taste
-        fields = ["category", "title", "link", "comment"]
+        fields = ["category", "title", "link", "comment", "image"]
         widgets = {
             "category": forms.RadioSelect,
             "title": forms.TextInput(attrs={"placeholder": "곡 제목, 영화 제목, 장소 이름"}),
             "link": forms.URLInput(attrs={"placeholder": "https://", "inputmode": "url"}),
             "comment": forms.Textarea(attrs={"rows": 3, "placeholder": "왜 좋았는지 한마디 남겨 보세요"}),
         }
+
+    def save_for(self, couple, user):
+        taste = self.save(commit=False)
+        taste.couple = couple
+        if taste.pk is None:
+            taste.author = user
+        if self.cleaned_data.get("clear_image") and taste.image:
+            taste.image.delete(save=False)
+            taste.image = None
+        taste.save()
+        return taste
 
 
 class AlbumForm(forms.ModelForm):
@@ -98,7 +117,7 @@ class PhotoForm(forms.ModelForm):
         model = Photo
         fields = ["image", "album", "taken_on", "caption"]
         widgets = {
-            "image": forms.ClearableFileInput(attrs={"accept": "image/*"}),
+            "image": forms.FileInput(attrs={"accept": "image/*"}),
             "caption": forms.Textarea(attrs={"rows": 3, "placeholder": "이날을 한 줄로 남겨 보세요"}),
         }
         labels = {"image": "사진", "caption": "한마디"}

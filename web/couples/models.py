@@ -125,6 +125,7 @@ class Taste(models.Model):
     title = models.CharField("제목", max_length=100)
     link = models.URLField("링크", blank=True)
     comment = models.TextField("한마디", blank=True)
+    image = models.ImageField("사진", upload_to="tastes/%Y/%m/", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

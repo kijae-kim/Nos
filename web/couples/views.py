@@ -80,17 +80,22 @@ def leave(request):
 
 @login_required
 def home(request):
-    couple = request.user.couple
+    user, couple = request.user, request.user.couple
+    today = timezone.localdate()
     upcoming, _ = anniversary_services.build(couple)
     return render(
         request,
         "couples/home.html",
         {
             "couple": couple,
-            "partner": request.user.partner,
+            "partner": user.partner,
             "days": couple.days_together,
             "next_item": upcoming[0] if upcoming else None,
             "anniversaries": upcoming[:3],
+            # 공통 일정과 내 개인 일정만 보인다 (캘린더와 같은 규칙)
+            "events": Event.objects.visible_to(user).filter(date__gte=today).prefetch_related("labels")[:3],
+            "tastes": Taste.objects.filter(couple=couple).select_related("author")[:3],
+            "photos": Photo.objects.filter(couple=couple)[:4],
         },
     )
 
@@ -287,12 +292,9 @@ def taste(request):
 
 @login_required
 def taste_create(request):
-    form = TasteForm(request.POST or None)
+    form = TasteForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
-        taste = form.save(commit=False)
-        taste.couple = request.user.couple
-        taste.author = request.user
-        taste.save()
+        taste = form.save_for(request.user.couple, request.user)
         messages.success(request, "취향을 공유했어요.")
         return redirect("taste_detail", pk=taste.pk)
     return render(request, "couples/taste_form.html", {"form": form, "taste": None})
@@ -307,9 +309,9 @@ def taste_detail(request, pk):
 @login_required
 def taste_update(request, pk):
     taste = get_object_or_404(Taste, pk=pk, couple=request.user.couple)
-    form = TasteForm(request.POST or None, instance=taste)
+    form = TasteForm(request.POST or None, request.FILES or None, instance=taste)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        form.save_for(request.user.couple, request.user)
         messages.success(request, "취향을 고쳤어요.")
         return redirect("taste_detail", pk=taste.pk)
     return render(request, "couples/taste_form.html", {"form": form, "taste": taste})
@@ -318,7 +320,10 @@ def taste_update(request, pk):
 @login_required
 @require_POST
 def taste_delete(request, pk):
-    get_object_or_404(Taste, pk=pk, couple=request.user.couple).delete()
+    taste = get_object_or_404(Taste, pk=pk, couple=request.user.couple)
+    if taste.image:
+        taste.image.delete(save=False)
+    taste.delete()
     messages.success(request, "취향을 지웠어요.")
     return redirect("tastes")
 

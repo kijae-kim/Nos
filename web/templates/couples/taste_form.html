@@ -8,11 +8,13 @@
 </header>
 {% endblock %}
 {% block content %}
-<form method="post" class="card form-card">
+<form method="post" enctype="multipart/form-data" class="card form-card">
   {% csrf_token %}
   {% include "_choices.html" with field=form.category %}
   {% include "_field.html" with field=form.title %}
   {% include "_field.html" with field=form.link %}
+  {% include "_dropzone.html" with field=form.image current=taste.image %}
+  {% if taste.image %}<label class="check">{{ form.clear_image }} <span>{{ form.clear_image.label }}</span></label>{% endif %}
   <div class="field">
     <label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>
     {{ form.comment }}
