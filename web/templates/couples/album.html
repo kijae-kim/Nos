@@ -1,0 +1,58 @@
+{% extends "layout_app.html" %}
+{% block head_title %}앨범 · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between">
+  <div>
+    <h1 class="page-title">앨범</h1>
+    <p class="sub">지나온 장면들</p>
+  </div>
+</header>
+{% endblock %}
+{% block content %}
+{% if memory %}
+  <a class="memory art" href="{% url 'photo_detail' memory.pk %}" style="--photo: url('{{ memory.image.url }}')">
+    <span class="chip">1년 전 오늘</span>
+    <div>
+      <h3>{{ memory.caption|default:"그날의 사진" }}</h3>
+      <p>{{ memory.shot_date|date:"Y. n. j." }}</p>
+    </div>
+    <span class="go"><svg class="i"><use href="#i-right"/></svg></span>
+  </a>
+{% endif %}
+
+<div class="segment two" data-tabs>
+  <i class="thumb"></i>
+  <button type="button" class="on" data-target="album-albums">앨범</button>
+  <button type="button" data-target="album-photos">전체 사진</button>
+</div>
+
+<section class="view on" id="album-albums">
+  <div class="albums">
+    {% for a in albums %}
+      <a class="album" href="{% url 'album_detail' a.pk %}">
+        <span class="cover">
+          {% for p in a.photos.all %}{% if forloop.counter <= 3 %}<img src="{{ p.image.url }}" alt="">{% endif %}{% endfor %}
+          {% if not a.photos.all %}<span class="cover-empty"></span>{% endif %}
+        </span>
+        <span class="album-text"><strong>{{ a.title }}</strong><small>{{ a.photos.all|length }}장</small></span>
+      </a>
+    {% empty %}
+      <p class="empty wide-empty">앨범은 사진을 올릴 때 함께 만들 수 있어요.</p>
+    {% endfor %}
+  </div>
+  <a class="btn primary" href="{% url 'photo_create' %}">사진 올리기</a>
+</section>
+
+<section class="view" id="album-photos">
+  {% for g in photo_groups %}
+    <h3 class="month-label">{{ g.month }}</h3>
+    <div class="photos">
+      {% for p in g.photos %}
+        <a class="tile" href="{% url 'photo_detail' p.pk %}" aria-label="{{ p.caption|default:'사진' }} 보기"><img src="{{ p.image.url }}" alt=""></a>
+      {% endfor %}
+    </div>
+  {% empty %}
+    <p class="empty">아직 올린 사진이 없어요.</p>
+  {% endfor %}
+</section>
+{% endblock %}

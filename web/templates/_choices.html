@@ -1,0 +1,14 @@
+{# 한 줄짜리 고르기 (라디오). swatch 를 주면 색 견본을 함께 보인다. #}
+<div class="field">
+  <span class="field-label">{{ field.label }}</span>
+  <div class="choices">
+    {% for radio in field %}
+      <label class="choice{% if swatch %} swatch-choice{% endif %}">
+        {{ radio.tag }}
+        {% if swatch %}<i class="swatch" style="--c: var(--{{ radio.data.value }})"></i>{% endif %}
+        <span>{{ radio.choice_label }}</span>
+      </label>
+    {% endfor %}
+  </div>
+  {% for error in field.errors %}<p class="error">{{ error }}</p>{% endfor %}
+</div>

@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% block body %}
-<main class="auth">
-  <a class="brand" href="/">{{ APP_NAME }}</a>
-  {% if messages %}
-    {% for message in messages %}<p class="notice">{{ message }}</p>{% endfor %}
-  {% endif %}
-  <div class="card auth-card">
+{% include "_icons.html" %}
+<main class="auth-page">
+  {% block hero %}{% include "_hero.html" %}{% endblock %}
+  <div class="auth-body pad">
+    {% if messages %}
+      {% for message in messages %}<p class="notice">{{ message }}</p>{% endfor %}
+    {% endif %}
     {% block content %}{% endblock %}
   </div>
 </main>

@@ -1,14 +1,19 @@
 {% extends "layout_app.html" %}
 {% block head_title %}기념일 · {{ APP_NAME }}{% endblock %}
-{% block page_title %}{% if anniversary %}기념일 수정{% else %}기념일 추가{% endif %}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'anniversary_index' %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">{% if anniversary %}기념일 수정{% else %}기념일 추가{% endif %}</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
 {% block content %}
 <section class="card">
-  <form method="post" class="stack">
+  <form method="post">
     {% csrf_token %}
     {% for error in form.non_field_errors %}<p class="error">{{ error }}</p>{% endfor %}
     {% for field in form %}{% include "_field.html" %}{% endfor %}
     <button type="submit" class="btn primary">저장</button>
-    <a class="btn" href="{% url 'anniversary_index' %}">취소</a>
   </form>
   {% if anniversary %}
   <form method="post" action="{% url 'anniversary_delete' anniversary.pk %}" data-confirm="이 기념일을 삭제할까요?">

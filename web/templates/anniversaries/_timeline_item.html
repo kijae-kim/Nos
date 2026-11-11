@@ -1,0 +1,9 @@
+<li>
+  {% if item.anniversary %}<a class="tl-row" href="{% url 'anniversary_update' item.anniversary.pk %}">{% else %}<div class="tl-row">{% endif %}
+    <span class="main">
+      <strong>{{ item.title }}<span class="kind">{% if not item.anniversary %}자동{% elif item.anniversary.repeat_yearly %}매년{% else %}직접{% endif %}</span></strong>
+      <small>{{ item.date|date:"Y. n. j." }}</small>
+    </span>
+    <span class="dd">{{ item.dday }}</span>
+  {% if item.anniversary %}</a>{% else %}</div>{% endif %}
+</li>

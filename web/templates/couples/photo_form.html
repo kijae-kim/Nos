@@ -1,0 +1,33 @@
+{% extends "layout_app.html" %}
+{% block head_title %}{% if photo %}사진 고치기{% else %}사진 올리기{% endif %} · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% if photo %}{% url 'photo_detail' photo.pk %}{% else %}{% url 'albums' %}{% endif %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">{% if photo %}사진 고치기{% else %}사진 올리기{% endif %}</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="card form-card">
+  {% csrf_token %}
+  {% if photo %}
+    <img class="photo-preview" src="{{ photo.image.url }}" alt="">
+  {% endif %}
+  <div class="field">
+    <label for="{{ form.image.id_for_label }}">{{ form.image.label }}{% if photo %} (바꾸지 않으면 그대로 둬요){% endif %}</label>
+    {{ form.image }}
+    {% for e in form.image.errors %}<p class="error">{{ e }}</p>{% endfor %}
+  </div>
+
+  {% if albums %}{% include "_choices.html" with field=form.album %}{% endif %}
+  {% include "_field.html" with field=form.new_album %}
+  {% include "_field.html" with field=form.taken_on %}
+  <div class="field">
+    <label for="{{ form.caption.id_for_label }}">{{ form.caption.label }}</label>
+    {{ form.caption }}
+    {% for e in form.caption.errors %}<p class="error">{{ e }}</p>{% endfor %}
+  </div>
+  {% if form.non_field_errors %}{% for e in form.non_field_errors %}<p class="error">{{ e }}</p>{% endfor %}{% endif %}
+  <button type="submit" class="btn primary">{% if photo %}저장{% else %}올리기{% endif %}</button>
+</form>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "layout_app.html" %}
+{% block head_title %}{% if taste %}취향 고치기{% else %}취향 공유{% endif %} · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% if taste %}{% url 'taste_detail' taste.pk %}{% else %}{% url 'tastes' %}{% endif %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">{% if taste %}취향 고치기{% else %}취향 공유{% endif %}</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<form method="post" class="card form-card">
+  {% csrf_token %}
+  {% include "_choices.html" with field=form.category %}
+  {% include "_field.html" with field=form.title %}
+  {% include "_field.html" with field=form.link %}
+  <div class="field">
+    <label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>
+    {{ form.comment }}
+    {% for e in form.comment.errors %}<p class="error">{{ e }}</p>{% endfor %}
+  </div>
+  <button type="submit" class="btn primary">{% if taste %}저장{% else %}공유하기{% endif %}</button>
+</form>
+{% endblock %}

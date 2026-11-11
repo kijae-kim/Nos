@@ -12,10 +12,39 @@ def _own(request, pk):
     return get_object_or_404(Anniversary, pk=pk, couple=request.user.couple)
 
 
+def _progress(couple, item):
+    """자동으로 세는 100일 기념일이면, 직전 100일 구간을 기준으로 진행률을 구한다."""
+    if item.anniversary is not None or not item.title.endswith("일") or not couple.start_date:
+        return None
+    days = couple.days_together
+    if days is None:
+        return None
+    end = int(item.title[:-1])
+    start = end - 100
+    percent = min(100, max(0, days - start))  # 구간이 100일이므로 날 수가 곧 퍼센트
+    return {
+        "start": f"{start}일" if start else "시작",
+        "end": item.title,
+        "today": days,
+        "percent": percent,
+    }
+
+
 @login_required
 def index(request):
-    upcoming, past = services.build(request.user.couple)
-    return render(request, "anniversaries/index.html", {"upcoming": upcoming, "past": past})
+    couple = request.user.couple
+    upcoming, past = services.build(couple)
+    next_item = upcoming[0] if upcoming else None
+    return render(
+        request,
+        "anniversaries/index.html",
+        {
+            "next_item": next_item,
+            "progress": _progress(couple, next_item) if next_item else None,
+            "ahead": upcoming[1:],
+            "past": past,
+        },
+    )
 
 
 @login_required

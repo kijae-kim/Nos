@@ -1,0 +1,54 @@
+{% extends "layout_app.html" %}
+{% block head_title %}{% if event %}일정 고치기{% else %}일정 추가{% endif %} · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'calendar' %}{% if event %}?month={{ event.date|date:'Y-m' }}&amp;day={{ event.date|date:'Y-m-d' }}{% endif %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">{% if event %}일정 고치기{% else %}일정 추가{% endif %}</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<form method="post" class="card form-card">
+  {% csrf_token %}
+  {% if form.non_field_errors %}{% for e in form.non_field_errors %}<p class="error">{{ e }}</p>{% endfor %}{% endif %}
+
+  <div class="field">
+    <label for="{{ form.text.id_for_label }}">{{ form.text.label }}</label>
+    {{ form.text }}
+    <small>{{ form.text.help_text }}</small>
+    {% for e in form.text.errors %}<p class="error">{{ e }}</p>{% endfor %}
+  </div>
+
+  {% if labels %}
+    <div class="field">
+      <span class="field-label">이름표 바로 넣기</span>
+      <div class="chips">
+        {% for l in labels %}
+          <button type="button" class="label-chip pick" style="--c: var(--{{ l.color }})" data-insert="{{ l.token }}">{{ l.token }}</button>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% include "_field.html" with field=form.date %}
+  <div class="field">
+    <label class="check">{{ form.all_day }} <span>{{ form.all_day.label }}</span></label>
+  </div>
+  <div class="time-row">
+    {% include "_field.html" with field=form.start_time %}
+    {% include "_field.html" with field=form.end_time %}
+  </div>
+  {% include "_field.html" with field=form.place %}
+  {% include "_choices.html" with field=form.scope %}
+  {% include "_choices.html" with field=form.color swatch=True %}
+
+  <button type="submit" class="btn primary">{% if event %}저장{% else %}추가{% endif %}</button>
+</form>
+
+{% if event %}
+  <form method="post" action="{% url 'event_delete' event.pk %}" class="danger-form" data-confirm="이 일정을 지울까요?">
+    {% csrf_token %}
+    <button type="submit" class="btn danger">일정 지우기</button>
+  </form>
+{% endif %}
+{% endblock %}
