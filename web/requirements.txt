@@ -2,3 +2,7 @@ Django>=5.2,<6
 django-allauth[socialaccount]>=65.21,<66
 python-dotenv>=1.2
 Pillow>=11,<14
+django-storages[s3]>=1.14,<2
+dj-database-url>=2.3,<3
+psycopg[binary]>=3.2,<4
+whitenoise>=6.9,<7

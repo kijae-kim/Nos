@@ -13,6 +13,7 @@ from django.views.decorators.http import require_POST
 from anniversaries import services as anniversary_services
 
 from . import services
+from .storage import delete_file
 from .forms import AlbumForm, CreateForm, EventForm, JoinForm, PhotoForm, ProfileForm, TasteForm
 from .models import Album, Couple, Event, Photo, Taste
 
@@ -74,6 +75,8 @@ def leave(request):
         request.user.couple = None
         request.user.save(update_fields=["couple"])
         if not couple.members.exists():
+            for name in list(couple.photos.values_list("image", flat=True)) + list(couple.tastes.values_list("image", flat=True)):
+                delete_file(name)
             couple.delete()
     return redirect("couple_connect")
 

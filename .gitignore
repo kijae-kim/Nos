@@ -10,3 +10,6 @@ Thumbs.db
 .idea/
 .vscode/
 .claude/
+
+# Vercel 로컬 설정
+.vercel/

@@ -1,5 +1,7 @@
+import os
 import tempfile
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
@@ -317,3 +319,56 @@ class TastePhotoTests(TestCase):
     def test_forms_render_drop_zone(self):
         self.assertContains(self.client.get(reverse("taste_create")), 'data-dropzone')
         self.assertContains(self.client.get(reverse("photo_create")), 'data-dropzone')
+
+
+class UploadStorageTests(TestCase):
+    def setUp(self):
+        self.couple = Couple.objects.create()
+        self.user = User.objects.create_user("a", password="pw", couple=self.couple)
+        self.client.force_login(self.user)
+        self.media = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media)
+        self.override.enable()
+
+    def tearDown(self):
+        self.override.disable()
+
+    def png(self, name="내 사진.png", size=4):
+        from io import BytesIO
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        buffer = BytesIO()
+        Image.new("RGB", (size, size), (90, 140, 220)).save(buffer, "PNG")
+        return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/png")
+
+    def test_file_name_is_random_and_kept_per_couple(self):
+        self.client.post(reverse("photo_create"), {"image": self.png()})
+        photo = Photo.objects.get()
+        self.assertTrue(photo.image.name.startswith(f"photos/{self.couple.pk}/"))
+        self.assertNotIn("내 사진", photo.image.name)
+        self.assertTrue(photo.image.name.endswith(".png"))
+
+    def test_too_large_image_is_rejected(self):
+        with patch("couples.storage.MAX_IMAGE_BYTES", 10):
+            response = self.client.post(reverse("photo_create"), {"image": self.png()})
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Photo.objects.exists())
+        self.assertContains(response, "10MB 이하")
+
+    def test_replacing_photo_deletes_the_old_file(self):
+        self.client.post(reverse("photo_create"), {"image": self.png()})
+        photo = Photo.objects.get()
+        old_path = photo.image.path
+        self.client.post(reverse("photo_update", args=[photo.pk]), {"image": self.png("two.png", size=6), "caption": ""})
+        photo.refresh_from_db()
+        self.assertFalse(os.path.exists(old_path))
+        self.assertTrue(os.path.exists(photo.image.path))
+
+    def test_removing_taste_photo_deletes_the_file(self):
+        taste = Taste.objects.create(couple=self.couple, author=self.user, category="음악", title="밤편지")
+        taste.image.save("cover.png", self.png(), save=True)
+        old_path = taste.image.path
+        self.client.post(reverse("taste_update", args=[taste.pk]), {"category": "음악", "title": "밤편지", "link": "", "comment": "", "clear_image": "on"})
+        self.assertFalse(os.path.exists(old_path))
