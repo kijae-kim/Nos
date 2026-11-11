@@ -1,16 +1,20 @@
 import calendar as month_calendar
+from collections import defaultdict
+from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from anniversaries import services as anniversary_services
 
-from .forms import CreateForm, JoinForm, ProfileForm
-from .models import Couple
+from . import services
+from .forms import AlbumForm, CreateForm, EventForm, JoinForm, PhotoForm, ProfileForm, TasteForm
+from .models import Album, Couple, Event, Photo, Taste
 
 
 def _render_connect(request, create_form=None, join_form=None):
@@ -112,14 +116,301 @@ def us(request):
     )
 
 
+# ---------- 캘린더 ----------
+
+def _month_param(value, today):
+    """?month=2026-11 을 날짜로 바꾼다. 잘못된 값이면 이번 달."""
+    try:
+        year, month = map(int, value.split("-"))
+        return date(year, month, 1)
+    except (AttributeError, ValueError):
+        return date(today.year, today.month, 1)
+
+
+def _shift_month(first, step):
+    month_index = first.year * 12 + first.month - 1 + step
+    return date(month_index // 12, month_index % 12 + 1, 1)
+
+
+def _calendar_url(day):
+    return f"{reverse('calendar')}?month={day:%Y-%m}&day={day:%Y-%m-%d}"
+
+
 @login_required
 def calendar(request):
+    user = request.user
     today = timezone.localdate()
+    first = _month_param(request.GET.get("month"), today)
+    try:
+        selected = date.fromisoformat(request.GET.get("day", ""))
+    except ValueError:
+        selected = today
+    if selected.year != first.year or selected.month != first.month:
+        selected = first
+
     # 일요일부터 시작하는 달력. 앞뒤 달의 날짜도 함께 받아 주차를 채운다.
-    weeks = month_calendar.Calendar(firstweekday=6).monthdatescalendar(today.year, today.month)
-    return render(request, "couples/calendar.html", {"today": today, "weeks": weeks})
+    weeks = month_calendar.Calendar(firstweekday=6).monthdatescalendar(first.year, first.month)
+    visible = Event.objects.visible_to(user).prefetch_related("labels")
+    by_date = defaultdict(list)
+    for event in visible.filter(date__gte=weeks[0][0], date__lte=weeks[-1][-1]):
+        by_date[event.date].append(event)
+
+    grid = [
+        [
+            {
+                "date": d,
+                "day": d.day,
+                "in_month": d.month == first.month,
+                "is_today": d == today,
+                "is_selected": d == selected,
+                "events": by_date.get(d, []),
+            }
+            for d in week
+        ]
+        for week in weeks
+    ]
+
+    upcoming = list(visible.filter(date__gte=today)[:3])
+    day_events = by_date.get(selected, [])
+    list_title = "다가오는 일정" if selected == today else f"{selected.month}월 {selected.day}일"
+    if selected == today:
+        day_events = upcoming
+
+    anniversaries, _ = anniversary_services.build(user.couple)
+    return render(
+        request,
+        "couples/calendar.html",
+        {
+            "today": today,
+            "first": first,
+            "selected": selected,
+            "prev_url": f"?month={_shift_month(first, -1):%Y-%m}",
+            "next_url": f"?month={_shift_month(first, 1):%Y-%m}",
+            "weeks": grid,
+            "day_events": day_events,
+            "upcoming": upcoming,
+            "list_title": list_title,
+            "new_event_url": f"/calendar/events/new/?date={selected:%Y-%m-%d}",
+            "days": user.couple.days_together,
+            "next_item": anniversaries[0] if anniversaries else None,
+            "labels": user.couple.labels.all(),
+        },
+    )
+
+
+def _event_for_user(request, pk):
+    return get_object_or_404(Event.objects.visible_to(request.user), pk=pk)
 
 
 @login_required
-def coming_soon(request, title):
-    return render(request, "couples/coming_soon.html", {"title": title})
+def event_create(request):
+    couple = request.user.couple
+    initial = {}
+    day = request.GET.get("date")
+    if day:
+        initial["date"] = day
+    form = EventForm(request.POST or None, initial=initial or {"date": timezone.localdate()})
+    if request.method == "POST" and form.is_valid():
+        event = services.save_event(Event(created_by=request.user), couple, form.cleaned_data)
+        return redirect(_calendar_url(event.date))
+    return render(request, "couples/event_form.html", {"form": form, "labels": couple.labels.all(), "event": None})
+
+
+@login_required
+def event_update(request, pk):
+    event = _event_for_user(request, pk)
+    couple = request.user.couple
+    if request.method == "POST":
+        form = EventForm(request.POST)
+    else:
+        form = EventForm(initial=_event_initial(event))
+    if request.method == "POST" and form.is_valid():
+        services.save_event(event, couple, form.cleaned_data)
+        messages.success(request, "일정을 바꿨어요.")
+        return redirect(_calendar_url(event.date))
+    return render(request, "couples/event_form.html", {"form": form, "labels": couple.labels.all(), "event": event})
+
+
+@login_required
+@require_POST
+def event_delete(request, pk):
+    event = _event_for_user(request, pk)
+    day = event.date
+    event.delete()
+    messages.success(request, "일정을 지웠어요.")
+    return redirect(_calendar_url(day))
+
+
+def _event_initial(event):
+    return {
+        "text": services.label_text(event),
+        "date": event.date,
+        "all_day": event.start_time is None,
+        "start_time": event.start_time,
+        "end_time": event.end_time,
+        "place": event.place,
+        "scope": event.scope,
+        "color": event.color,
+    }
+
+
+# ---------- 취향 ----------
+
+@login_required
+def taste(request):
+    couple, user = request.user.couple, request.user
+    partner = user.partner
+    category = request.GET.get("cat", "전체")
+    who = request.GET.get("who", "all")
+
+    tastes = Taste.objects.filter(couple=couple).select_related("author")
+    if category != "전체":
+        tastes = tastes.filter(category=category)
+    if who.isdigit():
+        tastes = tastes.filter(author_id=int(who))
+
+    who_options = [("all", "둘 다"), (str(user.pk), user.display_name)]
+    if partner:
+        who_options.append((str(partner.pk), partner.display_name))
+    return render(
+        request,
+        "couples/taste.html",
+        {
+            "tastes": tastes,
+            "categories": ["전체", *Taste.CATEGORIES],
+            "category": category,
+            "who_options": who_options,
+            "who": who,
+        },
+    )
+
+
+@login_required
+def taste_create(request):
+    form = TasteForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        taste = form.save(commit=False)
+        taste.couple = request.user.couple
+        taste.author = request.user
+        taste.save()
+        messages.success(request, "취향을 공유했어요.")
+        return redirect("taste_detail", pk=taste.pk)
+    return render(request, "couples/taste_form.html", {"form": form, "taste": None})
+
+
+@login_required
+def taste_detail(request, pk):
+    taste = get_object_or_404(Taste, pk=pk, couple=request.user.couple)
+    return render(request, "couples/taste_detail.html", {"taste": taste})
+
+
+@login_required
+def taste_update(request, pk):
+    taste = get_object_or_404(Taste, pk=pk, couple=request.user.couple)
+    form = TasteForm(request.POST or None, instance=taste)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "취향을 고쳤어요.")
+        return redirect("taste_detail", pk=taste.pk)
+    return render(request, "couples/taste_form.html", {"form": form, "taste": taste})
+
+
+@login_required
+@require_POST
+def taste_delete(request, pk):
+    get_object_or_404(Taste, pk=pk, couple=request.user.couple).delete()
+    messages.success(request, "취향을 지웠어요.")
+    return redirect("tastes")
+
+
+# ---------- 앨범 ----------
+
+def _memory(couple, today):
+    """1년 전 오늘 찍었거나 올린 사진이 있으면 추억 카드에 보여 준다."""
+    try:
+        last_year = today.replace(year=today.year - 1)
+    except ValueError:  # 2월 29일
+        last_year = today.replace(year=today.year - 1, day=28)
+    photos = [p for p in couple.photos.all() if p.shot_date == last_year]
+    return photos[0] if photos else None
+
+
+@login_required
+def album(request):
+    couple = request.user.couple
+    today = timezone.localdate()
+    photos = list(couple.photos.select_related("album"))
+    by_month = defaultdict(list)
+    for photo in photos:
+        by_month[f"{photo.shot_date:%Y년 %m월}"].append(photo)
+    return render(
+        request,
+        "couples/album.html",
+        {
+            "albums": couple.albums.prefetch_related("photos"),
+            "unassigned_count": couple.photos.filter(album__isnull=True).count(),
+            "memory": _memory(couple, today),
+            "photo_groups": [{"month": m, "photos": ps} for m, ps in by_month.items()],
+            "has_photos": bool(photos),
+        },
+    )
+
+
+@login_required
+def album_detail(request, pk):
+    couple = request.user.couple
+    album = get_object_or_404(Album, pk=pk, couple=couple)
+    form = AlbumForm(request.POST or None, instance=album)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "앨범 이름을 바꿨어요.")
+        return redirect("album_detail", pk=album.pk)
+    return render(request, "couples/album_detail.html", {"album": album, "form": form, "photos": album.photos.all()})
+
+
+@login_required
+@require_POST
+def album_delete(request, pk):
+    """앨범만 지운다. 안에 있던 사진은 '앨범 없음'으로 남는다."""
+    get_object_or_404(Album, pk=pk, couple=request.user.couple).delete()
+    messages.success(request, "앨범을 지웠어요. 사진은 그대로 남아 있어요.")
+    return redirect("albums")
+
+
+@login_required
+def photo_create(request):
+    couple = request.user.couple
+    form = PhotoForm(request.POST or None, request.FILES or None, couple=couple)
+    if request.method == "POST" and form.is_valid():
+        photo = form.save_for(couple, request.user)
+        messages.success(request, "사진을 올렸어요.")
+        return redirect("photo_detail", pk=photo.pk)
+    return render(request, "couples/photo_form.html", {"form": form, "photo": None, "albums": couple.albums.all()})
+
+
+@login_required
+def photo_detail(request, pk):
+    photo = get_object_or_404(Photo, pk=pk, couple=request.user.couple)
+    return render(request, "couples/photo_detail.html", {"photo": photo})
+
+
+@login_required
+def photo_update(request, pk):
+    couple = request.user.couple
+    photo = get_object_or_404(Photo, pk=pk, couple=couple)
+    form = PhotoForm(request.POST or None, request.FILES or None, instance=photo, couple=couple)
+    if request.method == "POST" and form.is_valid():
+        form.save_for(couple, request.user)
+        messages.success(request, "사진 정보를 고쳤어요.")
+        return redirect("photo_detail", pk=photo.pk)
+    return render(request, "couples/photo_form.html", {"form": form, "photo": photo, "albums": couple.albums.all()})
+
+
+@login_required
+@require_POST
+def photo_delete(request, pk):
+    photo = get_object_or_404(Photo, pk=pk, couple=request.user.couple)
+    photo.image.delete(save=False)
+    photo.delete()
+    messages.success(request, "사진을 지웠어요.")
+    return redirect("albums")

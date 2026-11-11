@@ -1,0 +1,38 @@
+{% extends "layout_app.html" %}
+{% block head_title %}취향 · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between">
+  <div>
+    <h1 class="page-title">취향</h1>
+    <p class="sub">서로에게 건넨 것들</p>
+  </div>
+</header>
+{% endblock %}
+{% block content %}
+<nav class="cats" aria-label="분류">
+  {% for c in categories %}
+    <a class="cat{% if c == category %} on{% endif %}" href="?cat={{ c|urlencode }}{% if who != 'all' %}&amp;who={{ who }}{% endif %}">{{ c }}</a>
+  {% endfor %}
+</nav>
+
+<div class="segment three" aria-label="누가 공유했는지">
+  {% for value, label in who_options %}
+    <a class="{% if value == who %}on{% endif %}" href="?who={{ value }}{% if category != '전체' %}&amp;cat={{ category|urlencode }}{% endif %}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<a class="btn primary" href="{% url 'taste_create' %}">취향 공유하기</a>
+
+<div class="feed">
+  {% for t in tastes %}
+    <a class="taste-card rise" href="{% url 'taste_detail' t.pk %}" style="--cat: var(--{{ t.color }})">
+      <span class="chip">{{ t.category }}</span>
+      <h3>{{ t.title }}</h3>
+      {% if t.comment %}<p>{{ t.comment|truncatechars:70 }}</p>{% endif %}
+      <small>{{ t.author.display_name }} · {{ t.created_at|date:"n월 j일" }}</small>
+    </a>
+  {% empty %}
+    <p class="empty">아직 공유한 취향이 없어요. 음악, 영화, 장소를 하나 남겨 보세요.</p>
+  {% endfor %}
+</div>
+{% endblock %}

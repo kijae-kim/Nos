@@ -1,7 +1,7 @@
 from django import forms
 from django.utils import timezone
 
-from .models import CODE_LENGTH
+from .models import CODE_LENGTH, COLOR_CHOICES, Album, Photo, Taste
 
 
 class StartDateField(forms.DateField):
@@ -36,3 +36,94 @@ class JoinForm(forms.Form):
 class ProfileForm(forms.Form):
     nickname = forms.CharField(label="닉네임", max_length=20, required=False)
     start_date = StartDateField()
+
+
+class EventForm(forms.Form):
+    text = forms.CharField(
+        label="일정",
+        max_length=140,
+        help_text="@카테고리 #태그 를 함께 적으면 그 이름표에 바로 묶여요. 예: 전시 보러 가기 @데이트 #성수",
+        widget=forms.TextInput(attrs={"placeholder": "무슨 일정인가요?", "autocomplete": "off"}),
+    )
+    date = forms.DateField(label="날짜", widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
+    all_day = forms.BooleanField(label="하루 종일", required=False)
+    start_time = forms.TimeField(label="시작", required=False, widget=forms.TimeInput(attrs={"type": "time"}, format="%H:%M"))
+    end_time = forms.TimeField(label="끝", required=False, widget=forms.TimeInput(attrs={"type": "time"}, format="%H:%M"))
+    place = forms.CharField(label="장소", max_length=100, required=False)
+    scope = forms.ChoiceField(label="공개", choices=[("shared", "공통 일정"), ("personal", "개인 일정")], widget=forms.RadioSelect, initial="shared")
+    color = forms.ChoiceField(label="색", choices=COLOR_CHOICES, widget=forms.RadioSelect, initial="sky")
+
+    def clean(self):
+        from .services import split_text
+
+        cleaned = super().clean()
+        text = cleaned.get("text")
+        if text:
+            title, _ = split_text(text)
+            if not title:
+                self.add_error("text", "이름표만 적으면 일정 이름이 없어요. 일정 이름을 먼저 적어 주세요.")
+        if cleaned.get("all_day"):
+            cleaned["start_time"] = cleaned["end_time"] = None
+        start, end = cleaned.get("start_time"), cleaned.get("end_time")
+        if start and end and end <= start:
+            self.add_error("end_time", "끝나는 시간이 시작 시간보다 늦어야 해요.")
+        return cleaned
+
+
+class TasteForm(forms.ModelForm):
+    class Meta:
+        model = Taste
+        fields = ["category", "title", "link", "comment"]
+        widgets = {
+            "category": forms.RadioSelect,
+            "title": forms.TextInput(attrs={"placeholder": "곡 제목, 영화 제목, 장소 이름"}),
+            "link": forms.URLInput(attrs={"placeholder": "https://", "inputmode": "url"}),
+            "comment": forms.Textarea(attrs={"rows": 3, "placeholder": "왜 좋았는지 한마디 남겨 보세요"}),
+        }
+
+
+class AlbumForm(forms.ModelForm):
+    class Meta:
+        model = Album
+        fields = ["title"]
+        widgets = {"title": forms.TextInput(attrs={"placeholder": "예: 성수동 산책"})}
+
+
+class PhotoForm(forms.ModelForm):
+    album = forms.ModelChoiceField(label="앨범", queryset=Album.objects.none(), required=False, empty_label="앨범 없이", widget=forms.RadioSelect)
+    new_album = forms.CharField(label="새 앨범 이름", max_length=50, required=False, widget=forms.TextInput(attrs={"placeholder": "새 앨범을 만들려면 적어 주세요"}))
+    taken_on = forms.DateField(label="찍은 날", required=False, widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
+
+    class Meta:
+        model = Photo
+        fields = ["image", "album", "taken_on", "caption"]
+        widgets = {
+            "image": forms.ClearableFileInput(attrs={"accept": "image/*"}),
+            "caption": forms.Textarea(attrs={"rows": 3, "placeholder": "이날을 한 줄로 남겨 보세요"}),
+        }
+        labels = {"image": "사진", "caption": "한마디"}
+
+    def __init__(self, *args, couple=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["album"].queryset = Album.objects.filter(couple=couple) if couple else Album.objects.none()
+        if self.instance.pk is None:
+            self.fields["image"].required = True
+        else:
+            self.fields["image"].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("album") and cleaned.get("new_album"):
+            self.add_error("new_album", "앨범은 하나만 고를 수 있어요. 새 앨범을 만들거나 기존 앨범을 고르세요.")
+        return cleaned
+
+    def save_for(self, couple, user):
+        photo = self.save(commit=False)
+        photo.couple = couple
+        if photo.pk is None:
+            photo.uploaded_by = user
+        name = self.cleaned_data.get("new_album", "").strip()
+        if name:
+            photo.album, _ = Album.objects.get_or_create(couple=couple, title=name)
+        photo.save()
+        return photo

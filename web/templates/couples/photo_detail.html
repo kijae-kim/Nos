@@ -1,0 +1,28 @@
+{% extends "layout_app.html" %}
+{% block head_title %}사진 · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% if photo.album %}{% url 'album_detail' photo.album.pk %}{% else %}{% url 'albums' %}{% endif %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">사진</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<figure class="photo-view">
+  <img src="{{ photo.image.url }}" alt="{{ photo.caption|default:'사진' }}">
+</figure>
+<article class="card">
+  {% if photo.caption %}<p class="comment">{{ photo.caption|linebreaksbr }}</p>{% else %}<p class="muted">한마디는 없어요.</p>{% endif %}
+  <p class="muted">
+    {% if photo.album %}<a href="{% url 'album_detail' photo.album.pk %}">{{ photo.album.title }}</a>{% else %}앨범 없음{% endif %}
+    · {{ photo.shot_date|date:"Y. n. j." }} · {{ photo.uploaded_by.display_name }}
+  </p>
+</article>
+<div class="action-row">
+  <a class="btn" href="{% url 'photo_update' photo.pk %}">고치기</a>
+  <form method="post" action="{% url 'photo_delete' photo.pk %}" data-confirm="이 사진을 지울까요? 되돌릴 수 없어요.">
+    {% csrf_token %}
+    <button type="submit" class="btn danger">지우기</button>
+  </form>
+</div>
+{% endblock %}
