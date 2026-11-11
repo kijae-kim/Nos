@@ -80,6 +80,17 @@ DATABASES = {
         conn_health_checks=True,
     )
 }
+if DATABASES["default"]["ENGINE"].endswith("postgresql"):
+    # Neon 의 풀링 주소(-pooler)는 요청마다 다른 연결로 갈 수 있어서 서버 쪽 커서를 쓰지 않는다
+    DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
+
+# Vercel 에서는 디스크에 쓴 것이 남지 않는다. DB나 사진 저장소 설정이 빠진 채로 뜨면
+# 데이터가 조용히 사라지므로, 시작할 때 바로 알린다.
+ON_VERCEL = bool(os.getenv("VERCEL"))
+if ON_VERCEL and not os.getenv("DATABASE_URL"):
+    raise ImproperlyConfigured("배포에는 DATABASE_URL 환경 변수가 필요합니다. (README 배포 참고)")
+if ON_VERCEL and not os.getenv("MEDIA_BUCKET_NAME"):
+    raise ImproperlyConfigured("배포에는 MEDIA_BUCKET_NAME 등 사진 저장소 환경 변수가 필요합니다. (README 배포 참고)")
 
 AUTH_USER_MODEL = "accounts.User"
 
