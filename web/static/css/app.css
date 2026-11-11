@@ -610,3 +610,12 @@ button.label-chip.pick { font: inherit; font-size: 12px; cursor: pointer; }
 .dropzone-preview[hidden] { display: none; }
 .taste-photo { width: 100%; max-height: 300px; object-fit: cover; border-radius: 20px; display: block; }
 .taste-thumb { width: 100%; height: 150px; object-fit: cover; border-radius: 18px; display: block; margin-bottom: 4px; }
+
+/* ---------- 로고: 모양은 그대로, 색은 팔레트 토큰을 따른다 ---------- */
+.nos-mark { width: 48px; height: 29px; flex: none; }
+.nos-word { width: 84px; height: 30px; flex: none; }
+.brand { gap: 10px; }
+.brand .nos-mark { width: 52px; height: 31px; }
+.brand .nos-word { width: 78px; height: 28px; }
+.sidebar .logo { color: var(--fab-fg); }
+.sidebar .logo .nos-mark { width: 30px; height: 18px; }
