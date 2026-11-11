@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
@@ -39,6 +40,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # 배포에서 정적 파일(CSS, JS, 아이콘)을 Django가 직접 내준다
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -69,11 +72,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
+# DATABASE_URL 이 있으면 (배포: Neon Postgres) 그 DB를 쓰고, 없으면 개발용 SQLite 를 쓴다.
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+    "default": dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=60,
+        conn_health_checks=True,
+    )
 }
 
 AUTH_USER_MODEL = "accounts.User"
@@ -123,9 +128,40 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# 배포 빌드에서 collectstatic 을 따로 돌리지 않아도 되도록, 앱 폴더의 정적 파일을 바로 찾아 쓴다.
+WHITENOISE_USE_FINDERS = True
 
 # 업로드한 사진. 개발 중에는 runserver 가 직접 내준다 (config/urls.py).
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# 업로드 저장소. 배포에서는 S3 호환 저장소(AWS S3, Cloudflare R2 등)를 쓴다.
+# MEDIA_BUCKET_NAME 이 없으면 개발용으로 web/media/ 에 저장한다.
+# 사진은 비공개로 두고, 주소는 1시간짜리 서명 주소로만 보여 준다.
+if os.getenv("MEDIA_BUCKET_NAME"):
+    STORAGES = {
+        "default": {"BACKEND": "storages.backends.s3.S3Storage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+    AWS_STORAGE_BUCKET_NAME = os.getenv("MEDIA_BUCKET_NAME")
+    AWS_S3_ENDPOINT_URL = os.getenv("MEDIA_ENDPOINT_URL") or None
+    AWS_S3_REGION_NAME = os.getenv("MEDIA_REGION") or None
+    AWS_S3_SIGNATURE_VERSION = "s3v4"
+    AWS_DEFAULT_ACL = None
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_QUERYSTRING_AUTH = True
+    AWS_QUERYSTRING_EXPIRE = 3600
+    AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "private, max-age=3600"}
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# 배포(DEBUG 끔)에서만 쓰는 보안 설정. Vercel 이 HTTPS를 맡아 주므로 프록시 헤더를 믿는다.
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 3600  # 처음에는 짧게 (1시간). 익숙해지면 늘린다.

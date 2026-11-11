@@ -2,6 +2,7 @@ from django import forms
 from django.utils import timezone
 
 from .models import CODE_LENGTH, COLOR_CHOICES, Album, Photo, Taste
+from .storage import ImageUploadField, delete_file
 
 
 class StartDateField(forms.DateField):
@@ -71,11 +72,11 @@ class EventForm(forms.Form):
 
 
 class TasteForm(forms.ModelForm):
-    image = forms.ImageField(
+    image = ImageUploadField(
         label="사진",
         required=False,
         widget=forms.FileInput(attrs={"accept": "image/*"}),
-        help_text="없어도 괜찮아요. 캡처 화면이나 앨범 커버를 올려 보세요.",
+        help_text="없어도 괜찮아요. 캡처 화면이나 앨범 커버를 올려 보세요. 10MB 이하.",
     )
     clear_image = forms.BooleanField(label="사진 빼기", required=False)
 
@@ -89,15 +90,22 @@ class TasteForm(forms.ModelForm):
             "comment": forms.Textarea(attrs={"rows": 3, "placeholder": "왜 좋았는지 한마디 남겨 보세요"}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 검사하면서 새 사진이 인스턴스에 들어가므로, 바꾸기 전 이름을 미리 적어 둔다
+        self.old_image_name = self.instance.image.name if self.instance.pk else None
+
     def save_for(self, couple, user):
+        old_name = self.old_image_name
         taste = self.save(commit=False)
         taste.couple = couple
         if taste.pk is None:
             taste.author = user
         if self.cleaned_data.get("clear_image") and taste.image:
-            taste.image.delete(save=False)
             taste.image = None
         taste.save()
+        if old_name and old_name != taste.image.name:
+            delete_file(old_name)
         return taste
 
 
@@ -109,6 +117,7 @@ class AlbumForm(forms.ModelForm):
 
 
 class PhotoForm(forms.ModelForm):
+    image = ImageUploadField(label="사진", widget=forms.FileInput(attrs={"accept": "image/*"}))
     album = forms.ModelChoiceField(label="앨범", queryset=Album.objects.none(), required=False, empty_label="앨범 없이", widget=forms.RadioSelect)
     new_album = forms.CharField(label="새 앨범 이름", max_length=50, required=False, widget=forms.TextInput(attrs={"placeholder": "새 앨범을 만들려면 적어 주세요"}))
     taken_on = forms.DateField(label="찍은 날", required=False, widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
@@ -125,6 +134,8 @@ class PhotoForm(forms.ModelForm):
     def __init__(self, *args, couple=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["album"].queryset = Album.objects.filter(couple=couple) if couple else Album.objects.none()
+        # 검사하면서 새 사진이 인스턴스에 들어가므로, 바꾸기 전 이름을 미리 적어 둔다
+        self.old_image_name = self.instance.image.name if self.instance.pk else None
         if self.instance.pk is None:
             self.fields["image"].required = True
         else:
@@ -137,6 +148,7 @@ class PhotoForm(forms.ModelForm):
         return cleaned
 
     def save_for(self, couple, user):
+        old_name = self.old_image_name
         photo = self.save(commit=False)
         photo.couple = couple
         if photo.pk is None:
@@ -145,4 +157,6 @@ class PhotoForm(forms.ModelForm):
         if name:
             photo.album, _ = Album.objects.get_or_create(couple=couple, title=name)
         photo.save()
+        if old_name and old_name != photo.image.name:
+            delete_file(old_name)
         return photo
