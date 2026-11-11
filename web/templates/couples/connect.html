@@ -1,0 +1,25 @@
+{% extends "layout_auth.html" %}
+{% block head_title %}연결하기 · {{ APP_NAME }}{% endblock %}
+{% block content %}
+<h2>둘만의 공간 연결하기</h2>
+<p class="muted">상대방에게 초대 코드를 받았다면 입력하고, 아니라면 새 공간을 만들어 코드를 보내 주세요.</p>
+
+<form method="post" action="{% url 'couple_join' %}" class="stack">
+  {% csrf_token %}
+  {% with field=join_form.code %}{% include "_field.html" %}{% endwith %}
+  <button type="submit" class="btn primary">초대 코드로 연결</button>
+</form>
+
+<div class="divider"><span>또는</span></div>
+
+<form method="post" action="{% url 'couple_create' %}" class="stack">
+  {% csrf_token %}
+  {% with field=create_form.start_date %}{% include "_field.html" %}{% endwith %}
+  <button type="submit" class="btn">새 공간 만들기</button>
+</form>
+
+<form method="post" action="{% url 'account_logout' %}" class="switch">
+  {% csrf_token %}
+  <button type="submit" class="link">로그아웃</button>
+</form>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="topbar">
+  <h1>{% block page_title %}{{ APP_NAME }}{% endblock %}</h1>
+</header>
+<main class="page">
+  {% if messages %}
+    {% for message in messages %}<p class="notice">{{ message }}</p>{% endfor %}
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+{% with tab=request.resolver_match.url_name %}
+<nav class="tabbar" aria-label="주 메뉴">
+  <a href="{% url 'home' %}" {% if tab == 'home' %}class="active" aria-current="page"{% endif %}>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+    <span>홈</span>
+  </a>
+  <a href="{% url 'calendar' %}" {% if tab == 'calendar' %}class="active" aria-current="page"{% endif %}>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+    <span>캘린더</span>
+  </a>
+  <a href="{% url 'tastes' %}" {% if tab == 'tastes' %}class="active" aria-current="page"{% endif %}>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>
+    <span>취향</span>
+  </a>
+  <a href="{% url 'albums' %}" {% if tab == 'albums' %}class="active" aria-current="page"{% endif %}>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>
+    <span>앨범</span>
+  </a>
+  <a href="{% url 'us' %}" {% if tab == 'us' or 'anniversary' in tab %}class="active" aria-current="page"{% endif %}>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-8-5.3-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.7-8 11-8 11z"/></svg>
+    <span>우리</span>
+  </a>
+</nav>
+{% endwith %}
+{% endblock %}

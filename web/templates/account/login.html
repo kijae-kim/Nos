@@ -1,0 +1,14 @@
+{% extends "layout_auth.html" %}
+{% block head_title %}로그인 · {{ APP_NAME }}{% endblock %}
+{% block content %}
+<h2>로그인</h2>
+<form method="post" action="{% url 'account_login' %}">
+  {% csrf_token %}
+  {% for error in form.non_field_errors %}<p class="error">{{ error }}</p>{% endfor %}
+  {% for field in form %}{% include "_field.html" %}{% endfor %}
+  {% if redirect_field_value %}<input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">{% endif %}
+  <button type="submit" class="btn primary">로그인</button>
+</form>
+{% include "_social_buttons.html" %}
+<p class="switch">처음이신가요? <a href="{% url 'account_signup' %}">회원가입</a></p>
+{% endblock %}

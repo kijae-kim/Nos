@@ -1,0 +1,13 @@
+{% load static %}{
+  "name": "{{ APP_NAME }}",
+  "short_name": "{{ APP_NAME }}",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#faf8f7",
+  "theme_color": "#f0506e",
+  "lang": "ko",
+  "icons": [
+    {"src": "{% static 'icons/icon.svg' %}", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
+  ]
+}

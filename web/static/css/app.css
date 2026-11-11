@@ -1,0 +1,148 @@
+/* 테마: 기본은 기기 설정을 따르고, data-theme 로 수동 고정할 수 있다. */
+:root {
+  color-scheme: light dark;
+  --bg: #faf8f7;
+  --surface: #ffffff;
+  --text: #1c1a1a;
+  --muted: #77706e;
+  --border: #ebe5e3;
+  --accent: #e8405f;
+  --accent-soft: #fde8ec;
+  --on-accent: #ffffff;
+  --danger: #c62828;
+  --radius: 16px;
+  --tabbar-h: 60px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131212;
+    --surface: #1e1c1c;
+    --text: #f3efee;
+    --muted: #a39b99;
+    --border: #2e2a2a;
+    --accent: #ff6b85;
+    --accent-soft: #3a1f25;
+    --on-accent: #1a0c10;
+    --danger: #ff8a80;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #131212;
+  --surface: #1e1c1c;
+  --text: #f3efee;
+  --muted: #a39b99;
+  --border: #2e2a2a;
+  --accent: #ff6b85;
+  --accent-soft: #3a1f25;
+  --on-accent: #1a0c10;
+  --danger: #ff8a80;
+}
+:root[data-theme="light"] { color-scheme: light; }
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1, h2, p { margin: 0; }
+.muted { color: var(--muted); font-size: 0.925rem; }
+
+/* 레이아웃 */
+.topbar, .page, .auth { max-width: 480px; margin: 0 auto; padding-left: 16px; padding-right: 16px; }
+.topbar { padding-top: calc(16px + env(safe-area-inset-top)); padding-bottom: 8px; }
+.topbar h1 { font-size: 1.5rem; letter-spacing: -0.02em; }
+.page { padding-top: 8px; padding-bottom: calc(var(--tabbar-h) + 32px + env(safe-area-inset-bottom)); display: grid; gap: 16px; }
+
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  display: flex; justify-content: center;
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tabbar a {
+  flex: 1; max-width: 96px; height: var(--tabbar-h);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  color: var(--muted); font-size: 0.7rem; text-decoration: none;
+}
+.tabbar svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tabbar a.active { color: var(--accent); }
+
+/* 카드 · 섹션 */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; display: grid; gap: 12px; }
+.card h2, .section h2 { font-size: 1.05rem; }
+.section { display: grid; gap: 8px; }
+.empty { color: var(--muted); font-size: 0.925rem; background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius); padding: 20px; text-align: center; }
+.empty.tall { padding: 64px 20px; }
+.notice { background: var(--accent-soft); border-radius: 12px; padding: 10px 14px; font-size: 0.925rem; }
+
+/* 홈 */
+.hero { background: var(--accent-soft); border-radius: var(--radius); padding: 28px 20px; text-align: center; display: grid; gap: 4px; }
+.hero .names { font-weight: 600; }
+.hero .heart { color: var(--accent); }
+.hero .dday { font-size: 3rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; color: var(--accent); }
+.hero .since { color: var(--muted); font-size: 0.9rem; }
+.invite { text-align: center; }
+.invite .code { font-size: 2rem; font-weight: 800; letter-spacing: 0.2em; font-family: ui-monospace, "SF Mono", Consolas, monospace; }
+
+/* 폼 */
+form { display: grid; gap: 12px; }
+.field { display: grid; gap: 6px; }
+.field label { font-size: 0.875rem; font-weight: 600; }
+.field small { color: var(--muted); font-size: 0.8rem; }
+input[type="text"], input[type="email"], input[type="password"], input[type="date"] {
+  width: 100%; min-height: 48px; padding: 10px 14px;
+  font: inherit; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+}
+input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+.error { color: var(--danger); font-size: 0.85rem; }
+
+.btn {
+  width: 100%; min-height: 48px; padding: 10px 16px;
+  font: inherit; font-weight: 600; color: var(--text);
+  background: transparent; border: 1px solid var(--border); border-radius: 12px; cursor: pointer;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.danger { color: var(--danger); }
+.btn.social.kakao { background: #fee500; border-color: #fee500; color: #191919; }
+.btn.social.google { background: #ffffff; border-color: #dadce0; color: #1f1f1f; }
+button.link { background: none; border: 0; padding: 0; font: inherit; color: var(--muted); text-decoration: underline; cursor: pointer; }
+
+.segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 4px; }
+.segmented button { min-height: 40px; font: inherit; font-size: 0.9rem; color: var(--muted); background: transparent; border: 0; border-radius: 9px; cursor: pointer; }
+.segmented button[aria-checked="true"] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 0 0 1px var(--border); }
+
+.divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 0.8rem; margin: 4px 0; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+/* 로그인 · 연결 화면 */
+.auth { min-height: 100dvh; display: grid; align-content: center; gap: 20px; padding-top: 32px; padding-bottom: 32px; }
+.brand { font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; text-align: center; color: var(--accent); }
+.brand:hover { text-decoration: none; }
+.auth-card h2, .auth-card h1 { font-size: 1.25rem; }
+.switch { text-align: center; font-size: 0.9rem; color: var(--muted); justify-items: center; }
+
+/* 목록 행 (기념일 등) */
+.section-head { display: flex; align-items: baseline; justify-content: space-between; }
+.section-head a { font-size: 0.875rem; }
+.rows { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.rows li + li { border-top: 1px solid var(--border); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; min-height: 56px; color: var(--text); }
+a.row:hover { text-decoration: none; background: var(--bg); }
+.row-main { display: grid; min-width: 0; }
+.row-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-main small { color: var(--muted); font-size: 0.8rem; }
+.badge { flex: none; font-size: 0.85rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 4px 10px; }
+.badge.today { background: var(--accent); color: var(--on-accent); }
+.link-card { color: var(--text); gap: 2px; }
+.link-card:hover { text-decoration: none; }
+a.btn { display: flex; align-items: center; justify-content: center; text-decoration: none; }

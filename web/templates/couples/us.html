@@ -1,0 +1,42 @@
+{% extends "layout_app.html" %}
+{% block head_title %}우리 · {{ APP_NAME }}{% endblock %}
+{% block page_title %}우리{% endblock %}
+{% block content %}
+{% if not partner %}{% include "couples/_invite.html" %}{% endif %}
+
+<a class="card link-card" href="{% url 'anniversary_index' %}">
+  <strong>기념일</strong>
+  <span class="muted">생일, 100일, 주년 관리</span>
+</a>
+
+<section class="card">
+  <h2>프로필</h2>
+  <form method="post" class="stack">
+    {% csrf_token %}
+    {% for field in form %}{% include "_field.html" %}{% endfor %}
+    <button type="submit" class="btn primary">저장</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>화면 테마</h2>
+  <div class="segmented" role="radiogroup" aria-label="화면 테마">
+    <button type="button" role="radio" data-theme-choice="system">기기 설정</button>
+    <button type="button" role="radio" data-theme-choice="light">라이트</button>
+    <button type="button" role="radio" data-theme-choice="dark">다크</button>
+  </div>
+</section>
+
+<section class="card">
+  <h2>계정</h2>
+  <p class="muted">{{ user.email|default:user.username }}</p>
+  <form method="post" action="{% url 'account_logout' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn">로그아웃</button>
+  </form>
+  <form method="post" action="{% url 'couple_leave' %}" data-confirm="정말 연결을 끊을까요? 이 공간에서 나가게 됩니다.">
+    {% csrf_token %}
+    <button type="submit" class="btn danger">연결 끊기</button>
+  </form>
+</section>
+{% endblock %}

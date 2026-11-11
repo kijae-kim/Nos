@@ -1,0 +1,38 @@
+{% extends "layout_app.html" %}
+{% block content %}
+<section class="hero">
+  <p class="names">{{ user.display_name }} <span class="heart">♥</span> {% if partner %}{{ partner.display_name }}{% else %}?{% endif %}</p>
+  {% if couple.days_together %}
+    <p class="dday">D+{{ couple.days_together }}</p>
+    <p class="since">{{ couple.start_date|date:"Y년 n월 j일" }}부터</p>
+  {% else %}
+    <p class="since"><a href="{% url 'us' %}">사귀기 시작한 날을 설정</a>하면 D+day가 표시돼요.</p>
+  {% endif %}
+</section>
+
+{% if not partner %}{% include "couples/_invite.html" %}{% endif %}
+
+<section class="section">
+  <div class="section-head">
+    <h2>다가오는 기념일</h2>
+    <a href="{% url 'anniversary_index' %}">전체 보기</a>
+  </div>
+  {% if anniversaries %}
+    {% include "anniversaries/_rows.html" with items=anniversaries %}
+  {% else %}
+    <p class="empty">생일이나 특별한 날을 추가해 보세요.</p>
+  {% endif %}
+</section>
+<section class="section">
+  <h2>다가오는 일정</h2>
+  <p class="empty">아직 등록된 일정이 없어요.</p>
+</section>
+<section class="section">
+  <h2>최근 공유한 취향</h2>
+  <p class="empty">음악, 영화, 영상 링크를 공유해 보세요.</p>
+</section>
+<section class="section">
+  <h2>최근 사진</h2>
+  <p class="empty">데이트 사진이 여기에 모여요.</p>
+</section>
+{% endblock %}
