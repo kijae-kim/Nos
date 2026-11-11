@@ -1,0 +1,1263 @@
+<!doctype html>
+<html lang="ko" data-theme="boat">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NÓS 디자인 시안</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<script>
+  // 화면이 그려지기 전에 테마와 화면 모드를 정한다. 저장된 값이 없으면 기기 설정을 따른다.
+  (function () {
+    var root = document.documentElement, theme = "boat", mode = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    try { theme = localStorage.getItem("mock-theme") || theme; mode = localStorage.getItem("mock-mode") || mode; } catch (e) {}
+    root.dataset.theme = theme; root.dataset.mode = mode;
+  })();
+</script>
+<style>
+/* ---------- 공통 토큰 ---------- */
+:root {
+  --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --spring: cubic-bezier(.34, 1.56, .64, 1);
+  --ease: cubic-bezier(.3, .7, .2, 1);
+  /* 이동하는 것(배, 두 사람)이 따라가는 길. 두 테마가 같은 곡선을 쓴다. */
+  --ridge: path("M0 116 C70 90 130 120 200 104 S300 90 342 108");
+}
+
+/* ---------- 테마 1: 배 (기본) — 연한 하늘, 선명한 파랑, 코랄 ---------- */
+[data-theme="boat"] {
+  --board: #CBD3E6; --board-text: #4A5374;
+  --bg-1: #E4EDFB; --bg-2: #F1EDFA;
+  --surface: #FFFFFF; --tile: #F5F8FE; --tile-hover: #EAF0FD; --track: #D9E3F6; --veil: rgba(228, 237, 251, .72);
+  --text: #141B3D; --muted: #6F7896; --faint: #9AA3BF;
+  --primary: #2A45F5; --primary-soft: #7C8CFF; --accent: #FF5A5F; --accent-soft: #FF9A7A; --highlight: #FFD978;
+  --meta: var(--primary); --fab-fg: #FFFFFF; --fab-open: var(--text);
+  --rose: #FFB8DC; --sky: #8FE3EC; --sand: #FFD978; --lav: #CFCBFF; --sage: #C4EBCB; --peach: #FFCDBD;
+  --shadow-rgb: 20, 27, 61; --shadow: 0 8px 24px rgba(20, 27, 61, .08); --fab-shadow: 0 8px 16px rgba(42, 69, 245, .35);
+  --hero-bg: linear-gradient(180deg, #2A45F5 0%, #3555FF 100%);
+  --mover-rotate: auto;
+  --card-a: linear-gradient(200deg, #2B2A8F 10%, #FF7B86 100%); --card-a-orb: #FFD978; --card-a-hill: rgba(20, 27, 61, .35);
+  --card-b: linear-gradient(200deg, #8FE3EC, #2A45F5);
+}
+
+/* ---------- 테마 2: 여정 — 모래, 밤하늘, 노을 (배 테마 이후에 다듬는다) ---------- */
+[data-theme="journey"] {
+  --board: #D9CBB8; --board-text: #6B5D4F;
+  --bg-1: #F8F0E3; --bg-2: #F2E3D0;
+  --surface: #FFFDF9; --tile: #FAF3E8; --tile-hover: #F3E7D6; --track: #EADCC8; --veil: rgba(248, 240, 227, .72);
+  --text: #231E3D; --muted: #857B77; --faint: #B5A99C;
+  --primary: #232759; --primary-soft: #6D62B8; --accent: #D9623B; --accent-soft: #F0A06E; --highlight: #F2B544;
+  --meta: var(--accent); --fab-fg: var(--highlight); --fab-open: var(--accent);
+  --rose: #F5C2B8; --sky: #BBD6EE; --sand: #F6D9A8; --lav: #D5CDF2; --sage: #BFDCC4; --peach: #F8D2B5;
+  --shadow-rgb: 64, 44, 28; --shadow: 0 8px 24px rgba(64, 44, 28, .1); --fab-shadow: 0 8px 16px rgba(35, 39, 89, .35);
+  --hero-bg: linear-gradient(180deg, #1B1E4B 0%, #2D2A6E 42%, #6B4491 68%, #D9774F 100%);
+  --mover-rotate: 0deg;
+  --card-a: linear-gradient(200deg, #232759 15%, #8A4E8F 60%, #E08A5B 100%); --card-a-orb: #FFE7A8; --card-a-hill: rgba(90, 46, 74, .6);
+  --card-b: linear-gradient(200deg, #8FD6C9, #1F6F6B);
+}
+/* ---------- 다크 모드: 테마마다 바탕·글자·중심색만 바꾼다 ---------- */
+[data-theme="boat"] { --on-pastel: #141B3D; }
+[data-theme="journey"] { --on-pastel: #231E3D; }
+[data-mode="dark"] { color-scheme: dark; }
+[data-theme="boat"][data-mode="dark"] {
+  --board: #070A1A; --board-text: #8E97B8;
+  --bg-1: #0B1026; --bg-2: #0F1430;
+  --surface: #182045; --tile: #1F2852; --tile-hover: #27326A; --track: #232C58; --veil: rgba(11, 16, 38, .78);
+  --text: #EEF1FF; --muted: #98A1C4; --faint: #5F6A94;
+  --primary: #5670FF; --primary-soft: #8E9BFF; --accent: #FF6B70; --meta: #8EA0FF; --fab-open: #2B3566;
+  --shadow-rgb: 0, 0, 0; --shadow: 0 8px 24px rgba(0, 0, 0, .35); --fab-shadow: 0 8px 16px rgba(86, 112, 255, .4);
+  --hero-bg: linear-gradient(180deg, #2238D6 0%, #2A45F5 100%);
+}
+[data-theme="journey"][data-mode="dark"] {
+  --board: #0D0A14; --board-text: #A2968F;
+  --bg-1: #15111F; --bg-2: #1B1526;
+  --surface: #261E33; --tile: #2F2640; --tile-hover: #3A2F4E; --track: #372D48; --veil: rgba(21, 17, 31, .78);
+  --text: #F6EEE2; --muted: #B0A49C; --faint: #75697A;
+  --primary: #7468D6; --primary-soft: #A79BEA; --accent: #EE7C54;
+  --shadow-rgb: 0, 0, 0; --shadow: 0 8px 24px rgba(0, 0, 0, .4); --fab-shadow: 0 8px 16px rgba(116, 104, 214, .4);
+}
+[data-mode="dark"] .btn.apple { background: #FFFFFF; color: #111111; }
+.icon-tile, .quick i, .dot-btn { color: var(--on-pastel); }
+[data-theme="boat"] .t-journey, [data-theme="journey"] .t-boat { display: none !important; }
+
+* { box-sizing: border-box; }
+body { margin: 0; word-break: keep-all; font-family: var(--font); color: var(--text); background: var(--board); -webkit-font-smoothing: antialiased; transition: background .4s; }
+h1, h2, h3, p, ul { margin: 0; padding: 0; }
+ul { list-style: none; }
+button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
+svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* ---------- 시안 보드 ---------- */
+.toolbar > * { white-space: nowrap; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 28px 40px 0; font-size: 13px; color: var(--board-text); }
+.theme-switch { display: flex; background: color-mix(in srgb, var(--surface) 50%, transparent); border-radius: 14px; padding: 4px; }
+.theme-switch button { padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--board-text); }
+.theme-switch button.on { background: var(--primary); color: #fff; }
+.board { display: flex; flex-wrap: wrap; gap: 40px; padding: 28px 40px 40px; align-items: flex-start; }
+.board > div > h2 { font-size: 13px; font-weight: 500; color: var(--board-text); margin-bottom: 12px; }
+.app-bg { background: linear-gradient(180deg, var(--bg-1), var(--bg-2)); }
+
+/* ---------- 폰 ---------- */
+.phone { position: relative; width: 390px; height: 844px; border-radius: 44px; overflow: hidden; box-shadow: 0 30px 60px rgba(var(--shadow-rgb), .25); }
+.screen { position: absolute; inset: 0; padding: 56px 0 130px; overflow-y: auto; scrollbar-width: none; opacity: 0; transform: translateY(14px); pointer-events: none; transition: opacity .28s ease, transform .4s var(--ease); }
+.screen::-webkit-scrollbar { display: none; }
+.screen.active { opacity: 1; transform: none; pointer-events: auto; }
+.pad { padding-left: 24px; padding-right: 24px; }
+.circle { width: 44px; height: 44px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow); display: grid; place-items: center; transition: transform .15s; }
+.circle:active { transform: scale(.92); }
+.circle svg.i { width: 22px; height: 22px; }
+.page-title { font-size: 28px; font-weight: 800; letter-spacing: -.03em; }
+.sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.row-between { display: flex; align-items: center; justify-content: space-between; }
+
+/* ---------- 홈 ---------- */
+.us { display: flex; }
+.av { width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--surface); box-sizing: content-box; }
+.av + .av { margin-left: -12px; }
+.av.a { background: linear-gradient(160deg, var(--accent), var(--accent-soft)); }
+.av.b { background: linear-gradient(160deg, var(--primary), var(--primary-soft)); }
+.hello { text-align: center; margin: 18px 0; }
+.hello p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+/* D-day 카드: 다음 기념일을 향해 이동하는 장면 */
+.stack { display: flex; flex-direction: column; align-items: center; }
+.dday { width: 100%; height: 292px; position: relative; z-index: 1; overflow: hidden; cursor: pointer; color: #fff; border-radius: 28px; padding: 22px; background: var(--hero-bg); }
+.dday > * { position: relative; z-index: 1; }
+.dday [data-scene] { position: static; } /* 장면이 카드 바닥에 붙도록 */
+.dday .label { font-size: 13px; font-weight: 500; opacity: .8; }
+.dday .count { display: flex; align-items: baseline; gap: 8px; line-height: 1; margin: 8px 0 10px; }
+.dday .count b { font-size: 64px; font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.dday .count em { font-style: normal; font-size: 18px; font-weight: 600; opacity: .9; }
+.dday .next { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; padding: 6px 12px 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, .16); }
+.dday .next::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--highlight); }
+.orb { position: absolute !important; right: 26px; top: 24px; width: 30px; height: 30px; border-radius: 50%; }
+[data-theme="boat"] .orb { background: var(--highlight); box-shadow: 0 0 0 7px rgba(255, 217, 120, .22); }
+[data-theme="journey"] .orb { box-shadow: inset -9px 3px 0 0 #FFE7A8; transform: rotate(-20deg); }
+.under { height: 10px; background: var(--surface); border-radius: 0 0 16px 16px; }
+.under.u1 { width: 306px; opacity: .8; }
+.under.u2 { width: 270px; opacity: .5; height: 9px; }
+
+.scene { position: absolute !important; left: 0; bottom: 0; width: 342px; height: 150px; z-index: 0 !important; }
+.scene svg.land { position: absolute; inset: 0; }
+.mark, .mover { position: absolute; left: 0; top: 0; offset-path: var(--ridge); }
+.mark { width: 5px; height: 5px; border-radius: 50%; background: var(--highlight); box-shadow: 0 0 6px 1px color-mix(in srgb, var(--highlight) 70%, transparent); offset-rotate: 0deg; offset-anchor: 50% 50%; }
+.mover { offset-rotate: var(--mover-rotate); offset-anchor: 50% 92%; offset-distance: 4%; }
+.sailing .mover { animation: travel 3.2s var(--ease) .25s forwards; }
+.mover svg { display: block; transform-origin: 50% 90%; }
+[data-theme="boat"] .mover svg { animation: bob 2.2s ease-in-out infinite; }
+[data-theme="journey"] .mover svg { animation: step .45s ease-in-out infinite alternate; }
+.goal-label { position: absolute; left: 281px; top: 44px; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--highlight); color: var(--on-pastel); transform-origin: 50% 100%; }
+.sailing .goal-label { animation: pop-in .5s var(--spring) 3.1s both; }
+.tw { animation: twinkle 2.6s ease-in-out infinite; }
+.shoot { stroke-dasharray: 46 400; stroke-dashoffset: 46; animation: shoot 7s ease-in 2s infinite; }
+.drift { animation: drift 9s ease-in-out infinite alternate; }
+.swell { animation: swell 4s ease-in-out infinite alternate; }
+.route { stroke-dasharray: 1 6; animation: flow 1.6s linear infinite; }
+@keyframes travel { to { offset-distance: 77%; } }
+@keyframes bob { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-2px) rotate(4deg); } }
+@keyframes step { to { transform: translateY(-1.5px); } }
+@keyframes twinkle { 50% { opacity: .25; } }
+@keyframes shoot { 0% { stroke-dashoffset: 46; opacity: 1; } 8%, 100% { stroke-dashoffset: -120; opacity: 0; } }
+@keyframes drift { to { transform: translateX(14px); } }
+@keyframes swell { to { transform: translateX(-10px); } }
+@keyframes flow { to { stroke-dashoffset: -14; } }
+@keyframes pop-in { from { transform: scale(0); } }
+
+.rows { display: grid; gap: 10px; margin-top: 18px; }
+.rows li { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 20px; padding: 13px 16px 13px 13px; box-shadow: var(--shadow); transition: transform .15s; }
+.rows li:active { transform: scale(.98); }
+.icon-tile { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; flex: none; }
+.icon-tile svg.i { width: 22px; height: 22px; }
+.rows .main { flex: 1; min-width: 0; display: grid; }
+.rows small { font-size: 11px; color: var(--muted); }
+.rows strong { font-size: 15px; font-weight: 600; }
+.rows .meta { font-size: 13px; font-weight: 700; color: var(--meta); }
+.screen.active .rise { animation: rise .5s var(--ease) both; }
+.screen.active .rise:nth-child(2) { animation-delay: .06s; }
+.screen.active .rise:nth-child(3) { animation-delay: .12s; }
+@keyframes rise { from { opacity: 0; transform: translateY(16px); } }
+
+/* ---------- 취향 ---------- */
+.cats { display: flex; gap: 14px; padding: 19px 24px 4px; overflow-x: auto; scrollbar-width: none; }
+.cats::-webkit-scrollbar { display: none; }
+.cat { display: grid; justify-items: center; gap: 6px; font-size: 11px; color: var(--muted); flex: none; }
+.cat i { width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; color: var(--on-pastel); outline: 2px solid var(--surface); transition: outline-color .2s, transform .25s var(--spring); }
+.cat.on { color: var(--text); font-weight: 600; }
+.cat.on i { outline: 2.5px solid var(--primary); outline-offset: 2px; transform: scale(1.04); }
+.segment { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--track); border-radius: 16px; padding: 4px; margin: 14px 24px 16px; position: relative; }
+.segment button { padding: 9px 0; font-size: 13px; font-weight: 500; color: var(--muted); border-radius: 12px; position: relative; z-index: 1; transition: color .2s; }
+.segment button.on { color: var(--text); font-weight: 600; }
+.segment .thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3); background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); transition: transform .35s var(--spring); }
+.feed { display: grid; gap: 16px; padding: 0 22px; }
+.taste { position: relative; height: 372px; border-radius: 28px; overflow: hidden; color: #fff; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; }
+.taste.a { background: var(--card-a); }
+.taste.a::before { content: ""; position: absolute; width: 150px; height: 150px; border-radius: 50%; background: var(--card-a-orb); opacity: .92; left: 150px; top: 70px; }
+.taste.a::after { content: ""; position: absolute; width: 520px; height: 260px; border-radius: 50%; background: var(--card-a-hill); left: -120px; top: 250px; }
+.taste.b { background: var(--card-b); height: 260px; }
+.taste > * { position: relative; z-index: 1; }
+.chip { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px 7px 10px; border-radius: 999px; background: rgba(255, 255, 255, .24); backdrop-filter: blur(8px); font-size: 12px; font-weight: 500; }
+.chip svg.i { width: 16px; height: 16px; }
+.taste .info { width: 244px; display: grid; gap: 6px; }
+.taste .who { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; opacity: .9; }
+.taste .who i { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid #fff; }
+.taste h3 { font-size: 30px; font-weight: 800; letter-spacing: -.03em; }
+.taste p { font-size: 14px; line-height: 1.45; opacity: .92; }
+.react { position: absolute !important; right: 18px; bottom: 20px; display: grid; gap: 16px; padding: 12px 10px; border-radius: 24px; background: rgba(255, 255, 255, .22); backdrop-filter: blur(8px); }
+.react button { display: grid; place-items: center; transition: transform .15s; }
+.react button:active { transform: scale(.85); }
+.like.on svg.i { fill: #FF5A5F; stroke: #FF5A5F; animation: pop .45s var(--spring); }
+@keyframes pop { 0% { transform: scale(.6); } 60% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+/* ---------- 캘린더 ---------- */
+.cal-head h1 { display: flex; align-items: baseline; gap: 8px; }
+.cal-head h1 span { font-size: 14px; font-weight: 400; color: var(--muted); letter-spacing: 0; }
+.cal-head .arrows { display: flex; gap: 8px; }
+.cal-head .circle { width: 38px; height: 38px; }
+.month { background: var(--surface); border-radius: 24px; padding: 14px 10px 12px; box-shadow: var(--shadow); margin: 16px 0; }
+.week-names, .days { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+.week-names { font-size: 11px; font-weight: 500; color: var(--muted); padding-bottom: 8px; }
+.week-names span:first-child, .day.sun b { color: var(--accent); }
+.days { row-gap: 4px; }
+.day { display: grid; justify-items: center; gap: 3px; padding: 3px 0; }
+.day b { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; font-weight: 500; transition: background .25s, color .25s, transform .3s var(--spring); }
+.day.out b { opacity: .3; }
+.day.today b { box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent); }
+.day.sel b { background: var(--primary); color: #fff; font-weight: 600; transform: scale(1.08); box-shadow: none; }
+.day .bars { display: flex; gap: 2px; height: 5px; }
+.day .bars i { width: 22px; height: 5px; border-radius: 3px; }
+.day .bars i:not(:only-child) { width: 12px; }
+.list-head { font-size: 16px; font-weight: 600; padding: 2px; }
+.list-head span { font-size: 13px; font-weight: 400; color: var(--muted); }
+.events { display: grid; gap: 10px; margin-top: 12px; }
+.events li { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 18px; padding: 12px 14px; box-shadow: var(--shadow); }
+.events .bar { width: 5px; align-self: stretch; min-height: 38px; border-radius: 3px; flex: none; }
+.events .main { flex: 1; display: grid; }
+.events small { font-size: 11px; color: var(--muted); }
+.events strong { font-size: 15px; font-weight: 600; }
+.events em { font-style: normal; font-size: 12px; color: var(--muted); }
+.tag { font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 999px; }
+.empty { text-align: center; color: var(--muted); font-size: 13px; padding: 28px 0; }
+
+/* ---------- 앨범 ---------- */
+/* 사진 자리 표시용 그림. 실제 앱에서는 업로드한 사진이 들어간다. */
+.art { position: relative; overflow: hidden; background: linear-gradient(200deg, var(--c1), var(--c2)); }
+.art::before { content: ""; position: absolute; width: var(--os, 38%); aspect-ratio: 1; border-radius: 50%; background: var(--orb); left: var(--ox, 55%); top: var(--oy, 16%); opacity: .95; }
+.art::after { content: ""; position: absolute; width: 170%; height: 80%; border-radius: 50%; background: var(--hill); left: var(--hx, -30%); top: var(--hy, 62%); }
+.segment.two { grid-template-columns: repeat(2, 1fr); margin: 16px 0; }
+.segment.two .thumb { width: calc((100% - 8px) / 2); }
+.memory { width: 100%; height: 208px; border-radius: 28px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; color: #fff; cursor: pointer; z-index: 1; transition: transform .2s; }
+.memory:active { transform: scale(.98); }
+.memory > * { position: relative; z-index: 1; }
+.memory h3 { font-size: 26px; font-weight: 800; letter-spacing: -.03em; }
+.memory p { font-size: 13px; opacity: .9; margin-top: 2px; }
+.memory .go { position: absolute; right: 18px; bottom: 18px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255, 255, 255, .24); backdrop-filter: blur(8px); display: grid; place-items: center; }
+.album-view { display: none; }
+.album-view.on { display: block; }
+.albums { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 14px; }
+.album { display: grid; gap: 8px; text-align: left; transition: transform .2s; }
+.album:active { transform: scale(.97); }
+.album .cover { display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; gap: 3px; height: 124px; border-radius: 20px; overflow: hidden; box-shadow: var(--shadow); }
+.album .cover .art:first-child { grid-row: span 2; }
+.album .cover .art:only-child { grid-column: span 2; }
+.album .cover .art:nth-child(2):last-child { grid-row: span 2; }
+.album strong { font-size: 15px; font-weight: 600; display: block; }
+.album small { font-size: 11px; color: var(--muted); }
+.month-label { font-size: 13px; font-weight: 600; color: var(--muted); margin: 14px 2px 8px; }
+.month-label:first-child { margin-top: 0; }
+.photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.photos .art { aspect-ratio: 1; border-radius: 12px; cursor: pointer; transition: transform .2s var(--spring); }
+.photos .art:active { transform: scale(.94); }
+.viewer { position: absolute; inset: 0; z-index: 6; background: rgba(10, 12, 28, .94); backdrop-filter: blur(8px); color: #fff; display: flex; flex-direction: column; justify-content: center; gap: 18px; padding: 24px; opacity: 0; pointer-events: none; transition: opacity .25s; }
+.viewer.on { opacity: 1; pointer-events: auto; }
+.viewer .art { height: 440px; border-radius: 24px; transform: scale(.9); transition: transform .45s var(--spring); }
+.viewer.on .art { transform: none; }
+.viewer .close { position: absolute; top: 56px; right: 24px; width: 44px; height: 44px; border-radius: 50%; background: rgba(255, 255, 255, .14); display: grid; place-items: center; }
+.viewer .close svg.i { transform: rotate(45deg); }
+.viewer strong { font-size: 20px; font-weight: 700; display: block; }
+.viewer small { font-size: 13px; opacity: .7; }
+.viewer .like { width: 44px; height: 44px; border-radius: 50%; background: rgba(255, 255, 255, .14); display: grid; place-items: center; }
+
+/* ---------- 우리 (프로필·설정) ---------- */
+.bar-title { font-size: 17px; font-weight: 700; }
+.card { background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); }
+.group { font-size: 13px; font-weight: 600; color: var(--muted); margin: 22px 4px 10px; }
+button.us { cursor: pointer; transition: transform .2s var(--spring); }
+button.us:active { transform: scale(.92); }
+.couple { margin-top: 18px; padding: 22px 20px 18px; display: grid; justify-items: center; gap: 12px; }
+.pair { display: flex; align-items: center; gap: 10px; }
+.pair figure { margin: 0; display: grid; justify-items: center; gap: 6px; font-size: 14px; font-weight: 600; }
+.av.big { width: 64px; height: 64px; }
+.pair .link { display: flex; align-items: center; gap: 8px; padding-bottom: 24px; }
+.pair .link span { width: 26px; border-top: 2px dashed var(--track); }
+.since { font-size: 13px; color: var(--muted); }
+.since b { color: var(--text); font-weight: 600; }
+.ghost { font-size: 13px; font-weight: 600; color: var(--primary); padding: 8px 16px; border-radius: 999px; background: var(--tile); }
+.theme-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.theme-card { display: grid; gap: 8px; text-align: left; font-size: 13px; font-weight: 600; color: var(--muted); padding: 0 2px; }
+.theme-card i { height: 86px; border-radius: 18px; position: relative; overflow: hidden; outline: 2.5px solid transparent; outline-offset: 2px; transition: outline-color .2s, transform .3s var(--spring); }
+.theme-card i::before, .theme-card i::after { content: ""; position: absolute; }
+.theme-card.boat i { background: linear-gradient(180deg, #2A45F5, #3555FF); }
+.theme-card.boat i::before { right: 14px; top: 12px; width: 16px; height: 16px; border-radius: 50%; background: #FFD978; }
+.theme-card.boat i::after { left: -20%; right: -20%; bottom: -34px; height: 60px; border-radius: 50%; background: #1429A8; }
+.theme-card.journey i { background: linear-gradient(180deg, #1B1E4B, #6B4491 65%, #D9774F); }
+.theme-card.journey i::before { right: 14px; top: 12px; width: 16px; height: 16px; border-radius: 50%; box-shadow: inset -5px 2px 0 #FFE7A8; }
+.theme-card.journey i::after { left: -20%; right: -20%; bottom: -34px; height: 60px; border-radius: 50%; background: #E58C5C; }
+.theme-card.on { color: var(--text); }
+.theme-card.on i { outline-color: var(--primary); }
+.theme-card:active i { transform: scale(.96); }
+.menu li { display: flex; align-items: center; gap: 12px; padding: 13px 16px 13px 13px; }
+.menu li + li { border-top: 1px solid var(--tile); }
+.menu li[data-go] { cursor: pointer; }
+.menu .main { flex: 1; display: grid; }
+.menu strong { font-size: 15px; font-weight: 600; }
+.menu small { font-size: 11px; color: var(--muted); }
+.menu .chev { color: var(--faint); width: 20px; height: 20px; }
+.switch { width: 46px; height: 28px; border-radius: 14px; background: var(--track); position: relative; flex: none; transition: background .25s; }
+.switch::after { content: ""; position: absolute; left: 3px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, .15); transition: transform .35s var(--spring); }
+.switch.on { background: var(--primary); }
+.switch.on::after { transform: translateX(18px); }
+.foot-actions { display: flex; justify-content: center; gap: 22px; margin-top: 22px; font-size: 13px; color: var(--muted); }
+.foot-actions .danger { color: var(--accent); }
+
+/* ---------- 기념일 ---------- */
+.next-card { margin-top: 18px; border-radius: 28px; padding: 22px; color: #fff; background: var(--hero-bg); position: relative; overflow: hidden; }
+.next-card small { font-size: 13px; font-weight: 500; opacity: .8; }
+.next-card h3 { font-size: 44px; font-weight: 800; letter-spacing: -.04em; line-height: 1.1; margin: 4px 0 2px; }
+.next-card p { font-size: 13px; opacity: .9; }
+.next-card .dd-big { position: absolute; right: 22px; top: 22px; font-size: 15px; font-weight: 800; padding: 7px 14px; border-radius: 999px; background: var(--highlight); color: var(--on-pastel); }
+.progress { margin-top: 18px; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, .22); overflow: hidden; }
+.progress i { display: block; height: 100%; width: 65%; border-radius: 4px; background: #fff; transform-origin: left; }
+.screen.active .progress i { animation: grow 1.2s var(--ease) .15s both; }
+@keyframes grow { from { transform: scaleX(0); } }
+.progress-labels { display: flex; justify-content: space-between; font-size: 11px; opacity: .8; margin-top: 8px; }
+.timeline { position: relative; display: grid; gap: 10px; padding-left: 26px; }
+.timeline::before { content: ""; position: absolute; left: 8px; top: 16px; bottom: 16px; border-left: 2px dashed var(--track); }
+.timeline li { position: relative; display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 18px; padding: 12px 14px; box-shadow: var(--shadow); }
+.timeline li::before { content: ""; position: absolute; left: -23px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: var(--bg-1); border: 2.5px solid var(--primary); box-sizing: border-box; }
+.timeline .main { flex: 1; display: grid; }
+.timeline strong { font-size: 15px; font-weight: 600; }
+.timeline small { font-size: 11px; color: var(--muted); }
+.timeline .kind { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: var(--tile); color: var(--muted); margin-left: 6px; vertical-align: 1px; }
+.timeline .dd { font-size: 13px; font-weight: 700; color: var(--meta); }
+.timeline.past li { box-shadow: none; background: color-mix(in srgb, var(--surface) 55%, transparent); }
+.timeline.past li::before { background: var(--highlight); border-color: var(--highlight); }
+.timeline.past .dd { color: var(--muted); font-weight: 500; }
+
+/* ---------- 로그인 흐름 ---------- */
+.auth .screen { padding: 0; }
+.auth .screen.pad { padding: 56px 24px 32px; }
+.view { display: none; }
+.view.on { display: block; }
+.welcome-hero.dday { height: 500px; border-radius: 0 0 40px 40px; padding: 72px 28px 0; cursor: default; }
+.welcome-hero .orb { top: 66px; right: 32px; }
+.welcome-hero .scene { zoom: 1.141; } /* 폰 너비(390)에 맞춰 장면을 키운다 */
+.brand { font-size: 26px; font-weight: 800; letter-spacing: .04em; display: flex; align-items: center; gap: 10px; }
+.brand small { font-size: 11px; font-weight: 500; letter-spacing: 0; padding: 2px 7px; border-radius: 999px; background: rgba(255, 255, 255, .18); }
+.welcome-hero h1 { font-size: 34px; font-weight: 800; letter-spacing: -.03em; line-height: 1.2; margin: 14px 0 8px; max-width: 220px; }
+.lead { font-size: 14px; opacity: .85; }
+.auth-actions { display: grid; gap: 10px; padding-top: 26px; }
+.btn { width: 100%; height: 54px; border-radius: 18px; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; transition: transform .15s; }
+.btn:active { transform: scale(.97); }
+.btn.kakao { background: #FEE500; color: #191919; }
+.btn.google { background: var(--surface); box-shadow: var(--shadow); }
+.btn.apple { background: #111111; color: #fff; }
+.btn.primary { background: var(--primary); color: #fff; margin-top: 18px; }
+.btn svg { width: 20px; height: 20px; }
+.btn .g { font-size: 17px; font-weight: 800; color: var(--primary); }
+.text-btn { display: block; margin: 2px auto 0; padding: 12px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.field { display: grid; gap: 6px; margin-top: 14px; font-size: 13px; font-weight: 600; }
+.field input, .code-inputs input { height: 52px; border-radius: 16px; border: 1.5px solid transparent; background: var(--surface); box-shadow: var(--shadow); padding: 0 16px; font: inherit; font-weight: 500; color: var(--text); outline: none; min-width: 0; transition: border-color .2s; }
+.field input:focus, .code-inputs input:focus { border-color: var(--primary); }
+.hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.av.vacant { background: none; border: 2.5px dashed var(--faint); display: grid; place-items: center; color: var(--faint); font-style: normal; font-size: 22px; font-weight: 700; }
+.pair.center { justify-content: center; margin: 26px 0 8px; }
+.pair.center .link span { width: 34px; }
+.pair.center .link svg { animation: bob 2.2s ease-in-out infinite; }
+.code-inputs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 4px; }
+.code-inputs input { height: 60px; padding: 0; text-align: center; font-size: 24px; font-weight: 800; text-transform: uppercase; }
+.code-card { margin-top: 22px; padding: 22px; display: grid; justify-items: center; gap: 8px; }
+.code-card small { font-size: 12px; color: var(--muted); }
+.code { font-size: 38px; font-weight: 800; letter-spacing: .18em; margin-right: -.18em; }
+.done-wrap { display: grid; justify-items: center; text-align: center; padding-top: 130px; }
+.screen.active .done-wrap .pair { animation: pop-in .6s var(--spring) both; }
+
+/* ---------- 추가 화면: + 버튼에서 올라오는 시트 ---------- */
+.sheet-dim { position: absolute; inset: 0; z-index: 7; background: var(--veil); backdrop-filter: blur(6px); opacity: 0; pointer-events: none; transition: opacity .25s; }
+.sheet-dim.on { opacity: 1; pointer-events: auto; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 8; max-height: 91%; overflow-y: auto; scrollbar-width: none; background: var(--bg-1); border-radius: 32px 32px 0 0; padding: 10px 24px 28px; box-shadow: 0 -12px 40px rgba(var(--shadow-rgb), .2); transform: translateY(104%); visibility: hidden; transition: transform .4s var(--ease), visibility 0s .4s; }
+.sheet::-webkit-scrollbar { display: none; }
+.sheet.on { transform: none; visibility: visible; transition: transform .5s cubic-bezier(.2, .9, .3, 1); }
+.sheet .handle { width: 40px; height: 5px; border-radius: 3px; background: var(--track); margin: 0 auto 14px; }
+.sheet h2 { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.sheet .circle { width: 38px; height: 38px; }
+.sheet .circle svg.i { transform: rotate(45deg); }
+.sheet .btn.primary { margin-top: 22px; }
+.big-input { width: 100%; border: 0; background: none; outline: none; font: inherit; font-size: 22px; font-weight: 700; color: var(--text); padding: 16px 0 14px; }
+.big-input::placeholder, .textarea::placeholder, .link-field input::placeholder { color: var(--faint); }
+.label { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 4px 8px; }
+.menu .trail { font-size: 12px; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-btn { padding: 9px 14px; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow); font-size: 13px; font-weight: 600; color: var(--muted); transition: background .2s, color .2s, transform .2s var(--spring); }
+.chip-btn:active { transform: scale(.94); }
+.chip-btn.on { background: var(--primary); color: #fff; }
+.dots { display: flex; gap: 14px; padding: 2px 4px; }
+.dot-btn { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; outline: 2.5px solid transparent; outline-offset: 2px; transition: outline-color .2s, transform .25s var(--spring); }
+.dot-btn svg.i { width: 18px; height: 18px; opacity: 0; transition: opacity .15s; }
+.dot-btn.on { outline-color: var(--primary); transform: scale(1.06); }
+.dot-btn.on svg.i { opacity: 1; }
+.textarea { display: block; width: 100%; min-height: 76px; border: 0; border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); padding: 14px 16px; font: inherit; font-size: 14px; color: var(--text); outline: none; resize: none; }
+.dropzone { border: 2px dashed var(--faint); border-radius: 22px; height: 76px; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); font-size: 13px; font-weight: 600; width: 100%; }
+.or { text-align: center; font-size: 12px; color: var(--muted); margin: 12px 0; }
+.thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 16px; }
+.thumbs .art, .thumbs .more { aspect-ratio: 1; border-radius: 14px; }
+.thumbs .more { border: 2px dashed var(--faint); display: grid; place-items: center; color: var(--muted); }
+.link-field { display: flex; align-items: center; gap: 10px; background: var(--surface); box-shadow: var(--shadow); border-radius: 18px; padding: 6px 6px 6px 14px; color: var(--muted); }
+.link-field input { flex: 1; min-width: 0; height: 40px; border: 0; background: none; outline: none; font: inherit; font-size: 14px; color: var(--text); }
+.preview { display: none; align-items: center; gap: 12px; margin-top: 10px; background: var(--surface); border-radius: 18px; padding: 10px; box-shadow: var(--shadow); }
+.preview.on { display: flex; animation: rise .4s var(--ease); }
+.preview .art { width: 64px; height: 64px; border-radius: 12px; flex: none; }
+.preview .main { display: grid; }
+.preview strong { font-size: 15px; font-weight: 600; }
+.preview small { font-size: 11px; color: var(--muted); }
+.note { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding: 12px 14px; border-radius: 16px; background: var(--tile); font-size: 13px; color: var(--muted); }
+.note b { color: var(--meta); font-weight: 700; margin-left: auto; }
+
+/* ---------- 내비게이션 바 ---------- */
+.tabbar { position: absolute; left: 24px; right: 24px; bottom: 18px; height: 94px; z-index: 5; }
+.tabbar .bar { position: absolute; left: 0; bottom: 0; width: 342px; height: 64px; fill: var(--surface); filter: drop-shadow(0 8px 16px rgba(var(--shadow-rgb), .1)); }
+.tab { position: absolute; bottom: 12px; width: 48px; height: 48px; margin-left: -24px; display: grid; place-items: center; color: var(--faint); transition: color .2s, transform .3s var(--spring); }
+.tab.on { color: var(--primary); transform: translateY(-3px); }
+.tab:active { transform: scale(.88); }
+.tab-dot { position: absolute; bottom: 9px; left: 0; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--accent); transition: transform .45s var(--spring), opacity .2s; }
+.fab { position: absolute; left: 50%; top: 0; width: 58px; height: 58px; margin-left: -29px; border-radius: 50%; background: var(--primary); color: var(--fab-fg); display: grid; place-items: center; box-shadow: var(--fab-shadow); transition: transform .4s var(--spring), background .25s; z-index: 2; }
+.fab svg.i { width: 26px; height: 26px; transition: transform .4s var(--spring); }
+.fab:active { transform: scale(.92); }
+.open .fab { background: var(--fab-open); color: #fff; transform: translateY(-6px); }
+.open .fab svg.i { transform: rotate(135deg); }
+.dim { position: absolute; inset: 0; background: var(--veil); backdrop-filter: blur(6px); opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 4; }
+.open .dim { opacity: 1; pointer-events: auto; }
+.quick { position: absolute; left: 50%; top: 0; width: 64px; margin-left: -32px; display: grid; justify-items: center; gap: 6px; font-size: 11px; font-weight: 500; opacity: 0; transform: translate(0, 0) scale(.4); pointer-events: none; transition: transform .45s var(--spring), opacity .2s; }
+.quick i { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; box-shadow: var(--shadow); }
+.open .quick { opacity: 1; pointer-events: auto; transform: translate(var(--x), var(--y)) scale(1); }
+.open .quick:nth-of-type(2) { transition-delay: .04s; }
+.open .quick:nth-of-type(3) { transition-delay: .08s; }
+.open .quick:nth-of-type(4) { transition-delay: .12s; }
+
+/* ---------- 데스크톱 캘린더 ---------- */
+.desktop { width: 1200px; height: 800px; border-radius: 28px; padding: 24px; display: flex; gap: 22px; box-shadow: 0 30px 60px rgba(var(--shadow-rgb), .25); }
+.sidebar { width: 76px; background: var(--surface); border-radius: 28px; box-shadow: var(--shadow); padding: 18px 14px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
+.logo { width: 44px; height: 44px; border-radius: 50%; background: var(--primary); display: grid; place-items: center; }
+.side-menu { display: grid; gap: 10px; position: relative; }
+.side-menu button { width: 48px; height: 48px; border-radius: 16px; display: grid; place-items: center; color: var(--faint); position: relative; z-index: 1; transition: color .2s; }
+.side-menu button:hover { color: var(--text); }
+.side-menu button.on { color: #fff; }
+.side-menu .pill { position: absolute; left: 0; top: 0; width: 48px; height: 48px; border-radius: 16px; background: var(--primary); transition: transform .4s var(--spring); }
+.sidebar .us { flex-direction: column; }
+.sidebar .av { width: 36px; height: 36px; }
+.sidebar .av + .av { margin: -10px 0 0; }
+.panel { width: 292px; display: flex; flex-direction: column; justify-content: space-between; padding-top: 10px; }
+.panel h2 { font-size: 26px; font-weight: 800; letter-spacing: -.03em; }
+.panel h2 + p { font-size: 13px; color: var(--muted); margin: 2px 0 14px; }
+.dday.small { border-radius: 24px; padding: 20px; height: 250px; }
+.dday.small .count b { font-size: 46px; }
+.dday.small .count em { font-size: 15px; }
+.dday.small .scene { zoom: .854; }
+.big-cal { flex: 1; background: var(--surface); border-radius: 28px; box-shadow: var(--shadow); padding: 22px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.big-cal header { display: flex; align-items: center; justify-content: space-between; }
+.big-cal header > div { display: flex; align-items: center; gap: 8px; }
+.big-cal h2 { font-size: 24px; font-weight: 800; letter-spacing: -.03em; margin-right: 8px; }
+.mini-seg { display: flex; background: color-mix(in srgb, var(--track) 60%, transparent); border-radius: 12px; padding: 3px; }
+.mini-seg button { padding: 6px 14px; font-size: 12px; font-weight: 500; color: var(--muted); border-radius: 9px; }
+.mini-seg button.on { background: var(--primary); color: #fff; font-weight: 600; }
+.big-cal .circle { width: 36px; height: 36px; background: var(--tile); box-shadow: none; }
+.add { display: flex; align-items: center; gap: 6px; background: var(--primary); color: #fff; font-size: 13px; font-weight: 600; padding: 8px 16px 8px 12px; border-radius: 18px; }
+.add svg.i { width: 18px; height: 18px; }
+.big-names, .big-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.big-names { font-size: 12px; font-weight: 500; color: var(--muted); }
+.big-names span { padding-left: 10px; }
+.big-names span:first-child { color: var(--accent); }
+.big-days { flex: 1; grid-auto-rows: 1fr; }
+.cell { background: var(--tile); border-radius: 14px; padding: 8px 6px 6px; display: flex; flex-direction: column; gap: 4px; min-width: 0; transition: background .2s, transform .2s; cursor: pointer; }
+.cell:hover { background: var(--tile-hover); transform: translateY(-2px); }
+.cell.out { opacity: .5; }
+.cell b { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 500; }
+.cell.sun b { color: var(--accent); }
+.cell.today b { background: var(--primary); color: #fff; font-weight: 600; }
+.cell span { font-size: 11px; font-weight: 500; padding: 3px 6px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .mover { offset-distance: 77%; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
+    <symbol id="i-album" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-gift" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M3 7h18v3H3zM12 7v13"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 21s-8-5.3-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.7-8 11-8 11z"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8l-5 4v-4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 5v14M16 5v14M3 10h5M3 14h5M16 10h5M16 14h5"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 8M20 4v4h-4M20 12a8 8 0 0 1-13.7 5.6L4 16M4 20v-4h4"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="M10 6l6 6-6 6"/></symbol>
+    <symbol id="boat" viewBox="0 0 30 33"><path d="M0 24h30l-6 9H6z" fill="#FF5A5F"/><path d="M15 0v21h14z" fill="#fff"/><path d="M12 6v15H3z" fill="#FFB8DC"/></symbol>
+    <symbol id="star" viewBox="0 0 24 24"><path d="M12 2c1 6 4 9 10 10-6 1-9 4-10 10-1-6-4-9-10-10 6-1 9-4 10-10z" fill="#F2B544"/></symbol>
+  </defs>
+</svg>
+
+<!-- 배 테마 장면: 바다 위를 항해해 다음 기념일 깃발까지 -->
+<template id="scene-boat">
+  <div class="scene">
+    <svg class="land" viewBox="0 0 342 150" fill="none">
+      <g class="drift" fill="#fff" fill-opacity=".2"><rect x="24" y="30" width="54" height="14" rx="7"/><rect x="44" y="20" width="30" height="16" rx="8"/><rect x="170" y="48" width="44" height="12" rx="6"/></g>
+      <path class="swell" d="M-20 98C40 70 90 90 150 82S260 60 322 86S380 96 380 96V150H-20Z" fill="#4D68FF" fill-opacity=".7"/>
+      <path d="M0 116C70 90 130 120 200 104S300 90 342 108V150H0Z" fill="#1F38D9"/>
+      <path class="route" d="M0 116C70 90 130 120 200 104S300 90 342 108" stroke="#fff" stroke-opacity=".6" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M303 100V70" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M303 70l-14 5 14 5z" fill="#FFD978"/>
+      <path d="M296 99h14l-2 7h-10z" fill="#FF5A5F"/>
+      <path d="M0 136C60 122 130 142 200 130S300 122 342 132V150H0Z" fill="#1429A8"/>
+      <g stroke="#fff" stroke-opacity=".5" stroke-width="1.5" stroke-linecap="round"><path d="M40 141q6-4 12 0"/><path d="M150 145q6-4 12 0"/><path d="M250 138q6-4 12 0"/></g>
+    </svg>
+    <i class="mark" style="offset-distance:10%" title="100일"></i><i class="mark" style="offset-distance:27%" title="200일"></i>
+    <i class="mark" style="offset-distance:44%" title="300일"></i><i class="mark" style="offset-distance:61%" title="400일"></i>
+    <span class="goal-label">500일</span>
+    <div class="mover"><svg width="27" height="30"><use href="#boat"/></svg></div>
+  </div>
+</template>
+
+<!-- 여정 테마 장면: 밤 사막을 걸어 다음 오아시스까지 -->
+<template id="scene-journey">
+  <div class="scene">
+    <svg class="land" viewBox="0 0 342 150" fill="none">
+      <defs><linearGradient id="dune" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E58C5C"/><stop offset="1" stop-color="#B9573F"/></linearGradient></defs>
+      <g fill="#FFE7A8">
+        <circle class="tw" cx="30" cy="22" r="1.4"/><circle class="tw" cx="82" cy="46" r="1" style="animation-delay:.6s"/>
+        <circle class="tw" cx="142" cy="16" r="1.6" style="animation-delay:1.1s"/><circle class="tw" cx="192" cy="42" r="1" style="animation-delay:.3s"/>
+        <circle class="tw" cx="232" cy="20" r="1.3" style="animation-delay:1.7s"/><circle class="tw" cx="120" cy="62" r="1" style="animation-delay:.9s"/>
+        <circle class="tw" cx="58" cy="68" r="1.2" style="animation-delay:1.4s"/><circle class="tw" cx="316" cy="50" r="1.1" style="animation-delay:2s"/>
+      </g>
+      <path class="shoot" d="M70 6l44 16" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M236 84l24-32 24 32zM270 86l15-20 15 20z" fill="#3A2F70"/>
+      <path d="M0 98C60 70 110 90 170 82S280 60 342 86V150H0Z" fill="#4A3A82"/>
+      <path d="M0 116C70 90 130 120 200 104S300 90 342 108V150H0Z" fill="url(#dune)"/>
+      <path d="M0 116C70 90 130 120 200 104S300 90 342 108" stroke="#FFE7A8" stroke-opacity=".55" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="1 6"/>
+      <ellipse cx="313" cy="103" rx="13" ry="3" fill="#7CD3C8"/>
+      <g stroke="#17403D" stroke-width="2.5" stroke-linecap="round"><path d="M300 99q2-12-1-22"/><path d="M299 77q-10-6-16 2"/><path d="M299 77q-6-10-14-8"/><path d="M299 77q8-8 16-2"/><path d="M299 77q10-2 14 8"/><path d="M299 77q0-10 6-13"/></g>
+      <path d="M0 136C60 122 130 142 200 130S300 122 342 132V150H0Z" fill="#F0C592"/>
+    </svg>
+    <i class="mark" style="offset-distance:10%" title="100일"></i><i class="mark" style="offset-distance:27%" title="200일"></i>
+    <i class="mark" style="offset-distance:44%" title="300일"></i><i class="mark" style="offset-distance:61%" title="400일"></i>
+    <span class="goal-label">500일</span>
+    <div class="mover"><svg width="22" height="20" viewBox="0 0 22 20"><path d="M1 6v13" stroke="#F2B544" stroke-width="1.4" stroke-linecap="round"/><rect x="3" y="7.5" width="6" height="12" rx="3" fill="#D9623B"/><circle cx="6" cy="4" r="3" fill="#F6D9A8"/><rect x="12.2" y="8.5" width="5.6" height="11" rx="2.8" fill="#FFFDF9"/><circle cx="15" cy="5.2" r="2.8" fill="#F6D9A8"/></svg></div>
+  </div>
+</template>
+
+<div class="toolbar">
+  <span>테마</span>
+  <div class="theme-switch" id="theme-switch">
+    <button data-theme-pick="boat">배 (기본)</button>
+    <button data-theme-pick="journey">여정</button>
+  </div>
+  <span>화면 모드</span>
+  <div class="theme-switch">
+    <button data-mode-pick="light">라이트</button>
+    <button data-mode-pick="dark">다크</button>
+  </div>
+  <span>앱에서는 "우리" 화면에서 고릅니다.</span>
+  <a href="logo.html" style="color:var(--primary);font-weight:600;text-decoration:none">로고 시안 →</a>
+</div>
+
+<main class="board">
+  <div>
+    <h2>모바일 — 아래 탭과 + 버튼을 눌러 보세요</h2>
+    <section class="phone app-bg" id="phone">
+
+      <!-- 홈 -->
+      <div class="screen pad active" data-screen="home">
+        <div class="row-between">
+          <button class="circle" aria-label="알림"><svg class="i"><use href="#i-bell"/></svg></button>
+          <button class="us" data-go="us" aria-label="우리"><i class="av a"></i><i class="av b"></i></button>
+        </div>
+        <header class="hello">
+          <h1 class="page-title" data-t="title"></h1>
+          <p data-t="hello"></p>
+        </header>
+        <div class="stack">
+          <article class="dday sailing" title="눌러서 다시 보기">
+            <i class="orb"></i>
+            <span class="label" data-t="label"></span>
+            <p class="count"><b data-count="465">465</b><em data-t="unit"></em></p>
+            <span class="next" data-t="next"></span>
+            <div data-scene></div>
+          </article>
+          <i class="under u1"></i><i class="under u2"></i>
+        </div>
+        <ul class="rows">
+          <li class="rise" data-go="anniv" style="cursor:pointer"><span class="icon-tile" style="background:var(--sand)"><svg class="i"><use href="#i-gift"/></svg></span><span class="main"><small data-t="row1"></small><strong>500일</strong></span><span class="meta">D-35</span></li>
+          <li class="rise"><span class="icon-tile" style="background:var(--sky)"><svg class="i"><use href="#i-cal"/></svg></span><span class="main"><small data-t="row2"></small><strong>전시 보러 가기</strong></span><span class="meta">3일 뒤</span></li>
+          <li class="rise"><span class="icon-tile" style="background:var(--rose)"><svg class="i"><use href="#i-note"/></svg></span><span class="main"><small data-t="row3"></small><strong>밤편지 — 아이유</strong></span><span class="meta">방금</span></li>
+        </ul>
+      </div>
+
+      <!-- 캘린더 -->
+      <div class="screen pad" data-screen="calendar">
+        <div class="row-between cal-head">
+          <h1 class="page-title">11월 <span>2026</span></h1>
+          <div class="arrows">
+            <button class="circle" aria-label="이전 달"><svg class="i"><use href="#i-left"/></svg></button>
+            <button class="circle" aria-label="다음 달"><svg class="i"><use href="#i-right"/></svg></button>
+          </div>
+        </div>
+        <div class="month">
+          <div class="week-names"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+          <div class="days" id="days"></div>
+        </div>
+        <h2 class="list-head row-between" id="list-title">다가오는 일정 <span>전체 보기</span></h2>
+        <ul class="events" id="events"></ul>
+      </div>
+
+      <!-- 취향 -->
+      <div class="screen" data-screen="taste">
+        <div class="row-between pad">
+          <div><h1 class="page-title">취향</h1><p class="sub" data-t="tasteSub"></p></div>
+          <button class="circle" aria-label="검색"><svg class="i"><use href="#i-search"/></svg></button>
+        </div>
+        <div class="cats" id="cats">
+          <button class="cat on"><i style="background:var(--lav)"><svg class="i"><use href="#i-grid"/></svg></i>전체</button>
+          <button class="cat"><i style="background:var(--rose)"><svg class="i"><use href="#i-note"/></svg></i>음악</button>
+          <button class="cat"><i style="background:var(--sky)"><svg class="i"><use href="#i-film"/></svg></i>영화</button>
+          <button class="cat"><i style="background:var(--sand)"><svg class="i"><use href="#i-play"/></svg></i>영상</button>
+          <button class="cat"><i style="background:var(--sage)"><svg class="i"><use href="#i-book"/></svg></i>책</button>
+          <button class="cat"><i style="background:var(--peach)"><svg class="i"><use href="#i-pin"/></svg></i>장소</button>
+        </div>
+        <div class="segment" id="segment"><i class="thumb"></i><button class="on">둘 다</button><button>지우</button><button>하린</button></div>
+        <div class="feed">
+          <article class="taste a rise">
+            <span class="chip"><svg class="i"><use href="#i-note"/></svg>음악</span>
+            <div class="info">
+              <span class="who"><i class="av b" style="width:22px;height:22px;border-width:1.5px;box-sizing:border-box"></i>하린 · 2시간 전</span>
+              <h3>밤편지</h3>
+              <p>새벽에 들으면 진짜 좋아. 이번 주말에 같이 듣자</p>
+            </div>
+            <div class="react">
+              <button class="like" aria-label="좋아요"><svg class="i"><use href="#i-heart"/></svg></button>
+              <button aria-label="댓글"><svg class="i"><use href="#i-chat"/></svg></button>
+              <button aria-label="더보기"><svg class="i"><use href="#i-dots"/></svg></button>
+            </div>
+          </article>
+          <article class="taste b rise">
+            <span class="chip"><svg class="i"><use href="#i-film"/></svg>영화</span>
+            <div class="info">
+              <span class="who"><i class="av a" style="width:22px;height:22px;border-width:1.5px;box-sizing:border-box"></i>지우 · 어제</span>
+              <h3>헤어질 결심</h3>
+              <p>바다 장면 때문에 다시 보고 싶어졌어</p>
+            </div>
+            <div class="react">
+              <button class="like on" aria-label="좋아요"><svg class="i"><use href="#i-heart"/></svg></button>
+              <button aria-label="댓글"><svg class="i"><use href="#i-chat"/></svg></button>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <!-- 앨범 -->
+      <div class="screen pad" data-screen="album">
+        <div class="row-between">
+          <div><h1 class="page-title">앨범</h1><p class="sub" data-t="albumSub"></p></div>
+          <button class="circle" aria-label="검색"><svg class="i"><use href="#i-search"/></svg></button>
+        </div>
+        <div class="stack" style="margin-top:18px">
+          <article class="memory art" id="memory">
+            <span class="chip"><svg class="i"><use href="#i-album"/></svg>1년 전 오늘</span>
+            <div><h3>첫 겨울 바다</h3><p>2025. 11. 11 · 사진 8장</p></div>
+            <span class="go"><svg class="i"><use href="#i-right"/></svg></span>
+          </article>
+          <i class="under u1"></i><i class="under u2"></i>
+        </div>
+        <div class="segment two" data-views="album"><i class="thumb"></i><button class="on">앨범</button><button>전체 사진</button></div>
+        <div class="album-view on" data-view="album-0"><div class="albums" id="albums"></div></div>
+        <div class="album-view" data-view="album-1" id="all-photos"></div>
+      </div>
+
+      <!-- 우리 (프로필·설정): 홈의 아바타를 누르면 열린다 -->
+      <div class="screen pad" data-screen="us">
+        <div class="row-between">
+          <button class="circle" data-go="home" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></button>
+          <h1 class="bar-title">우리</h1>
+          <span style="width:44px"></span>
+        </div>
+        <section class="couple card">
+          <div class="pair">
+            <figure><i class="av a big"></i><figcaption>지우</figcaption></figure>
+            <div class="link"><span></span>
+              <svg class="t-boat" width="22" height="24"><use href="#boat"/></svg>
+              <svg class="t-journey" width="20" height="20"><use href="#star"/></svg>
+            <span></span></div>
+            <figure><i class="av b big"></i><figcaption>하린</figcaption></figure>
+          </div>
+          <p class="since"><b>2025. 8. 4</b>부터 · 465일째</p>
+          <button class="ghost">프로필 수정</button>
+        </section>
+
+        <h2 class="group">테마</h2>
+        <div class="theme-cards">
+          <button class="theme-card boat" data-theme-pick="boat"><i></i><span>배 · 함께 항해하기</span></button>
+          <button class="theme-card journey" data-theme-pick="journey"><i></i><span>여정 · 함께 걸어가기</span></button>
+        </div>
+
+        <h2 class="group">설정</h2>
+        <ul class="menu card">
+          <li data-go="anniv"><span class="icon-tile" style="background:var(--sand)"><svg class="i"><use href="#i-gift"/></svg></span><span class="main"><strong>기념일</strong><small>다음 · 500일 D-35</small></span><svg class="i chev"><use href="#i-right"/></svg></li>
+          <li><span class="icon-tile" style="background:var(--sky)"><svg class="i"><use href="#i-cal"/></svg></span><span class="main"><strong>캘린더 연동</strong><small>Google 캘린더 연결됨</small></span><button class="switch on" role="switch" aria-label="캘린더 연동"></button></li>
+          <li><span class="icon-tile" style="background:var(--rose)"><svg class="i"><use href="#i-bell"/></svg></span><span class="main"><strong>기념일 알림</strong><small>7일 전 · 하루 전 · 당일</small></span><button class="switch on" role="switch" aria-label="기념일 알림"></button></li>
+          <li data-mode-toggle style="cursor:pointer"><span class="icon-tile" style="background:var(--lav)"><svg class="i"><use href="#i-sun"/></svg></span><span class="main"><strong>화면 모드</strong><small id="mode-label"></small></span><svg class="i chev"><use href="#i-right"/></svg></li>
+        </ul>
+        <div class="foot-actions"><button>로그아웃</button><button class="danger">연결 끊기</button></div>
+      </div>
+
+      <!-- 기념일 -->
+      <div class="screen pad" data-screen="anniv">
+        <div class="row-between">
+          <button class="circle" data-go="us" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></button>
+          <h1 class="bar-title">기념일</h1>
+          <button class="circle" aria-label="기념일 추가" data-sheet="anniv"><svg class="i"><use href="#i-plus"/></svg></button>
+        </div>
+        <article class="next-card">
+          <small data-t="annivNext"></small>
+          <h3>500일</h3>
+          <p>2026. 12. 16 수요일</p>
+          <span class="dd-big">D-35</span>
+          <div class="progress"><i></i></div>
+          <div class="progress-labels"><span>400일</span><span>오늘 465일</span><span>500일</span></div>
+        </article>
+        <h2 class="group" data-t="annivAhead"></h2>
+        <ol class="timeline" id="anniv-ahead"></ol>
+        <h2 class="group" data-t="annivPast"></h2>
+        <ol class="timeline past" id="anniv-past"></ol>
+      </div>
+
+      <div class="sheet-dim" id="sheet-dim"></div>
+      <section class="sheet" data-sheet-name="event" aria-label="일정 추가">
+        <i class="handle"></i>
+        <div class="row-between"><h2>일정 추가</h2><button class="circle" data-sheet-close aria-label="닫기"><svg class="i"><use href="#i-plus"/></svg></button></div>
+        <input class="big-input" placeholder="무슨 일정인가요?" value="전시 보러 가기" aria-label="일정 이름">
+        <ul class="menu card"><li><span class="icon-tile" style="background:var(--sky)"><svg class="i"><use href="#i-cal"/></svg></span><span class="main"><strong>11월 14일 토요일</strong><small>날짜</small></span><svg class="i chev"><use href="#i-right"/></svg></li><li><span class="icon-tile" style="background:var(--lav)"><svg class="i"><use href="#i-clock"/></svg></span><span class="main"><strong>오후 2:00 – 4:00</strong><small>시간</small></span><span class="trail">하루 종일</span><button class="switch" role="switch" aria-label="하루 종일"></button></li><li><span class="icon-tile" style="background:var(--peach)"><svg class="i"><use href="#i-pin"/></svg></span><span class="main"><strong>성수동</strong><small>장소</small></span><svg class="i chev"><use href="#i-right"/></svg></li></ul>
+        <p class="label">누구의 일정인가요</p>
+        <div class="chips" data-pick="one"><button class="chip-btn on">같이</button><button class="chip-btn">지우</button><button class="chip-btn">하린</button></div>
+        <p class="label">색</p>
+        <div class="dots" data-pick="one"><button class="dot-btn on" style="background:var(--sky)" aria-label="색 1"><svg class="i"><use href="#i-check"/></svg></button><button class="dot-btn" style="background:var(--rose)" aria-label="색 2"><svg class="i"><use href="#i-check"/></svg></button><button class="dot-btn" style="background:var(--sand)" aria-label="색 3"><svg class="i"><use href="#i-check"/></svg></button><button class="dot-btn" style="background:var(--lav)" aria-label="색 4"><svg class="i"><use href="#i-check"/></svg></button><button class="dot-btn" style="background:var(--sage)" aria-label="색 5"><svg class="i"><use href="#i-check"/></svg></button></div>
+        <button class="btn primary" data-sheet-close>저장</button>
+      </section>
+      <section class="sheet" data-sheet-name="taste" aria-label="취향 공유">
+        <i class="handle"></i>
+        <div class="row-between"><h2>취향 공유</h2><button class="circle" data-sheet-close aria-label="닫기"><svg class="i"><use href="#i-plus"/></svg></button></div>
+        <p class="label">링크</p>
+        <div class="link-field"><svg class="i"><use href="#i-link"/></svg><input id="taste-link" placeholder="링크를 붙여넣으세요" aria-label="링크"><button class="ghost" id="paste-demo">붙여넣기</button></div>
+        <div class="preview" id="taste-preview"><i class="art" id="taste-preview-art"></i><span class="main"><strong>밤편지 — 아이유</strong><small>example.com · 미리보기를 자동으로 가져와요</small></span></div>
+        <p class="or">또는</p>
+        <button class="dropzone"><svg class="i"><use href="#i-album"/></svg>캡처 화면 올리기</button>
+        <p class="label">분류</p>
+        <div class="chips" data-pick="one"><button class="chip-btn on">음악</button><button class="chip-btn">영화</button><button class="chip-btn">영상</button><button class="chip-btn">책</button><button class="chip-btn">장소</button></div>
+        <p class="label">한마디</p>
+        <textarea class="textarea" placeholder="왜 좋았는지 한마디 남겨 보세요" aria-label="한마디"></textarea>
+        <button class="btn primary" data-sheet-close>공유하기</button>
+      </section>
+      <section class="sheet" data-sheet-name="photo" aria-label="사진 올리기">
+        <i class="handle"></i>
+        <div class="row-between"><h2>사진 올리기</h2><button class="circle" data-sheet-close aria-label="닫기"><svg class="i"><use href="#i-plus"/></svg></button></div>
+        <div class="thumbs" id="photo-thumbs"></div>
+        <p class="label">앨범</p>
+        <div class="chips" data-pick="one"><button class="chip-btn on">성수동 산책</button><button class="chip-btn">제주 여행</button><button class="chip-btn">+ 새 앨범</button></div>
+        <ul class="menu card" style="margin-top:16px"><li><span class="icon-tile" style="background:var(--sky)"><svg class="i"><use href="#i-cal"/></svg></span><span class="main"><strong>2026년 11월 8일</strong><small>찍은 날</small></span><svg class="i chev"><use href="#i-right"/></svg></li><li><span class="icon-tile" style="background:var(--peach)"><svg class="i"><use href="#i-pin"/></svg></span><span class="main"><strong>성수동</strong><small>장소</small></span><svg class="i chev"><use href="#i-right"/></svg></li></ul>
+        <p class="label">한마디</p>
+        <textarea class="textarea" placeholder="이날을 한 줄로 남겨 보세요" aria-label="한마디"></textarea>
+        <button class="btn primary" data-sheet-close>3장 올리기</button>
+      </section>
+      <section class="sheet" data-sheet-name="anniv" aria-label="기념일 추가">
+        <i class="handle"></i>
+        <div class="row-between"><h2>기념일 추가</h2><button class="circle" data-sheet-close aria-label="닫기"><svg class="i"><use href="#i-plus"/></svg></button></div>
+        <input class="big-input" placeholder="어떤 날인가요?" value="하린 생일" aria-label="기념일 이름">
+        <ul class="menu card"><li><span class="icon-tile" style="background:var(--sky)"><svg class="i"><use href="#i-cal"/></svg></span><span class="main"><strong>12월 25일</strong><small>날짜</small></span><svg class="i chev"><use href="#i-right"/></svg></li><li><span class="icon-tile" style="background:var(--sand)"><svg class="i"><use href="#i-repeat"/></svg></span><span class="main"><strong>매년 반복</strong><small>생일처럼 해마다 돌아오는 날</small></span><button class="switch on" role="switch" aria-label="매년 반복"></button></li></ul>
+        <p class="note">다음은 2026. 12. 25 금요일 <b>D-44</b></p>
+        <p class="label">알림</p>
+        <div class="chips" data-pick="many"><button class="chip-btn on">7일 전</button><button class="chip-btn on">하루 전</button><button class="chip-btn on">당일</button></div>
+        <p class="label">색</p>
+        <div class="dots" data-pick="one"><button class="dot-btn on" style="background:var(--sky)" aria-label="색 1"><svg class="i"><use href="#i-check"/></svg></button><button class="dot-btn" style="background:var(--rose)" aria-label="색 2"><svg class="i"><use href="#i-check"/></svg></button><button class="dot-btn" style="background:var(--sand)" aria-label="색 3"><svg class="i"><use href="#i-check"/></svg></button><button class="dot-btn" style="background:var(--lav)" aria-label="색 4"><svg class="i"><use href="#i-check"/></svg></button><button class="dot-btn" style="background:var(--sage)" aria-label="색 5"><svg class="i"><use href="#i-check"/></svg></button></div>
+        <button class="btn primary" data-sheet-close>저장</button>
+      </section>
+
+      <div class="dim" id="dim"></div>
+      <div class="viewer" id="viewer">
+        <button class="close" aria-label="닫기"><svg class="i"><use href="#i-plus"/></svg></button>
+        <div class="art" id="viewer-art"></div>
+        <div class="row-between">
+          <div><strong id="viewer-title"></strong><small id="viewer-sub"></small></div>
+          <button class="like" aria-label="좋아요"><svg class="i"><use href="#i-heart"/></svg></button>
+        </div>
+      </div>
+      <nav class="tabbar" id="tabbar" aria-label="주 메뉴">
+        <svg class="bar" viewBox="0 0 342 64"><path d="M22 0H126Q133 0 134 6A38 38 0 0 0 208 6Q209 0 216 0H320A22 22 0 0 1 342 22V42A22 22 0 0 1 320 64H22A22 22 0 0 1 0 42V22A22 22 0 0 1 22 0Z"/></svg>
+        <button class="quick" style="--x:-112px;--y:-74px" data-sheet="event"><i style="background:var(--sky)"><svg class="i"><use href="#i-cal"/></svg></i>일정</button>
+        <button class="quick" style="--x:-40px;--y:-116px" data-sheet="taste"><i style="background:var(--rose)"><svg class="i"><use href="#i-note"/></svg></i>취향</button>
+        <button class="quick" style="--x:40px;--y:-116px" data-sheet="photo"><i style="background:var(--lav)"><svg class="i"><use href="#i-album"/></svg></i>사진</button>
+        <button class="quick" style="--x:112px;--y:-74px" data-sheet="anniv"><i style="background:var(--sand)"><svg class="i"><use href="#i-gift"/></svg></i>기념일</button>
+        <i class="tab-dot" id="dot"></i>
+        <button class="tab on" style="left:40px" data-go="home" aria-label="홈"><svg class="i"><use href="#i-home"/></svg></button>
+        <button class="tab" style="left:98px" data-go="calendar" aria-label="캘린더"><svg class="i"><use href="#i-cal"/></svg></button>
+        <button class="tab" style="left:244px" data-go="taste" aria-label="취향"><svg class="i"><use href="#i-note"/></svg></button>
+        <button class="tab" style="left:302px" data-go="album" aria-label="앨범"><svg class="i"><use href="#i-album"/></svg></button>
+        <button class="fab" id="fab" aria-label="추가"><svg class="i"><use href="#i-plus"/></svg></button>
+      </nav>
+    </section>
+  </div>
+
+  <div>
+    <h2>로그인 흐름 — 버튼을 눌러 다음 단계로</h2>
+    <section class="phone app-bg auth" id="auth">
+
+      <!-- 시작 (로그인) -->
+      <div class="screen active" data-screen="welcome">
+        <div class="welcome-hero dday sailing">
+          <i class="orb"></i>
+          <p class="brand">NÓS <small>노스 · 우리</small></p>
+          <h1 data-t="brandLine"></h1>
+          <p class="lead">우리 둘의 일정, 취향, 사진, 기념일을 한곳에</p>
+          <div data-scene></div>
+        </div>
+        <div class="auth-actions pad">
+          <button class="btn kakao" data-flow="connect"><svg viewBox="0 0 24 24"><path d="M12 4c-5 0-9 3.1-9 7 0 2.5 1.7 4.7 4.2 5.9L6.5 20l3.7-2.2c.6.1 1.2.2 1.8.2 5 0 9-3.1 9-7s-4-7-9-7z" fill="#191919"/></svg>카카오로 시작하기</button>
+          <button class="btn google" data-flow="connect"><span class="g">G</span>Google로 시작하기</button>
+          <button class="btn apple" data-flow="connect">Apple로 시작하기</button>
+          <button class="text-btn" data-flow="email">이메일로 시작하기</button>
+        </div>
+      </div>
+
+      <!-- 이메일 로그인·회원가입 -->
+      <div class="screen pad" data-screen="email">
+        <button class="circle" data-flow="welcome" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></button>
+        <h1 class="page-title" style="margin-top:22px">이메일로 시작하기</h1>
+        <p class="sub">처음이라면 회원가입을 눌러 주세요</p>
+        <div class="segment two" data-views="auth"><i class="thumb"></i><button class="on">로그인</button><button>회원가입</button></div>
+        <label class="field"><span>이메일</span><input type="email" placeholder="name@example.com" autocomplete="off"></label>
+        <label class="field"><span>비밀번호</span><input type="password" placeholder="8자 이상" autocomplete="off"></label>
+        <div class="view" data-view="auth-1"><label class="field"><span>비밀번호 확인</span><input type="password" placeholder="한 번 더 입력" autocomplete="off"></label></div>
+        <button class="btn primary" data-flow="connect">계속</button>
+      </div>
+
+      <!-- 커플 연결 -->
+      <div class="screen pad" data-screen="connect">
+        <button class="circle" data-flow="welcome" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></button>
+        <h1 class="page-title" style="margin-top:22px">둘만의 공간 연결하기</h1>
+        <p class="sub">초대 코드를 받았다면 입력하고, 아니라면 새로 만들어 보내 주세요</p>
+        <div class="pair center">
+          <figure><i class="av a big"></i><figcaption>나</figcaption></figure>
+          <div class="link"><span></span><span></span></div>
+          <figure><i class="av big vacant">?</i><figcaption>상대방</figcaption></figure>
+        </div>
+        <div class="segment two" data-views="connect"><i class="thumb"></i><button class="on">코드 입력</button><button>새로 만들기</button></div>
+        <div class="view on" data-view="connect-0">
+          <div class="code-inputs" id="code-inputs">
+            <input maxlength="1" aria-label="초대 코드 1번째 글자"><input maxlength="1" aria-label="2번째 글자"><input maxlength="1" aria-label="3번째 글자">
+            <input maxlength="1" aria-label="4번째 글자"><input maxlength="1" aria-label="5번째 글자"><input maxlength="1" aria-label="6번째 글자">
+          </div>
+          <p class="hint">상대방 화면에 보이는 6자리 코드예요</p>
+          <button class="btn primary" data-flow="done">연결하기</button>
+        </div>
+        <div class="view" data-view="connect-1">
+          <label class="field" style="margin-top:4px"><span>사귀기 시작한 날</span><input type="date" value="2025-08-04"></label>
+          <p class="hint">나중에 설정해도 괜찮아요</p>
+          <button class="btn primary" data-flow="waiting">공간 만들고 코드 받기</button>
+        </div>
+      </div>
+
+      <!-- 상대방 기다리기 -->
+      <div class="screen pad" data-screen="waiting">
+        <button class="circle" data-flow="connect" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></button>
+        <h1 class="page-title" style="margin-top:22px">초대 코드를 보내 주세요</h1>
+        <p class="sub" data-t="waitingText"></p>
+        <div class="code-card card">
+          <small>초대 코드</small>
+          <p class="code">6DAGMW</p>
+          <button class="ghost" id="copy-code">코드 복사</button>
+        </div>
+        <div class="pair center">
+          <figure><i class="av a big"></i><figcaption>나</figcaption></figure>
+          <div class="link"><span></span>
+            <svg class="t-boat" width="22" height="24"><use href="#boat"/></svg>
+            <svg class="t-journey" width="20" height="20"><use href="#star"/></svg>
+          <span></span></div>
+          <figure><i class="av big vacant">?</i><figcaption>상대방</figcaption></figure>
+        </div>
+        <button class="btn kakao" style="margin-top:14px"><svg viewBox="0 0 24 24"><path d="M12 4c-5 0-9 3.1-9 7 0 2.5 1.7 4.7 4.2 5.9L6.5 20l3.7-2.2c.6.1 1.2.2 1.8.2 5 0 9-3.1 9-7s-4-7-9-7z" fill="#191919"/></svg>카카오톡으로 보내기</button>
+        <button class="text-btn" data-flow="done">(시안) 상대방이 연결한 화면 보기</button>
+      </div>
+
+      <!-- 연결 완료 -->
+      <div class="screen pad" data-screen="done">
+        <div class="done-wrap">
+          <div class="pair center">
+            <figure><i class="av a big"></i><figcaption>지우</figcaption></figure>
+            <div class="link"><span></span>
+              <svg class="t-boat" width="22" height="24"><use href="#boat"/></svg>
+              <svg class="t-journey" width="20" height="20"><use href="#star"/></svg>
+            <span></span></div>
+            <figure><i class="av b big"></i><figcaption>하린</figcaption></figure>
+          </div>
+          <h1 class="page-title" style="margin-top:18px">연결됐어요</h1>
+          <p class="sub" data-t="doneText"></p>
+        </div>
+        <button class="btn primary" data-flow="welcome" style="margin-top:36px">시작하기</button>
+      </div>
+    </section>
+  </div>
+
+  <div>
+    <h2>데스크톱 — 캘린더</h2>
+    <section class="desktop app-bg">
+      <aside class="sidebar">
+        <span class="logo">
+          <svg class="t-boat" width="24" height="26"><use href="#boat"/></svg>
+          <svg class="t-journey" width="24" height="24"><use href="#star"/></svg>
+        </span>
+        <nav class="side-menu" id="side-menu">
+          <i class="pill"></i>
+          <button aria-label="홈"><svg class="i"><use href="#i-home"/></svg></button>
+          <button class="on" aria-label="캘린더"><svg class="i"><use href="#i-cal"/></svg></button>
+          <button aria-label="취향"><svg class="i"><use href="#i-note"/></svg></button>
+          <button aria-label="앨범"><svg class="i"><use href="#i-album"/></svg></button>
+          <button aria-label="기념일"><svg class="i"><use href="#i-gift"/></svg></button>
+        </nav>
+        <div class="us"><i class="av a"></i><i class="av b"></i></div>
+      </aside>
+      <div class="panel">
+        <div>
+          <h2>다가오는 일정</h2>
+          <p data-t="panelSub"></p>
+          <ul class="events" id="events-desktop"></ul>
+        </div>
+        <article class="dday small sailing">
+          <i class="orb"></i>
+          <span class="label" data-t="label"></span>
+          <p class="count"><b>465</b><em data-t="unit"></em></p>
+          <span class="next">500일까지 35일</span>
+          <div data-scene></div>
+        </article>
+      </div>
+      <div class="big-cal">
+        <header>
+          <div>
+            <h2>2026년 11월</h2>
+            <div class="mini-seg"><button class="on">월</button><button>주</button><button>일</button></div>
+          </div>
+          <div>
+            <button class="circle" aria-label="이전 달"><svg class="i"><use href="#i-left"/></svg></button>
+            <button class="circle" aria-label="다음 달"><svg class="i"><use href="#i-right"/></svg></button>
+            <button class="add"><svg class="i"><use href="#i-plus"/></svg>일정 추가</button>
+          </div>
+        </header>
+        <div class="big-names"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+        <div class="big-days" id="big-days"></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+
+// 테마별 문구. 색은 CSS 토큰이, 장면은 <template>이 맡는다.
+const THEMES = {
+  boat: {
+    title: "파울로와 코엘료", hello: "오늘도 나란히 흘러가는 중",
+    label: "함께한 지", unit: "일", next: "500일까지 35일",
+    row1: "다음 기념일", row2: "토요일 · 오후 2시", row3: "하린이 공유한 음악",
+    tasteSub: "서로에게 건넨 것들", albumSub: "함께 지나온 장면들", brandLine: "둘이 함께 떠나는 항해", waitingText: "상대방이 배에 오르기를 기다리는 중이에요", doneText: "이제 같은 배를 탔어요", annivNext: "다음 기념일", annivAhead: "다가오는 날", annivPast: "지나온 날", panelSub: "놓치면 안 되는 날들",
+  },
+  journey: {
+    title: "지우와 하린의 여정", hello: "오늘도 같은 방향으로 걷는 중",
+    label: "함께 걸어온 길", unit: "번째 날", next: "다음 오아시스 · 500일까지 35일",
+    row1: "다음 오아시스 · 기념일", row2: "다가오는 길 · 토요일 오후 2시", row3: "하린이 발견한 보물 · 음악",
+    tasteSub: "길 위에서 발견한 것들", albumSub: "지나온 풍경", brandLine: "둘이 함께 걷는 여정", waitingText: "상대방이 길에 합류하기를 기다리는 중이에요", doneText: "이제 같은 길을 걸어요", annivNext: "다음 오아시스", annivAhead: "앞으로 걸어갈 길", annivPast: "지나온 길", panelSub: "앞으로 걸어갈 길",
+  },
+};
+
+// 시안용 예시 데이터 (2026년 11월: 1일이 일요일, 오늘은 11일)
+const TODAY = 11;
+const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+const EVENTS = [
+  { day: 3, color: "lav", time: "저녁 6:30", title: "필름 맡기기", tag: "지우", note: "지우 일정" },
+  { day: 8, color: "rose", time: "오후 1:00", title: "성수 산책", tag: "데이트", note: "성수 · 데이트" },
+  { day: 14, color: "sky", time: "오후 2:00", title: "전시 보러 가기", tag: "데이트", note: "성수 · 데이트" },
+  { day: 20, color: "sand", time: "저녁 7:00", title: "하린 회식", tag: "하린", note: "하린 일정" },
+  { day: 20, color: "lav", time: "밤 9:30", title: "영화 예매 오픈", tag: "같이", note: "같이 할 일" },
+  { day: 25, color: "rose", time: "저녁 7:30", title: "저녁 외식", tag: "데이트", note: "연남 · 데이트" },
+  { day: 28, color: "sky", time: "오전 11:00", title: "본가 방문", tag: "지우", note: "지우 일정" },
+];
+const on = day => EVENTS.filter(e => e.day === day);
+const eventItem = (e, withNote) => `<li class="rise"><i class="bar" style="background:var(--${e.color})"></i>
+  <span class="main"><small>11. ${e.day} ${WEEKDAYS[(e.day - 1) % 7]} · ${e.time}</small><strong>${e.title}</strong>${withNote ? `<em>${e.note}</em>` : ""}</span>
+  ${withNote ? "" : `<span class="tag" style="background:color-mix(in srgb, var(--${e.color}) 45%, var(--surface))">${e.tag}</span>`}</li>`;
+
+// 모바일 달력
+let selected = TODAY;
+function renderDays() {
+  $("#days").innerHTML = Array.from({ length: 35 }, (_, i) => {
+    const n = i + 1, out = n > 30, cls = ["day"];
+    if (i % 7 === 0) cls.push("sun");
+    if (out) cls.push("out");
+    if (!out && n === TODAY) cls.push("today");
+    if (!out && n === selected) cls.push("sel");
+    const bars = out ? "" : on(n).map(e => `<i style="background:var(--${e.color})"></i>`).join("");
+    return `<button class="${cls.join(" ")}" ${out ? "disabled" : `data-day="${n}"`}><b>${out ? n - 30 : n}</b><span class="bars">${bars}</span></button>`;
+  }).join("");
+}
+function renderList() {
+  const isToday = selected === TODAY;
+  const items = isToday ? EVENTS.filter(e => e.day >= TODAY).slice(0, 3) : on(selected);
+  $("#list-title").firstChild.textContent = isToday ? "다가오는 일정 " : `11월 ${selected}일 `;
+  $("#events").innerHTML = items.length ? items.map(e => eventItem(e)).join("") : `<li class="empty" style="display:block;box-shadow:none;background:none">이 날은 일정이 없어요</li>`;
+}
+$("#days").addEventListener("click", e => {
+  const btn = e.target.closest("[data-day]");
+  if (!btn) return;
+  selected = +btn.dataset.day;
+  renderDays(); renderList();
+});
+renderDays(); renderList();
+
+// 데스크톱 달력
+$("#events-desktop").innerHTML = EVENTS.filter(e => e.day >= TODAY).slice(0, 3).map(e => eventItem(e, true)).join("");
+$("#big-days").innerHTML = Array.from({ length: 35 }, (_, i) => {
+  const n = i + 1, out = n > 30, cls = ["cell"];
+  if (i % 7 === 0) cls.push("sun");
+  if (out) cls.push("out");
+  if (!out && n === TODAY) cls.push("today");
+  const chips = out ? "" : on(n).map(e => `<span style="background:color-mix(in srgb, var(--${e.color}) 60%, var(--surface))">${e.title}</span>`).join("");
+  return `<div class="${cls.join(" ")}"><b>${out ? n - 30 : n}</b>${chips}</div>`;
+}).join("");
+
+// 출발 애니메이션 + 숫자 올라가기
+function sail(card) {
+  card.classList.remove("sailing");
+  void card.offsetWidth; // 애니메이션 다시 시작
+  card.classList.add("sailing");
+  const num = $("[data-count]", card);
+  if (!num || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const target = +num.dataset.count, start = performance.now(), from = target - 35;
+  (function tick(now) {
+    const t = Math.min(1, (now - start) / 1400), eased = 1 - Math.pow(1 - t, 3);
+    num.textContent = Math.round(from + (target - from) * eased);
+    if (t < 1) requestAnimationFrame(tick);
+  })(start);
+}
+$$(".dday").forEach(card => card.addEventListener("click", () => sail(card)));
+
+// 테마 적용: 문구와 장면을 바꾼다
+function applyTheme(name) {
+  if (!THEMES[name]) name = "boat";
+  document.documentElement.dataset.theme = name;
+  try { localStorage.setItem("mock-theme", name); } catch (e) {}
+  $$("[data-t]").forEach(el => { el.textContent = THEMES[name][el.dataset.t]; });
+  $$("[data-scene]").forEach(slot => slot.replaceChildren($(`#scene-${name}`).content.cloneNode(true)));
+  $$("[data-theme-pick]").forEach(b => b.classList.toggle("on", b.dataset.themePick === name));
+  $$(".dday").forEach(sail);
+}
+$$("[data-theme-pick]").forEach(b => b.addEventListener("click", () => applyTheme(b.dataset.themePick)));
+applyTheme(document.documentElement.dataset.theme);
+
+// 탭 전환
+const phone = $("#phone"), dot = $("#dot");
+function go(name) {
+  $$(".screen", phone).forEach(s => s.classList.toggle("active", s.dataset.screen === name));
+  $$(".tab", phone).forEach(t => {
+    const active = t.dataset.go === name;
+    t.classList.toggle("on", active);
+    if (active) dot.style.transform = `translateX(${parseInt(t.style.left)}px)`;
+  });
+  if (name === "home") sail($(".screen[data-screen=home] .dday"));
+  dot.style.opacity = $(".tab.on", phone) ? 1 : 0; // 탭에 없는 화면(우리, 기념일)에서는 점을 숨긴다
+  phone.classList.remove("open");
+}
+// 탭이 아닌 곳에서 여는 화면: 홈의 아바타 → 우리, 기념일 줄 → 기념일, 뒤로 버튼
+phone.addEventListener("click", e => {
+  const el = e.target.closest("[data-go]");
+  if (el && !el.classList.contains("tab")) go(el.dataset.go);
+});
+$$(".switch").forEach(s => s.addEventListener("click", () => s.classList.toggle("on")));
+
+// 기념일 목록 (자동 = 사귄 날에서 계산, 매년 = 직접 등록한 반복 기념일)
+const ANNIV_AHEAD = [
+  { title: "하린 생일", date: "2026. 12. 25 금", kind: "매년", dd: "D-44" },
+  { title: "600일", date: "2027. 3. 26 금", kind: "자동", dd: "D-135" },
+  { title: "지우 생일", date: "2027. 5. 2 일", kind: "매년", dd: "D-172" },
+  { title: "700일", date: "2027. 7. 4 일", kind: "자동", dd: "D-235" },
+  { title: "2주년", date: "2027. 8. 4 수", kind: "자동", dd: "D-266" },
+];
+const ANNIV_PAST = [
+  { title: "400일", date: "2026. 9. 7 월", dd: "65일 전" },
+  { title: "1주년", date: "2026. 8. 4 화", dd: "99일 전" },
+  { title: "첫 여행", date: "2025. 10. 3 금", dd: "404일 전" },
+  { title: "처음 만난 날", date: "2025. 8. 4 월", dd: "1일째" },
+];
+const annivItem = a => `<li class="rise"><span class="main"><strong>${a.title}${a.kind ? `<span class="kind">${a.kind}</span>` : ""}</strong><small>${a.date}</small></span><span class="dd">${a.dd}</span></li>`;
+$("#anniv-ahead").innerHTML = ANNIV_AHEAD.map(annivItem).join("");
+$("#anniv-past").innerHTML = ANNIV_PAST.map(annivItem).join("");
+$$(".tab", phone).forEach(t => t.addEventListener("click", () => go(t.dataset.go)));
+dot.style.transform = "translateX(40px)";
+
+// + 버튼
+$("#fab").addEventListener("click", () => phone.classList.toggle("open"));
+$("#dim").addEventListener("click", () => phone.classList.remove("open"));
+$$(".quick").forEach(q => q.addEventListener("click", () => phone.classList.remove("open")));
+
+// 취향 화면
+$$(".like").forEach(b => b.addEventListener("click", () => b.classList.toggle("on")));
+$$(".segment").forEach(seg => $$("button", seg).forEach((b, i) => b.addEventListener("click", () => {
+  $$("button", seg).forEach(x => x.classList.toggle("on", x === b));
+  $(".thumb", seg).style.transform = `translateX(${i * 100}%)`;
+  // data-views 가 있으면 해당 보기로 전환한다 (앨범 / 전체 사진)
+  const group = seg.dataset.views;
+  if (group) $$(`[data-view^="${group}-"]`).forEach(v => v.classList.toggle("on", v.dataset.view === `${group}-${i}`));
+})));
+
+// 앨범 화면 (사진 대신 색 그림으로 자리만 표시)
+const ART = {
+  1: ["#FF9A7A", "#FF5A5F", "#FFD978", "rgba(20, 27, 61, .35)"],
+  2: ["#8FE3EC", "#2A45F5", "#FFFFFF", "rgba(20, 41, 168, .5)"],
+  3: ["#C4EBCB", "#3E9B77", "#FFD978", "rgba(20, 61, 45, .4)"],
+  4: ["#2B2A8F", "#141B3D", "#FFE7A8", "rgba(255, 255, 255, .12)"],
+  5: ["#FFB8DC", "#C86BB0", "#FFFFFF", "rgba(90, 30, 80, .35)"],
+  6: ["#FFD978", "#F0965A", "#FFFFFF", "rgba(120, 60, 20, .35)"],
+  7: ["#CFCBFF", "#6D62B8", "#FFB8DC", "rgba(35, 39, 89, .4)"],
+  8: ["#BBD6EE", "#5B8FD9", "#FFD978", "rgba(255, 255, 255, .35)"],
+};
+// 같은 색이라도 구도가 조금씩 달라 보이게 한다
+const artStyle = (n, i = 0) => {
+  const [c1, c2, orb, hill] = ART[n];
+  return `--c1:${c1};--c2:${c2};--orb:${orb};--hill:${hill};--ox:${[55, 14, 40, 62][i % 4]}%;--oy:${[16, 22, 10, 30][i % 4]}%;--hx:${[-30, -50, -10, -40][i % 4]}%;--hy:${[62, 68, 58, 72][i % 4]}%`;
+};
+const ALBUMS = [
+  { title: "성수동 산책", sub: "2026. 11. 8 · 12장", art: [1, 3, 8] },
+  { title: "제주 여행", sub: "2026. 10. 3 – 5 · 48장", art: [2, 6, 3] },
+  { title: "한강 피크닉", sub: "2026. 9. 20 · 9장", art: [8, 5] },
+  { title: "400일", sub: "2026. 9. 7 · 6장", art: [7, 1, 4] },
+  { title: "첫 캠핑", sub: "2026. 8. 15 · 23장", art: [4, 3] },
+  { title: "하린 생일", sub: "2025. 12. 25 · 17장", art: [5] },
+];
+const PHOTO_GROUPS = [
+  { month: "2026년 11월", album: "성수동 산책", art: [1, 3, 8, 6, 1, 5] },
+  { month: "2026년 10월", album: "제주 여행", art: [2, 6, 3, 2, 8, 4, 2, 7, 6] },
+  { month: "2026년 9월", album: "한강 피크닉", art: [8, 5, 7, 1, 4, 3] },
+];
+const tile = (n, i, title, sub) => `<i class="art" style="${artStyle(n, i)}" data-art="${n}" data-i="${i}" data-title="${title}" data-sub="${sub}"></i>`;
+$("#memory").setAttribute("style", artStyle(4, 1) + ";--os:17%;--ox:70%;--oy:12%;--hy:58%");
+Object.assign($("#memory").dataset, { art: 4, i: 1, title: "첫 겨울 바다", sub: "1년 전 오늘 · 2025. 11. 11" });
+$("#albums").innerHTML = ALBUMS.map(a => `<button class="album"><span class="cover">${a.art.map((n, i) => tile(n, i, a.title, a.sub)).join("")}</span><span><strong>${a.title}</strong><small>${a.sub}</small></span></button>`).join("");
+$("#all-photos").innerHTML = PHOTO_GROUPS.map(g => `<h3 class="month-label">${g.month}</h3><div class="photos">${g.art.map((n, i) => tile(n, i, g.album, g.month)).join("")}</div>`).join("");
+
+// 사진 크게 보기
+const viewer = $("#viewer");
+$(".screen[data-screen=album]").addEventListener("click", e => {
+  const art = e.target.closest(".album")?.querySelector("[data-art]") || e.target.closest("[data-art]");
+  if (!art) return;
+  $("#viewer-art").setAttribute("style", artStyle(+art.dataset.art, +art.dataset.i));
+  $("#viewer-title").textContent = art.dataset.title;
+  $("#viewer-sub").textContent = art.dataset.sub;
+  viewer.classList.add("on");
+});
+$(".close", viewer).addEventListener("click", () => viewer.classList.remove("on"));
+$("#viewer-art").addEventListener("click", () => viewer.classList.remove("on"));
+$$("#cats .cat").forEach(c => c.addEventListener("click", () => $$("#cats .cat").forEach(x => x.classList.toggle("on", x === c))));
+
+// 로그인 흐름 (두 번째 폰)
+const auth = $("#auth");
+function flow(name) {
+  $$(".screen", auth).forEach(s => s.classList.toggle("active", s.dataset.screen === name));
+  if (name === "welcome") sail($(".welcome-hero"));
+}
+auth.addEventListener("click", e => {
+  const el = e.target.closest("[data-flow]");
+  if (el) flow(el.dataset.flow);
+});
+// 초대 코드: 한 글자 입력하면 다음 칸으로, 지우면 이전 칸으로
+const codeInputs = $$("#code-inputs input");
+codeInputs.forEach((input, i) => {
+  input.addEventListener("input", () => { if (input.value && codeInputs[i + 1]) codeInputs[i + 1].focus(); });
+  input.addEventListener("keydown", e => { if (e.key === "Backspace" && !input.value && codeInputs[i - 1]) codeInputs[i - 1].focus(); });
+});
+$("#copy-code").addEventListener("click", e => {
+  e.target.textContent = "복사했어요";
+  setTimeout(() => { e.target.textContent = "코드 복사"; }, 1500);
+});
+
+// 화면 모드 (라이트 / 다크)
+function setMode(mode) {
+  document.documentElement.dataset.mode = mode;
+  try { localStorage.setItem("mock-mode", mode); } catch (e) {}
+  $$("[data-mode-pick]").forEach(b => b.classList.toggle("on", b.dataset.modePick === mode));
+  $("#mode-label").textContent = mode === "dark" ? "다크" : "라이트";
+}
+$$("[data-mode-pick]").forEach(b => b.addEventListener("click", () => setMode(b.dataset.modePick)));
+$("[data-mode-toggle]").addEventListener("click", () => setMode(document.documentElement.dataset.mode === "dark" ? "light" : "dark"));
+setMode(document.documentElement.dataset.mode);
+
+// 추가 화면 시트
+function closeSheet() {
+  $$(".sheet.on", phone).forEach(sh => sh.classList.remove("on"));
+  $("#sheet-dim").classList.remove("on");
+}
+function openSheet(name) {
+  closeSheet();
+  phone.classList.remove("open");
+  const sheet = $(`.sheet[data-sheet-name="${name}"]`);
+  sheet.scrollTop = 0;
+  sheet.classList.add("on");
+  $("#sheet-dim").classList.add("on");
+}
+phone.addEventListener("click", e => {
+  const opener = e.target.closest("[data-sheet]");
+  if (opener) return openSheet(opener.dataset.sheet);
+  if (e.target.closest("[data-sheet-close]") || e.target.id === "sheet-dim") closeSheet();
+});
+// 칩·색 고르기: data-pick="one" 은 하나만, "many" 는 여러 개
+$$("[data-pick]").forEach(group => group.addEventListener("click", e => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  if (group.dataset.pick === "many") btn.classList.toggle("on");
+  else $$("button", group).forEach(b => b.classList.toggle("on", b === btn));
+}));
+$("#photo-thumbs").innerHTML = [1, 3, 8].map((n, i) => `<i class="art" style="${artStyle(n, i)}"></i>`).join("") + `<button class="more" aria-label="사진 더 고르기"><svg class="i"><use href="#i-plus"/></svg></button>`;
+$("#taste-preview-art").setAttribute("style", artStyle(4, 1));
+$("#paste-demo").addEventListener("click", () => {
+  $("#taste-link").value = "https://example.com/music/night-letter";
+  $("#taste-preview").classList.add("on");
+});
+
+// 데스크톱 사이드바
+const sideButtons = $$("#side-menu button");
+function sideSelect(i) {
+  sideButtons.forEach((b, j) => b.classList.toggle("on", i === j));
+  $("#side-menu .pill").style.transform = `translateY(${i * 58}px)`;
+}
+sideButtons.forEach((b, i) => b.addEventListener("click", () => sideSelect(i)));
+sideSelect(1);
+</script>
+</body>
+</html>

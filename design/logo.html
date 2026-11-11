@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NÓS 로고</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root {
+  --font: "Pretendard Variable", Pretendard, system-ui, "Malgun Gothic", sans-serif;
+  --text: #141B3D; --muted: #6F7896; --blue: #2A45F5;
+  --spring: cubic-bezier(.34, 1.56, .64, 1); --ease: cubic-bezier(.3, .7, .2, 1);
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 32px 40px 72px; font-family: var(--font); color: var(--text); background: #E4EDFB; word-break: keep-all; -webkit-font-smoothing: antialiased; }
+h1 { font-size: 28px; font-weight: 800; letter-spacing: -.03em; margin: 0; }
+.intro { color: var(--muted); font-size: 14px; margin: 6px 0 28px; max-width: 760px; line-height: 1.55; }
+a { color: var(--blue); font-weight: 600; text-decoration: none; }
+h2 { font-size: 20px; font-weight: 800; letter-spacing: -.02em; margin: 40px 0 6px; }
+h2 + p { color: var(--muted); font-size: 14px; margin: 0 0 16px; max-width: 760px; line-height: 1.55; }
+.panel { background: #fff; border-radius: 28px; box-shadow: 0 8px 24px rgba(20, 27, 61, .08); }
+svg { display: block; }
+
+/* 1. 심볼과 워드마크 */
+.lockups { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.lockup { border-radius: 28px; height: 210px; display: grid; place-items: center; position: relative; }
+.lockup span { position: absolute; left: 18px; bottom: 14px; font-size: 11px; opacity: .65; }
+.lockup .row { display: flex; align-items: center; gap: 18px; }
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-top: 14px; }
+.rules .panel { padding: 22px; display: grid; gap: 14px; align-content: start; }
+.rules h3 { margin: 0; font-size: 15px; font-weight: 700; }
+.rules p { margin: 0; font-size: 13px; line-height: 1.55; color: var(--muted); }
+.sizes { display: flex; align-items: flex-end; gap: 16px; }
+.sizes figure { margin: 0; display: grid; justify-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.icon { border-radius: 23%; }
+.grid-demo { background: #F5F8FE; border-radius: 18px; padding: 14px; }
+
+/* 2. 움직이는 로고 */
+.motion { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+.motion figure { margin: 0; }
+.motion figcaption { font-size: 13px; color: var(--muted); margin-top: 12px; max-width: 320px; line-height: 1.5; }
+.motion figcaption b { color: var(--text); }
+.phone { position: relative; width: 320px; height: 640px; border-radius: 40px; overflow: hidden; box-shadow: 0 30px 60px rgba(20, 27, 61, .25); background: var(--bg); color: #fff; cursor: pointer; user-select: none; touch-action: none; }
+.phone canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.stage { position: absolute; inset: 0; display: grid; justify-items: center; align-content: center; gap: 26px; pointer-events: none; }
+.mark { transition: transform .5s var(--ease); will-change: transform; }
+.word { margin-top: 2px; }
+.tagline { font-size: 14px; font-weight: 500; opacity: 0; }
+.hint { position: absolute; left: 0; right: 0; bottom: 26px; text-align: center; font-size: 12px; opacity: .6; pointer-events: none; }
+
+/* 선이 그려지며 나타난다 (pathLength=1 기준) */
+/* 간격을 선보다 길게 잡아, 그려지기 전에 둥근 끝점이 점으로 보이지 않게 한다 */
+.draw { stroke-dasharray: 1 1.5; stroke-dashoffset: 1.25; }
+.play .draw { animation: draw var(--d, .7s) var(--ease) var(--t, 0s) forwards; }
+.play .knot { transform-origin: 50px 58px; animation: tighten .5s var(--spring) 1.1s both; }
+.accent { transform-origin: 62px 19px; opacity: 0; }
+.play .accent { animation: drop .55s var(--spring) 1.2s forwards; }
+.play .tagline { animation: fade .6s ease 2.4s forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes tighten { 0% { transform: scale(1); } 45% { transform: scale(.9) rotate(-6deg); } 100% { transform: scale(1); } }
+@keyframes drop { from { opacity: 0; transform: translateY(-18px) rotate(-30deg); } to { opacity: 1; transform: none; } }
+@keyframes fade { to { opacity: .85; } }
+
+/* 로딩: 두 가닥이 서로를 따라 돌고, 악센트가 박자를 맞춘다 */
+.loader .knot { transform-origin: 50px 58px; animation: spin 1.5s cubic-bezier(.65, .05, .3, .95) infinite; }
+.loader .accent { opacity: 1; animation: beat 1.5s ease-in-out infinite; }
+.loading-text { font-size: 14px; font-weight: 500; opacity: .85; }
+.loading-text i { font-style: normal; animation: blink 1.5s infinite; }
+.loading-text i:nth-child(2) { animation-delay: .2s; }
+.loading-text i:nth-child(3) { animation-delay: .4s; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes beat { 0%, 100% { transform: none; } 50% { transform: translateY(-5px) rotate(8deg); } }
+@keyframes blink { 0%, 100% { opacity: .2; } 40% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .draw { stroke-dashoffset: 0; } .accent { opacity: 1; } .tagline { opacity: .85; }
+  .play .draw, .play .knot, .play .accent, .play .tagline, .loader .knot, .loader .accent, .loading-text i { animation: none; }
+}
+</style>
+</head>
+<body>
+<h1>NÓS 로고</h1>
+<p class="intro">보내 주신 참고 작업처럼 <b>굵은 호(弧) 조각 몇 개</b>로 심볼과 글자를 같은 규칙으로 만들었습니다. 심볼은 이름의 글자 Ó이고, 두 가닥이 위아래로 한 번씩 서로를 걸어 하나의 고리(매듭)가 됩니다. · <a href="index.html">← 화면 시안으로</a></p>
+
+<section>
+  <div class="lockups" id="lockups"></div>
+  <div class="rules">
+    <div class="panel">
+      <h3>만드는 규칙</h3>
+      <div class="grid-demo" id="construction"></div>
+      <p>원 하나와 굵기 하나만 씁니다. 흰 가닥과 노란 가닥이 위에서는 노랑이, 아래에서는 흰색이 올라타며 서로를 겁니다. 악센트는 고리 위에 뜬 작은 깃발입니다.</p>
+    </div>
+    <div class="panel">
+      <h3>작은 크기</h3>
+      <div class="sizes" id="sizes"></div>
+      <p>앱 아이콘, 탭 아이콘, 파비콘 크기에서도 고리와 악센트가 구분됩니다.</p>
+    </div>
+    <div class="panel">
+      <h3>글자</h3>
+      <div class="grid-demo" id="word-demo"></div>
+      <p>N·Ó·S를 모두 같은 굵기의 직선과 반원으로 그렸습니다. N은 물결처럼 이어지고, S는 원 두 개의 일부입니다.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>움직이는 로고</h2>
+  <p>시작 화면과 로딩 화면용입니다. 시작 화면은 마우스를 올리거나 손가락을 움직이면 점 물결이 따라오고, 누르면 매듭이 다시 묶입니다.</p>
+  <div class="motion">
+    <figure>
+      <div class="phone" id="splash" style="--bg:#2A45F5">
+        <canvas></canvas>
+        <div class="stage">
+          <div class="mark" id="splash-mark"></div>
+          <div class="word" id="splash-word"></div>
+          <p class="tagline">둘이 함께 떠나는 항해</p>
+        </div>
+        <p class="hint">움직이거나 눌러 보세요</p>
+      </div>
+      <figcaption><b>시작 화면.</b> 두 가닥이 그려지고 → 매듭이 조여지고 → 악센트가 내려앉고 → 글자가 써집니다. 약 2.5초.</figcaption>
+    </figure>
+    <figure>
+      <div class="phone loader" id="loading" style="--bg:#141B3D;cursor:default">
+        <canvas></canvas>
+        <div class="stage">
+          <div class="mark" id="loading-mark"></div>
+          <p class="loading-text">불러오는 중<i>.</i><i>.</i><i>.</i></p>
+        </div>
+      </div>
+      <figcaption><b>로딩 화면.</b> 매듭이 돌고 악센트가 박자를 맞춥니다. 다크 모드 색으로 보여 드립니다.</figcaption>
+    </figure>
+    <figure>
+      <div class="phone" id="splash-journey" style="--bg:#232759">
+        <canvas></canvas>
+        <div class="stage">
+          <div class="mark" id="journey-mark"></div>
+          <div class="word" id="journey-word"></div>
+          <p class="tagline">둘이 함께 걷는 여정</p>
+        </div>
+        <p class="hint">움직이거나 눌러 보세요</p>
+      </div>
+      <figcaption><b>여정 테마의 시작 화면.</b> 같은 로고에 색만 바뀝니다.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<script>
+const $ = s => document.querySelector(s);
+const PALETTES = {
+  boat: { label: "배 테마", bg: "#2A45F5", a: "#FFFFFF", b: "#FFD978", accent: "#FF5A5F", fg: "#FFFFFF" },
+  journey: { label: "여정 테마", bg: "#232759", a: "#FFFDF9", b: "#F2B544", accent: "#E8724A", fg: "#FFFDF9" },
+  light: { label: "밝은 바탕", bg: "#FFFFFF", a: "#2A45F5", b: "#FFB02E", accent: "#FF5A5F", fg: "#141B3D" },
+  dark: { label: "다크 · 단색", bg: "#141B3D", a: "#FFFFFF", b: "#FFFFFF", accent: "#FFFFFF", fg: "#FFFFFF" },
+};
+
+/* 심볼 (100×100). 원: 중심 (50,58), 반지름 24, 굵기 13.
+   a 가닥: 아래 → 왼쪽 → 위.  b 가닥: 위 → 오른쪽 → 아래.
+   위에서는 b가 a 위로, 아래에서는 a가 b 위로 지나간다. 겹치는 자리는 바탕색 선을 먼저 깔아 틈을 만든다. */
+function symbol(p, animated) {
+  const d = (t, dur) => animated ? `class="draw" pathLength="1" style="--t:${t}s;--d:${dur}s"` : "";
+  return `
+  <g class="knot" fill="none" stroke-linecap="round">
+    <path d="M46.66 81.77A24 24 0 1 1 54.99 34.52" stroke="${p.a}" stroke-width="13" ${d(0, .7)}/>
+    <path d="M45.01 34.52A24 24 0 0 1 62 37.22" stroke="${p.bg}" stroke-width="21" ${d(.15, .2)}/>
+    <path d="M45.01 34.52A24 24 0 1 1 45.83 81.64" stroke="${p.b}" stroke-width="13" ${d(.15, .7)}/>
+    <path d="M49.16 81.99A24 24 0 0 0 62 78.78" stroke="${p.bg}" stroke-width="21" ${d(.85, .3)}/>
+    <path d="M44.19 81.29A24 24 0 0 0 62 78.78" stroke="${p.a}" stroke-width="13" ${d(.85, .3)}/>
+  </g>
+  <path class="accent" d="M57.5 24.5L66.5 13.5" stroke="${p.accent}" stroke-width="11" stroke-linecap="round"${animated ? "" : ' style="opacity:1"'}/>`;
+}
+const symbolSvg = (p, size, animated) => `<svg width="${size}" height="${size}" viewBox="0 0 100 100" fill="none">${symbol(p, animated)}</svg>`;
+const iconSvg = (p, size) => `<svg class="icon" width="${size}" height="${size}" viewBox="0 0 100 100" fill="none" style="background:${p.bg};${p.bg === "#FFFFFF" ? "box-shadow:inset 0 0 0 1px #D9E3F6;" : ""}">${symbol(p)}</svg>`;
+
+/* 워드마크. 굵기 18, 글자 높이 100. 직선과 반원만 쓴다. */
+function wordmark(p, height, animated, t0 = 0) {
+  const d = (i, dur = .6) => animated ? `class="draw" pathLength="1" style="--t:${t0 + i * .18}s;--d:${dur}s"` : "";
+  return `<svg height="${height}" viewBox="-4 -34 286 138" fill="none" stroke-width="18">
+    <path d="M9 100V34A18 18 0 0 1 45 34V66A18 18 0 0 0 81 66V0" stroke="${p.fg}" ${d(0, .8)}/>
+    <circle cx="154" cy="50" r="41" stroke="${p.fg}" transform="rotate(-90 154 50)" ${d(1)}/>
+    <path d="M160 -8L172 -23" stroke="${p.accent}" stroke-width="14" stroke-linecap="round" ${d(2, .25)}/>
+    <path d="M268 29.5A20.5 20.5 0 1 0 247.5 50A20.5 20.5 0 1 1 227 70.5" stroke="${p.fg}" ${d(2.2)}/>
+  </svg>`;
+}
+
+// 1. 조합
+$("#lockups").innerHTML = Object.values(PALETTES).map(p => `
+  <div class="lockup" style="background:${p.bg};color:${p.fg};${p.bg === "#FFFFFF" ? "box-shadow:inset 0 0 0 1px #D9E3F6;" : ""}">
+    <div class="row">${symbolSvg(p, 92)}${wordmark(p, 50)}</div><span>${p.label}</span>
+  </div>`).join("");
+$("#sizes").innerHTML = [96, 64, 40, 24, 16].map(s => `<figure>${iconSvg(PALETTES.boat, s)}${s}px</figure>`).join("");
+$("#construction").innerHTML = `<svg viewBox="0 0 100 100" width="100%" height="170" fill="none">
+  <g stroke="#C5D0EA" stroke-width=".5"><circle cx="50" cy="58" r="24"/><circle cx="50" cy="58" r="30.500"/><circle cx="50" cy="58" r="17.500"/><path d="M0 58H100M50 8V96M10 34.500H90M10 81.500H90"/></g>
+  ${symbol({ ...PALETTES.light, bg: "#F5F8FE" })}</svg>`.replace(/(\d+)\.500/g, "$1.5");
+$("#word-demo").innerHTML = `<div style="display:grid;place-items:center;height:170px">${wordmark(PALETTES.light, 84)}</div>`;
+
+// 2. 움직이는 로고
+function dotField(canvas, color, centerY) {
+  const ctx = canvas.getContext("2d"), dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = canvas.clientHeight, GAP = 20;
+  canvas.width = W * dpr; canvas.height = H * dpr; ctx.scale(dpr, dpr);
+  const state = { x: W / 2, y: H * centerY, tx: W / 2, ty: H * centerY, kick: 0 };
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function frame(now) {
+    const t = now / 1000;
+    state.x += (state.tx - state.x) * .08; state.y += (state.ty - state.y) * .08; state.kick *= .96;
+    ctx.clearRect(0, 0, W, H); ctx.fillStyle = color;
+    for (let row = 0, y = GAP / 2; y < H; y += GAP * .866, row++) {
+      for (let x = row % 2 ? GAP : GAP / 2; x < W; x += GAP) {
+        const dist = Math.hypot(x - state.x, y - state.y);
+        const wave = .5 + .5 * Math.sin(dist * .05 - t * 2.4);
+        const band = Math.exp(-(((dist - 185) / 60) ** 2)); // 로고와 글자 자리는 비우고 바깥 둘레에서 물결친다
+        const amount = wave * band * (1 + state.kick);
+        ctx.globalAlpha = .14 + .5 * Math.min(1, amount);
+        ctx.beginPath(); ctx.arc(x, y, .8 + 3.2 * amount, 0, 6.2832); ctx.fill();
+      }
+    }
+    if (!still) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  return state;
+}
+
+function splash(id, markId, wordId, palette) {
+  const phone = $(id), mark = $(markId);
+  mark.innerHTML = symbolSvg(palette, 150, true);
+  $(wordId).innerHTML = wordmark(palette, 46, true, 1.45);
+  const field = dotField(phone.querySelector("canvas"), palette.fg, .42);
+  const play = () => { phone.classList.remove("play"); void phone.offsetWidth; phone.classList.add("play"); field.kick = 1.6; };
+  phone.addEventListener("pointermove", e => {
+    const r = phone.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    field.tx = x; field.ty = y;
+    mark.style.transform = `translate(${(x - r.width / 2) * .05}px, ${(y - r.height * .42) * .05}px) rotate(${(x - r.width / 2) * .02}deg)`;
+  });
+  phone.addEventListener("pointerleave", () => { field.tx = phone.clientWidth / 2; field.ty = phone.clientHeight * .42; mark.style.transform = ""; });
+  phone.addEventListener("click", play);
+  play();
+}
+splash("#splash", "#splash-mark", "#splash-word", PALETTES.boat);
+splash("#splash-journey", "#journey-mark", "#journey-word", PALETTES.journey);
+$("#loading-mark").innerHTML = symbolSvg({ ...PALETTES.boat, bg: "#141B3D" }, 110, false);
+dotField($("#loading canvas"), "#FFFFFF", .46);
+</script>
+</body>
+</html>
