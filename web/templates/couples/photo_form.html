@@ -13,11 +13,7 @@
   {% if photo %}
     <img class="photo-preview" src="{{ photo.image.url }}" alt="">
   {% endif %}
-  <div class="field">
-    <label for="{{ form.image.id_for_label }}">{{ form.image.label }}{% if photo %} (바꾸지 않으면 그대로 둬요){% endif %}</label>
-    {{ form.image }}
-    {% for e in form.image.errors %}<p class="error">{{ e }}</p>{% endfor %}
-  </div>
+  {% include "_dropzone.html" with field=form.image current=photo.image %}
 
   {% if albums %}{% include "_choices.html" with field=form.album %}{% endif %}
   {% include "_field.html" with field=form.new_album %}
