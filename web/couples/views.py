@@ -292,12 +292,9 @@ def taste(request):
 
 @login_required
 def taste_create(request):
-    form = TasteForm(request.POST or None)
+    form = TasteForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
-        taste = form.save(commit=False)
-        taste.couple = request.user.couple
-        taste.author = request.user
-        taste.save()
+        taste = form.save_for(request.user.couple, request.user)
         messages.success(request, "취향을 공유했어요.")
         return redirect("taste_detail", pk=taste.pk)
     return render(request, "couples/taste_form.html", {"form": form, "taste": None})
@@ -312,9 +309,9 @@ def taste_detail(request, pk):
 @login_required
 def taste_update(request, pk):
     taste = get_object_or_404(Taste, pk=pk, couple=request.user.couple)
-    form = TasteForm(request.POST or None, instance=taste)
+    form = TasteForm(request.POST or None, request.FILES or None, instance=taste)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        form.save_for(request.user.couple, request.user)
         messages.success(request, "취향을 고쳤어요.")
         return redirect("taste_detail", pk=taste.pk)
     return render(request, "couples/taste_form.html", {"form": form, "taste": taste})
@@ -323,7 +320,10 @@ def taste_update(request, pk):
 @login_required
 @require_POST
 def taste_delete(request, pk):
-    get_object_or_404(Taste, pk=pk, couple=request.user.couple).delete()
+    taste = get_object_or_404(Taste, pk=pk, couple=request.user.couple)
+    if taste.image:
+        taste.image.delete(save=False)
+    taste.delete()
     messages.success(request, "취향을 지웠어요.")
     return redirect("tastes")
 
