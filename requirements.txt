@@ -1,0 +1,2 @@
+# Vercel 이 배포할 때 읽는 파일. 실제 목록은 web/requirements.txt 에 있다.
+-r web/requirements.txt
