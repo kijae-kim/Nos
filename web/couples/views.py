@@ -80,17 +80,22 @@ def leave(request):
 
 @login_required
 def home(request):
-    couple = request.user.couple
+    user, couple = request.user, request.user.couple
+    today = timezone.localdate()
     upcoming, _ = anniversary_services.build(couple)
     return render(
         request,
         "couples/home.html",
         {
             "couple": couple,
-            "partner": request.user.partner,
+            "partner": user.partner,
             "days": couple.days_together,
             "next_item": upcoming[0] if upcoming else None,
             "anniversaries": upcoming[:3],
+            # 공통 일정과 내 개인 일정만 보인다 (캘린더와 같은 규칙)
+            "events": Event.objects.visible_to(user).filter(date__gte=today).prefetch_related("labels")[:3],
+            "tastes": Taste.objects.filter(couple=couple).select_related("author")[:3],
+            "photos": Photo.objects.filter(couple=couple)[:4],
         },
     )
 

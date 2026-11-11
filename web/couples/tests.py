@@ -229,3 +229,41 @@ class ScreenTests(TestCase):
         self.assertEqual(self.client.get(reverse("albums")).status_code, 200)
         album = Album.objects.create(couple=self.couple, title="첫 캠핑")
         self.assertEqual(self.client.get(reverse("album_detail", args=[album.pk])).status_code, 200)
+
+
+class HomeDataTests(TestCase):
+    def setUp(self):
+        self.couple = Couple.objects.create(start_date=timezone.localdate() - timedelta(days=99))
+        self.a = User.objects.create_user("a", password="pw", couple=self.couple, nickname="기재")
+        self.b = User.objects.create_user("b", password="pw", couple=self.couple, nickname="혜인")
+        self.client.force_login(self.a)
+
+    def add_event(self, user, title, scope):
+        return services.save_event(
+            Event(created_by=user),
+            self.couple,
+            {"text": title, "date": timezone.localdate() + timedelta(days=2), "start_time": None, "end_time": None, "place": "", "scope": scope, "color": "sky"},
+        )
+
+    def test_home_lists_shared_and_own_personal_events_only(self):
+        shared = self.add_event(self.a, "공통 데이트", Event.SHARED)
+        mine = self.add_event(self.a, "내 운동", Event.PERSONAL)
+        partners = self.add_event(self.b, "혜인의 개인 약속", Event.PERSONAL)
+        response = self.client.get(reverse("home"))
+        events = list(response.context["events"])
+        self.assertIn(shared, events)
+        self.assertIn(mine, events)
+        self.assertNotIn(partners, events)
+
+    def test_home_shows_recent_tastes_and_photos(self):
+        Taste.objects.create(couple=self.couple, author=self.b, category="영화", title="헤어질 결심")
+        Photo.objects.create(couple=self.couple, uploaded_by=self.b, image="photos/x.png")
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, "헤어질 결심")
+        self.assertEqual(len(response.context["photos"]), 1)
+
+    def test_home_empty_state_links_to_create_pages(self):
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, reverse("event_create"))
+        self.assertContains(response, reverse("taste_create"))
+        self.assertContains(response, reverse("photo_create"))
