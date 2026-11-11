@@ -5,10 +5,7 @@
 <div class="app{% block app_class %}{% endblock %}" id="app">
   {# 넓은 화면에서만 보이는 왼쪽 메뉴 #}
   <aside class="sidebar" aria-label="주 메뉴">
-    <span class="logo">
-      <svg class="t-boat" width="24" height="26"><use href="#boat"/></svg>
-      <svg class="t-journey" width="24" height="24"><use href="#star"/></svg>
-    </span>
+    <a class="logo" href="{% url 'home' %}" aria-label="NÓS 홈"><svg class="nos-mark"><use href="#nos-mark"/></svg></a>
     <nav class="side-menu">
       <a class="{% if tab == 'home' %}on{% endif %}" href="{% url 'home' %}" aria-label="홈"><svg class="i"><use href="#i-home"/></svg></a>
       <a class="{% if tab == 'calendar' %}on{% endif %}" href="{% url 'calendar' %}" aria-label="캘린더"><svg class="i"><use href="#i-cal"/></svg></a>
