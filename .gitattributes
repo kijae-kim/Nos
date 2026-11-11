@@ -1,0 +1,5 @@
+# Mac과 Windows에서 줄바꿈이 섞이지 않도록 저장소에는 항상 LF로 보관
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+db.sqlite3
+web/staticfiles/
+web/media/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.claude/
