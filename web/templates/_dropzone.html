@@ -1,0 +1,13 @@
+{# 사진 칸: 눌러서 고르거나 파일을 끌어 놓을 수 있다. field 는 파일 입력, current 는 지금 있는 사진(없으면 생략). #}
+<div class="field">
+  <span class="field-label">{{ field.label }}</span>
+  <div class="dropzone" data-dropzone>
+    {{ field }}
+    <div class="dropzone-body">
+      <img class="dropzone-preview" data-preview alt=""{% if current %} src="{{ current.url }}"{% else %} hidden{% endif %}>
+      <span class="dropzone-hint" data-hint>{% if current %}다른 사진을 끌어 놓으면 바뀌어요{% else %}사진을 여기에 끌어 놓거나 눌러서 고르세요{% endif %}</span>
+    </div>
+  </div>
+  {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+  {% for e in field.errors %}<p class="error">{{ e }}</p>{% endfor %}
+</div>
