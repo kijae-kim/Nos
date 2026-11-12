@@ -95,19 +95,25 @@ python web/manage.py runserver
 web/
   config/     설정, URL
   accounts/   사용자 모델 (닉네임, 커플 연결)
-  couples/    커플 공간, 초대 코드, 홈·우리 화면
+  couples/    커플 공간, 초대 코드, 홈·우리 화면, 캘린더·취향·앨범
   anniversaries/  기념일 (직접 등록 + 100일·주년 자동 계산)
   templates/  화면
   static/     CSS, JS, 아이콘
+tools/
+  make_icons.py  앱 아이콘 만들기 (로고를 바꾸면 다시 실행)
+design/       화면·로고 시안 (앱과 따로 여는 HTML)
 ```
 
 ## 개발 단계
 
 1. [x] 프로젝트 세팅, 로그인, 초대 코드로 커플 연결
 2. [x] 기념일·D-day (알림 발송은 8단계)
-3. [ ] 캘린더와 ICS 구독 내보내기
-4. [ ] 취향 피드 (FastAPI 링크 미리보기)
-5. [ ] 사진 앨범
+3. [x] 캘린더 (일정, @카테고리·#태그)
+   - [ ] ICS 구독 내보내기
+4. [x] 취향 피드
+   - [ ] 링크 미리보기
+5. [x] 사진 앨범
+   - [ ] 여러 장 한 번에 올리기
 6. [ ] 웹 배포
 7. [ ] 구글 캘린더·드라이브 연동
 8. [ ] Capacitor로 iOS 앱, 애플 로그인·푸시, TestFlight
