@@ -117,30 +117,87 @@
     });
   }
 
+  // 큰 사진은 올리기 전에 줄인다: 긴 변 2560px, JPEG. 배포 서버는 요청 하나에 4.5MB까지만 받는다.
+  // 줄이면서 위치 같은 촬영 정보도 빠진다. 줄일 수 없거나 줄여도 크지 않으면 원본을 그대로 쓴다.
+  var SHRINK_ABOVE = 1.5 * 1024 * 1024, MAX_EDGE = 2560;
+  function shrinkImage(file) {
+    return new Promise(function (resolve) {
+      if (file.size <= SHRINK_ABOVE || file.type === "image/gif") return resolve(file);
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onerror = function () { URL.revokeObjectURL(url); resolve(file); };
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var scale = Math.min(1, MAX_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
+        var canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.naturalWidth * scale);
+        canvas.height = Math.round(img.naturalHeight * scale);
+        var ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff"; // 투명한 PNG 가 JPEG 에서 검게 나오지 않도록
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(function (blob) {
+          if (!blob || blob.size >= file.size) return resolve(file);
+          var name = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+          resolve(new File([blob], name, { type: "image/jpeg", lastModified: file.lastModified }));
+        }, "image/jpeg", 0.85);
+      };
+      img.src = url;
+    });
+  }
+  var sizeText = function (bytes) { return (bytes / 1024 / 1024).toFixed(1) + "MB"; };
+
   // 사진 칸: 누르거나 파일을 끌어 놓아 고르고, 고른 사진을 미리 보여 준다
   $$("[data-dropzone]").forEach(function (zone) {
     var input = zone.querySelector('input[type="file"]');
     var preview = zone.querySelector("[data-preview]");
     var hint = zone.querySelector("[data-hint]");
     if (!input) return;
+    var form = zone.closest("form");
+    var maxBytes = parseInt(input.dataset.maxBytes, 10) || Infinity;
+    var busy = false;
     var show = function (file) {
       if (!file || file.type.indexOf("image/") !== 0) return;
       preview.src = URL.createObjectURL(file);
       preview.hidden = false;
       if (hint) hint.textContent = file.name;
     };
-    input.addEventListener("change", function () { show(input.files[0]); });
+    // 고른 파일을 줄이고, 입력 칸에 줄인 파일을 넣은 뒤 미리 보여 준다
+    var take = function (file) {
+      if (!file) return;
+      busy = true;
+      zone.classList.add("working");
+      if (hint) hint.textContent = "사진을 준비하는 중…";
+      shrinkImage(file).then(function (ready) {
+        busy = false;
+        zone.classList.remove("working");
+        if (ready.size > maxBytes) {
+          input.value = "";
+          preview.hidden = true;
+          if (hint) hint.textContent = "사진이 너무 커요 (" + sizeText(ready.size) + "). " + sizeText(maxBytes) + " 이하로 골라 주세요.";
+          return;
+        }
+        if (ready !== file || input.files[0] !== file) {
+          var transfer = new DataTransfer();
+          transfer.items.add(ready);
+          input.files = transfer.files;
+        }
+        show(ready);
+      });
+    };
+    input.addEventListener("change", function () { take(input.files[0]); });
+    // 사진을 줄이는 동안에는 보내지 않는다
+    if (form) {
+      form.addEventListener("submit", function (e) {
+        if (busy) { e.preventDefault(); if (hint) hint.textContent = "사진을 준비하고 있어요. 잠시 뒤 다시 눌러 주세요."; }
+      });
+    }
     zone.addEventListener("dragover", function (e) { e.preventDefault(); zone.classList.add("dragging"); });
     zone.addEventListener("dragleave", function () { zone.classList.remove("dragging"); });
     zone.addEventListener("drop", function (e) {
       e.preventDefault();
       zone.classList.remove("dragging");
-      var file = e.dataTransfer.files[0];
-      if (!file) return;
-      var transfer = new DataTransfer();
-      transfer.items.add(file);
-      input.files = transfer.files;
-      show(file);
+      take(e.dataTransfer.files[0]);
     });
   });
 

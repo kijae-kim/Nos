@@ -41,9 +41,19 @@ python web/manage.py runserver
 | DB | Neon Free | `DATABASE_URL` |
 | 사진 | Cloudflare R2 (무료) | `MEDIA_BUCKET_NAME`, `MEDIA_ENDPOINT_URL`, `MEDIA_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` |
 
+### 지역: 셋 다 싱가포르 근처로
+
+앱과 DB가 멀면 화면 하나를 열 때마다 DB 왕복 시간이 쌓여 느려집니다. 세 서비스를 모두 싱가포르에 둡니다. (Neon에는 서울·도쿄 지역이 없습니다.)
+
+| 서비스 | 지역 |
+|---|---|
+| Vercel 함수 | `sin1` (싱가포르). `web/vercel.json` 에 적어 두었습니다. |
+| Neon | AWS Asia Pacific (Singapore), `aws-ap-southeast-1`. 프로젝트를 만들 때만 고를 수 있습니다. |
+| Cloudflare R2 | 버킷을 만들 때 위치 힌트를 Asia-Pacific(APAC)으로. |
+
 ### 처음 배포할 때
 
-1. **Neon**: 프로젝트를 만들고 연결 문자열 두 가지를 복사합니다.
+1. **Neon**: 지역을 싱가포르로 골라 프로젝트를 만들고 연결 문자열 두 가지를 복사합니다.
    - 풀링 주소 (호스트에 `-pooler` 가 붙음): 앱이 씁니다. Vercel 의 `DATABASE_URL` 에 넣습니다.
    - 직접 연결 주소: 자기 컴퓨터에서 `migrate` 를 돌릴 때 씁니다.
 2. **DB 표 만들기**: 자기 컴퓨터에서 직접 연결 주소로 실행합니다.
@@ -52,7 +62,7 @@ python web/manage.py runserver
    DATABASE_URL="<Neon 직접 연결 주소>" DJANGO_SECRET_KEY="<긴 임의 문자열>" DJANGO_DEBUG=0 python web/manage.py migrate
    ```
 
-3. **Cloudflare R2**: 버킷을 만들고 API 토큰을 발급합니다. 버킷은 공개하지 않습니다. `MEDIA_REGION` 은 `auto` 입니다.
+3. **Cloudflare R2**: 버킷을 만들고(위치 힌트 APAC) API 토큰을 발급합니다. 버킷은 공개하지 않습니다. `MEDIA_REGION` 은 `auto` 입니다.
 4. **Vercel**: 이 저장소를 가져오고 **Root Directory 를 `web`** 으로 지정합니다. Vercel 이 `manage.py` 를 찾아 Django 로 인식하고, 정적 파일도 빌드할 때 알아서 모읍니다.
 5. **환경 변수**: Vercel 프로젝트 설정에서 **Production** 환경에 넣습니다. 빌드할 때도 읽으므로 배포 전에 넣어야 합니다.
    - `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=0`
@@ -83,7 +93,8 @@ python web/manage.py runserver
 
 - `.env` 에 `MEDIA_BUCKET_NAME`, `MEDIA_ENDPOINT_URL`, `MEDIA_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` 를 넣으면 자동으로 켜집니다 (`.env.example` 참고).
 - 사진 주소는 1시간짜리 서명 주소로만 보입니다. 저장소 버킷은 공개하지 마세요.
-- 파일 이름은 무작위로 만들고 커플별 폴더에 나눠 담습니다. 한 장은 10MB 이하여야 합니다.
+- 파일 이름은 무작위로 만들고 커플별 폴더에 나눠 담습니다. 한 장은 4MB 이하여야 합니다.
+- Vercel 은 요청 하나를 4.5MB까지만 받습니다. 그래서 1.5MB가 넘는 사진은 브라우저가 올리기 전에 긴 변 2560px의 JPEG로 줄여서 보냅니다. 이때 위치 같은 촬영 정보도 빠집니다.
 
 ## 소셜 로그인 설정
 

@@ -76,7 +76,7 @@ class TasteForm(forms.ModelForm):
         label="사진",
         required=False,
         widget=forms.FileInput(attrs={"accept": "image/*"}),
-        help_text="없어도 괜찮아요. 캡처 화면이나 앨범 커버를 올려 보세요. 10MB 이하.",
+        help_text="없어도 괜찮아요. 캡처 화면이나 앨범 커버를 올려 보세요. 큰 사진은 올릴 때 알아서 줄여요.",
     )
     clear_image = forms.BooleanField(label="사진 빼기", required=False)
 
