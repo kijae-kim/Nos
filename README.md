@@ -56,11 +56,13 @@ python web/manage.py runserver
 1. **Neon**: 지역을 싱가포르로 골라 프로젝트를 만들고 연결 문자열 두 가지를 복사합니다.
    - 풀링 주소 (호스트에 `-pooler` 가 붙음): 앱이 씁니다. Vercel 의 `DATABASE_URL` 에 넣습니다.
    - 직접 연결 주소: 자기 컴퓨터에서 `migrate` 를 돌릴 때 씁니다.
-2. **DB 표 만들기**: 자기 컴퓨터에서 직접 연결 주소로 실행합니다.
+2. **DB 표 만들기**: 저장소 맨 위에 `.env.neon` 파일을 만들고 직접 연결 주소를 `DATABASE_URL` 에 넣은 뒤 실행합니다. 이 파일은 git 에 올라가지 않고, `ENV_FILE` 을 줄 때만 읽히므로 평소 개발은 SQLite 그대로입니다.
 
    ```bash
-   DATABASE_URL="<Neon 직접 연결 주소>" DJANGO_SECRET_KEY="<긴 임의 문자열>" DJANGO_DEBUG=0 python web/manage.py migrate
+   ENV_FILE=.env.neon python web/manage.py migrate
    ```
+
+   `.env.neon` 예시: `DATABASE_URL=<직접 연결 주소>`, `DJANGO_DEBUG=0`, `DJANGO_SECRET_KEY=<긴 임의 문자열>`
 
 3. **Cloudflare R2**: 버킷을 만들고(위치 힌트 APAC) API 토큰을 발급합니다. 버킷은 공개하지 않습니다. `MEDIA_REGION` 은 `auto` 입니다.
 4. **Vercel**: 이 저장소를 가져오고 **Root Directory 를 `web`** 으로 지정합니다. Vercel 이 `manage.py` 를 찾아 Django 로 인식하고, 정적 파일도 빌드할 때 알아서 모읍니다.

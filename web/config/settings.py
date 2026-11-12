@@ -6,7 +6,9 @@ from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR.parent / ".env")
+# 평소에는 개발용 .env 를 읽는다. ENV_FILE 로 다른 파일을 고를 수 있다.
+# 예: 운영 DB(Neon)에 migrate 할 때 ENV_FILE=.env.neon python web/manage.py migrate
+load_dotenv(BASE_DIR.parent / os.getenv("ENV_FILE", ".env"))
 
 # 앱 이름. 포르투갈어로 '우리'이자 '매듭'. 한글 표기는 '노스'.
 APP_NAME = "NÓS"
