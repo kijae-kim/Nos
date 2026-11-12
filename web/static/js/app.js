@@ -1,4 +1,4 @@
-// 공통 동작: 팔레트·화면 모드, + 버튼, 탭 전환, 초대 코드 칸, 이름표 넣기, D-day 장면
+// 공통 동작: 팔레트·화면 모드, + 버튼, 탭 전환, 초대 코드 칸, 이름표 넣기, D-day 장면, 시작·로딩 화면
 (function () {
   var root = document.documentElement;
   var $$ = function (selector, scope) {
@@ -281,6 +281,92 @@
     sail(card);
     card.addEventListener("click", function () { sail(card); });
   });
+
+  // 하루 종일: 켜면 시간 칸을 숨긴다
+  var allDay = document.getElementById("id_all_day");
+  var timeFields = document.querySelector("[data-time-fields]");
+  if (allDay && timeFields) {
+    var syncAllDay = function () { timeFields.hidden = allDay.checked; };
+    allDay.addEventListener("change", syncAllDay);
+    syncAllDay();
+  }
+
+  // ---------- 시작 화면 ----------
+  // 점들이 물결치는 바탕. 손가락이나 마우스를 움직이면 물결의 중심이 따라온다. 멈추는 함수를 돌려준다.
+  function dotField(canvas) {
+    var ctx = canvas.getContext("2d");
+    var dpr = window.devicePixelRatio || 1;
+    var W = canvas.clientWidth, H = canvas.clientHeight, GAP = 22;
+    canvas.width = W * dpr; canvas.height = H * dpr; ctx.scale(dpr, dpr);
+    var cx = W / 2, cy = H / 2, tx = cx, ty = cy, frame = null, still = reduceMotion();
+    var onMove = function (e) { tx = e.clientX; ty = e.clientY; };
+    canvas.parentElement.addEventListener("pointermove", onMove);
+    function draw(now) {
+      var t = now / 1000;
+      cx += (tx - cx) * 0.08; cy += (ty - cy) * 0.08;
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = "#fff";
+      for (var row = 0, y = GAP / 2; y < H; y += GAP * 0.866, row++) {
+        for (var x = row % 2 ? GAP : GAP / 2; x < W; x += GAP) {
+          var dist = Math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+          var wave = 0.5 + 0.5 * Math.sin(dist * 0.05 - t * 2.4);
+          var band = Math.exp(-Math.pow((dist - 210) / 70, 2)); // 로고와 글자 자리는 비우고 바깥에서 물결친다
+          var amount = wave * band;
+          ctx.globalAlpha = 0.12 + 0.45 * amount;
+          ctx.beginPath(); ctx.arc(x, y, 0.8 + 3.2 * amount, 0, 6.2832); ctx.fill();
+        }
+      }
+      if (!still) frame = requestAnimationFrame(draw);
+    }
+    frame = requestAnimationFrame(draw);
+    return function () {
+      still = true;
+      if (frame) cancelAnimationFrame(frame);
+      canvas.parentElement.removeEventListener("pointermove", onMove);
+    };
+  }
+
+  var splash = document.getElementById("splash");
+  if (splash && root.classList.contains("splash-on")) {
+    var stopDots = dotField(splash.querySelector("canvas"));
+    var left = false;
+    var leaveSplash = function () {
+      if (left) return;
+      left = true;
+      try { sessionStorage.setItem("splashed", "1"); } catch (e) {}
+      splash.classList.add("leaving");
+      setTimeout(function () { root.classList.remove("splash-on"); stopDots(); }, 460);
+    };
+    splash.addEventListener("click", leaveSplash);
+    setTimeout(leaveSplash, reduceMotion() ? 800 : 2400);
+  }
+
+  // ---------- 로딩 화면 ----------
+  // 화면을 옮기거나 저장할 때, 다음 화면이 0.35초 안에 안 뜨면 보여 준다.
+  var loadTimer = null, giveUpTimer = null;
+  function hideLoader() {
+    clearTimeout(loadTimer); clearTimeout(giveUpTimer);
+    root.classList.remove("is-loading");
+  }
+  function showLoaderSoon() {
+    hideLoader();
+    loadTimer = setTimeout(function () { root.classList.add("is-loading"); }, 350);
+    giveUpTimer = setTimeout(hideLoader, 15000); // 화면이 안 바뀌는 경우(파일 내려받기 등)에 대비
+  }
+  document.addEventListener("click", function (e) {
+    var link = e.target.closest ? e.target.closest("a[href]") : null;
+    if (!link || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if ((link.target && link.target !== "_self") || link.hasAttribute("download")) return;
+    var url;
+    try { url = new URL(link.href); } catch (err) { return; }
+    if (url.origin !== location.origin) return;
+    if (url.pathname === location.pathname && url.search === location.search) return; // 같은 화면 안의 이동
+    showLoaderSoon();
+  });
+  document.addEventListener("submit", function (e) {
+    if (!e.defaultPrevented) showLoaderSoon();
+  });
+  window.addEventListener("pageshow", hideLoader); // 뒤로 가기로 돌아왔을 때
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch(function () {});

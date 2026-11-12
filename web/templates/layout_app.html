@@ -5,7 +5,7 @@
 <div class="app{% block app_class %}{% endblock %}" id="app">
   {# 넓은 화면에서만 보이는 왼쪽 메뉴 #}
   <aside class="sidebar" aria-label="주 메뉴">
-    <a class="logo" href="{% url 'home' %}" aria-label="NÓS 홈"><svg class="nos-mark"><use href="#nos-mark"/></svg></a>
+    <a class="logo" href="{% url 'home' %}" aria-label="NÓS 홈"><svg class="logo-boat" aria-hidden="true"><use href="#boat"/></svg></a>
     <nav class="side-menu">
       <a class="{% if tab == 'home' %}on{% endif %}" href="{% url 'home' %}" aria-label="홈"><svg class="i"><use href="#i-home"/></svg></a>
       <a class="{% if tab == 'calendar' %}on{% endif %}" href="{% url 'calendar' %}" aria-label="캘린더"><svg class="i"><use href="#i-cal"/></svg></a>
@@ -13,7 +13,7 @@
       <a class="{% if tab == 'albums' %}on{% endif %}" href="{% url 'albums' %}" aria-label="앨범"><svg class="i"><use href="#i-album"/></svg></a>
       <a href="{% url 'anniversary_index' %}" aria-label="기념일"><svg class="i"><use href="#i-gift"/></svg></a>
     </nav>
-    <a class="us" href="{% url 'us' %}" aria-label="우리"><i class="av a"></i><i class="av b"></i></a>
+    <a class="us" href="{% url 'us' %}" aria-label="우리" title="우리 · 프로필과 설정"><i class="av a"></i><i class="av b"></i></a>
   </aside>
 
   <main class="page">

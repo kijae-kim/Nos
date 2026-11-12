@@ -1,7 +1,8 @@
 {% extends "layout_app.html" %}
 {% block content %}
 <header class="row-between home-head">
-  <a class="us" href="{% url 'us' %}" aria-label="우리 화면 열기"><i class="av a"></i><i class="av b"></i></a>
+  <span class="home-brand"><svg class="logo-boat" aria-hidden="true"><use href="#boat"/></svg>{{ APP_NAME }}</span>
+  <a class="us-pill" href="{% url 'us' %}" aria-label="우리 화면 열기: 프로필, 기념일, 테마, 설정"><i class="av a"></i><i class="av b"></i>우리<svg class="i" aria-hidden="true"><use href="#i-right"/></svg></a>
 </header>
 
 <header class="hello">
