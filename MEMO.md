@@ -2,6 +2,56 @@
 
 작업하면서 나온 개선 아이디어와 다음 할 일을 적어 둡니다.
 
+## 배포 마무리: 집 맥에서 할 일 (2026-11-12)
+
+배포 주소: https://nos-rho-jade.vercel.app/
+
+지금 상태: Vercel 배포, Neon 프로젝트(싱가포르), R2 버킷(`nos-photo`), Vercel 환경 변수까지 끝났다. **Neon에 DB 표가 없어서** 로그인·가입 화면이 500 오류를 낸다. 학원 PC 네트워크는 Postgres 포트(5432)를 막아서 거기서는 migrate 를 못 했다. 아래를 맥에서 하면 사이트가 열린다. 재배포는 필요 없다.
+
+1. **코드 받기**
+
+   ```bash
+   git switch main && git pull
+   source .venv/bin/activate && pip install -r web/requirements.txt
+   ```
+
+2. **`.env.neon` 만들기** (저장소 맨 위 폴더). git 에 안 올라가는 파일이라 맥에서 새로 만든다.
+   Neon 콘솔 → 프로젝트 → **Connect** 에서 **Connection pooling 을 끈 주소**(호스트에 `-pooler` 가 없는 것)를 복사한다. 메신저·메일로 옮기지 말 것.
+
+   ```
+   DATABASE_URL=<pooling 끈 직접 연결 주소>
+   DJANGO_DEBUG=0
+   DJANGO_SECRET_KEY=<아무 긴 문자열>
+   ```
+
+   `migrate` 에는 비밀 키 값이 영향이 없다. 만들기: `python -c "import secrets; print(secrets.token_urlsafe(50))"`
+
+3. **DB 표 만들기**
+
+   ```bash
+   ENV_FILE=.env.neon python web/manage.py migrate
+   ```
+
+   `Applying ... OK` 가 이어지면 성공. 확인: `ENV_FILE=.env.neon python web/manage.py showmigrations | grep -c "\[X\]"` 가 `39`.
+
+4. **(선택) 관리자 계정**: `ENV_FILE=.env.neon python web/manage.py createsuperuser` → `/admin/` 으로 들어갈 수 있다.
+
+5. **사이트 확인**: 회원가입 → 로그인 → 초대 코드로 커플 연결 → 사진 한 장 올리기.
+
+**명령이 한참 멈춰 있으면**: 집 네트워크도 5432 포트를 막는 것이다. 그때는 Vercel 빌드 때 migrate 를 돌리는 방식으로 바꾼다 (Vercel 빌드 서버는 막히지 않는다).
+
+**주의**: `ENV_FILE=.env.neon` 을 붙인 명령은 운영 DB에 바로 적용된다. `seed_demo`(더미 데이터)는 붙여서 돌리지 말 것.
+
+### 어디서 해도 되는 남은 일
+
+- 카카오·구글 로그인 키 발급, 각 개발자 콘솔에 `https://nos-rho-jade.vercel.app/accounts/kakao/login/callback/`, `.../accounts/google/login/callback/` 등록, Vercel 환경 변수에 키 추가 후 재배포
+- 두 사람 폰의 홈 화면에 설치 (iPhone: Safari → 공유 → 홈 화면에 추가)
+
+### 참고
+
+- Vercel 에 넣은 값은 학원 PC의 `.env.vercel` 에만 정리돼 있다(git 에 없음). 다시 필요하면 Vercel 설정 화면에서 보거나, 각 서비스 콘솔에서 새로 받는다.
+- Vercel 환경 변수: `DATABASE_URL`(Neon **풀링** 주소), `DJANGO_DEBUG=0`, `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=nos-rho-jade.vercel.app`, `DJANGO_CSRF_TRUSTED_ORIGINS=https://nos-rho-jade.vercel.app`, `MEDIA_BUCKET_NAME`, `MEDIA_ENDPOINT_URL`, `MEDIA_REGION=auto`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`. 모두 Production 에만.
+
 ## UI/UX 개선 목록 (2026-11-12)
 
 화면을 만들면서 확인한 내용을 기준으로, 효과가 큰 순서로 정리했습니다.
@@ -38,7 +88,7 @@
 
 - 캘린더 ICS 구독 내보내기 (README 3단계). 개인 일정을 포함할지 먼저 정해야 한다.
 - 취향 링크 미리보기 (README 4단계)
-- 웹 배포 (README 6단계): Vercel + Neon + Cloudflare R2. 절차는 README의 배포 섹션 참고. 실제 배포로는 아직 확인하지 못했다.
+- 웹 배포 (README 6단계): Vercel + Neon + Cloudflare R2. 배포까지 됐고, Neon migrate 만 남았다 (맨 위 "집 맥에서 할 일").
 
 ## 정해야 할 것
 
