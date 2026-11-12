@@ -355,7 +355,7 @@ class UploadStorageTests(TestCase):
             response = self.client.post(reverse("photo_create"), {"image": self.png()})
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Photo.objects.exists())
-        self.assertContains(response, "10MB 이하")
+        self.assertContains(response, "4MB 이하")
 
     def test_replacing_photo_deletes_the_old_file(self):
         self.client.post(reverse("photo_create"), {"image": self.png()})
