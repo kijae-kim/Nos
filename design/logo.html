@@ -208,7 +208,9 @@ function dotField(canvas, color, centerY) {
         const dist = Math.hypot(x - state.x, y - state.y);
         const wave = .5 + .5 * Math.sin(dist * .05 - t * 2.4);
         const band = Math.exp(-(((dist - 185) / 60) ** 2)); // 로고와 글자 자리는 비우고 바깥 둘레에서 물결친다
-        const amount = wave * band * (1 + state.kick);
+        // 워드마크와 문구가 놓이는 자리에서는 점을 가라앉혀 글자가 읽히게 한다
+        const overText = Math.abs(x - W / 2) < 104 && y > H * centerY + 56 && y < H * centerY + 176;
+        const amount = wave * band * (1 + state.kick) * (overText ? .1 : 1);
         ctx.globalAlpha = .14 + .5 * Math.min(1, amount);
         ctx.beginPath(); ctx.arc(x, y, .8 + 3.2 * amount, 0, 6.2832); ctx.fill();
       }
