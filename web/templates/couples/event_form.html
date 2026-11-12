@@ -34,6 +34,8 @@
   <div class="field">
     <label class="check">{{ form.all_day }} <span>{{ form.all_day.label }}</span></label>
   </div>
+  {# 하루 종일을 켜면 시간 칸은 숨긴다 (app.js) #}
+  <div data-time-fields>
   <div class="time-row">
     {% include "_field.html" with field=form.start_time %}
     {% include "_field.html" with field=form.end_time %}
@@ -46,6 +48,7 @@
       <button type="button" class="chip-btn" data-end-add="60">+1시간</button>
     </div>
     <small>시작 시간을 고르면 끝 시간은 2시간 뒤로 자동으로 들어가요.</small>
+  </div>
   </div>
   {% include "_field.html" with field=form.place %}
   {% include "_choices.html" with field=form.scope %}
