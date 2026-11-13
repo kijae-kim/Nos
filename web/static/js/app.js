@@ -256,6 +256,17 @@
     wrap.closest("form").addEventListener("submit", sync);
   });
 
+  // 바꾸면 바로 저장하는 폼 (구독 설정의 스위치 등)
+  $$("form[data-autosubmit]").forEach(function (form) {
+    form.addEventListener("change", function () {
+      if (form.requestSubmit) form.requestSubmit(); else form.submit();
+    });
+  });
+  // 누르면 칸의 글자를 모두 고른다 (구독 주소)
+  $$("[data-select-all]").forEach(function (input) {
+    input.addEventListener("focus", function () { input.select(); });
+  });
+
   // 초대 코드 복사
   $$("[data-copy]").forEach(function (button) {
     button.addEventListener("click", function () {

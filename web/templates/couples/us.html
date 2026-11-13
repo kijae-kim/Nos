@@ -62,6 +62,13 @@
       <svg class="i chev"><use href="#i-right"/></svg>
     </a>
   </li>
+  <li>
+    <a href="{% url 'calendar_subscribe' %}">
+      <span class="icon-tile" style="background:var(--sky)"><svg class="i"><use href="#i-cal"/></svg></span>
+      <span class="main"><strong>캘린더 앱에서 보기</strong><small>아이폰·구글 캘린더에 우리 일정 띄우기</small></span>
+      <svg class="i chev"><use href="#i-right"/></svg>
+    </a>
+  </li>
   {% get_social_accounts user as connected %}
   <li>
     <a href="{% url 'socialaccount_connections' %}">

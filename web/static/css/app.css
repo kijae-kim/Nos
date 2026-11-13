@@ -805,3 +805,18 @@ a.label-chip:active { transform: scale(.94); }
 .comment-form textarea::placeholder { color: var(--faint); }
 .comment-form .btn { width: auto; flex: none; padding: 0 16px; height: 40px; margin: 0; border-radius: 18px; font-size: 14px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- 캘린더 앱에서 보기 (구독) ---------- */
+.subscribe { display: grid; gap: 10px; padding: 18px; }
+.subscribe .btn { margin: 0; }
+.subscribe .btn svg.i { width: 20px; height: 20px; }
+.feed-url { display: flex; gap: 8px; margin-top: 4px; }
+.feed-url input { flex: 1; height: 46px; font-size: 13px; color: var(--muted); background: var(--tile); box-shadow: none; }
+.feed-url .btn { width: auto; flex: none; padding: 0 16px; height: 46px; font-size: 14px; }
+.subscribe small { font-size: 12px; line-height: 1.5; }
+.subscribe-option { padding: 16px 18px; }
+.subscribe-option .check { align-items: center; gap: 14px; }
+.subscribe-option .check > span { display: grid; gap: 3px; }
+.subscribe-option strong { font-size: 15px; }
+.subscribe-option small { font-size: 12px; font-weight: 500; color: var(--muted); line-height: 1.5; }
+.notes { display: grid; gap: 10px; padding: 16px 18px 16px 34px; list-style: disc; font-size: 13px; line-height: 1.55; color: var(--muted); }
