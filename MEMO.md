@@ -32,7 +32,9 @@
    ENV_FILE=.env.neon python web/manage.py migrate
    ```
 
-   `Applying ... OK` 가 이어지면 성공. 확인: `ENV_FILE=.env.neon python web/manage.py showmigrations | grep -c "\[X\]"` 가 `39`.
+   `Applying ... OK` 가 이어지면 성공. 확인: `ENV_FILE=.env.neon python web/manage.py showmigrations | grep -c "\[X\]"` 가 `40` (2026-11-13 사진 크기 기록 마이그레이션 `couples.0005` 추가로 39 → 40).
+
+   이어서 Neon 콘솔에서 Compute → Autoscaling 최대값을 `0.25` CU 로 낮춘다 (무료 계산 시간 아끼기, README "무료 한도 지키기").
 
 4. **(선택) 관리자 계정**: `ENV_FILE=.env.neon python web/manage.py createsuperuser` → `/admin/` 으로 들어갈 수 있다.
 
@@ -59,7 +61,7 @@
 
 ### 먼저 고치면 좋은 것
 
-1. **사진을 한 장씩만 올릴 수 있다.** 데이트 사진은 보통 여러 장이라 가장 불편한 지점. 여러 장 선택과 끌어 놓기, 올리는 동안의 진행 표시가 필요하다.
+1. ~~**사진을 한 장씩만 올릴 수 있다.**~~ 고침: 한 번에 30장까지 고르고, 한 장씩 줄여서 올리며 진행을 보여 준다. 찍은 날은 EXIF 에서. 무료 한도를 넘지 않게 용량·하루 횟수 제한. (2026-11-13)
 2. **`@카테고리`, `#태그`를 만들어도 모아 볼 방법이 없다.** 일정에 이름표는 붙지만, 눌러서 같은 이름표의 일정만 보는 기능이 없다.
 3. ~~**"우리" 화면으로 가는 길이 숨어 있다.**~~ 고침: 홈 오른쪽 위에 "우리" 글자가 붙은 버튼을 두었다. (2026-11-12)
 4. ~~**홈 화면 설치 아이콘이 SVG뿐이다.**~~ 고침: `tools/make_icons.py` 로 PNG(180, 192, 512)를 만든다. (2026-11-12)

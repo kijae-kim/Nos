@@ -318,7 +318,7 @@ class TastePhotoTests(TestCase):
 
     def test_forms_render_drop_zone(self):
         self.assertContains(self.client.get(reverse("taste_create")), 'data-dropzone')
-        self.assertContains(self.client.get(reverse("photo_create")), 'data-dropzone')
+        self.assertContains(self.client.get(reverse("photo_create")), 'data-batch-zone')  # 새로 올리기는 여러 장 칸
 
 
 class UploadStorageTests(TestCase):
@@ -372,3 +372,117 @@ class UploadStorageTests(TestCase):
         old_path = taste.image.path
         self.client.post(reverse("taste_update", args=[taste.pk]), {"category": "음악", "title": "밤편지", "link": "", "comment": "", "clear_image": "on"})
         self.assertFalse(os.path.exists(old_path))
+
+
+def _png(name="photo.png", color=(200, 80, 90), size=4):
+    from io import BytesIO
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (size, size), color).save(buffer, "PNG")
+    return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/png")
+
+
+class BatchUploadAndQuotaTests(TestCase):
+    """여러 장 올리기(한 장씩 JSON 요청)와 R2 무료 한도를 지키는 저장 공간·횟수 제한."""
+
+    def setUp(self):
+        self.media = tempfile.TemporaryDirectory()
+        self.addCleanup(self.media.cleanup)
+        override = override_settings(MEDIA_ROOT=self.media.name)
+        override.enable()
+        self.addCleanup(override.disable)
+        self.couple = Couple.objects.create()
+        self.other = Couple.objects.create()
+        self.a = User.objects.create_user("a", password="pw", couple=self.couple)
+        self.client.force_login(self.a)
+
+    def post_photo(self, **data):
+        data.setdefault("image", _png())
+        return self.client.post(reverse("photo_create"), data, HTTP_ACCEPT="application/json")
+
+    def test_json_upload_records_size_and_returns_album(self):
+        response = self.post_photo(new_album="제주", taken_on="2026-10-03")
+        body = response.json()
+        self.assertTrue(body["ok"])
+        photo = Photo.objects.get(pk=body["id"])
+        self.assertGreater(photo.size, 0)
+        self.assertEqual(photo.size, photo.image.size)
+        self.assertEqual(body["album"], photo.album_id)
+
+    def test_following_photos_go_into_the_same_new_album(self):
+        first = self.post_photo(new_album="제주").json()
+        second = self.post_photo(album=str(first["album"])).json()
+        third = self.post_photo(new_album="제주").json()  # 이름으로 다시 보내도 같은 앨범
+        self.assertEqual({first["album"], second["album"], third["album"]}, {first["album"]})
+        self.assertEqual(Album.objects.filter(couple=self.couple).count(), 1)
+
+    def test_json_error_when_no_image(self):
+        response = self.client.post(reverse("photo_create"), {}, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()["ok"])
+        self.assertTrue(response.json()["error"])
+
+    def test_html_form_still_works_without_script(self):
+        response = self.client.post(reverse("photo_create"), {"image": _png()})
+        photo = Photo.objects.get()
+        self.assertRedirects(response, reverse("photo_detail", args=[photo.pk]))
+
+    def test_per_couple_storage_limit(self):
+        Photo.objects.create(couple=self.couple, uploaded_by=self.a, image="x.png", size=1000)
+        with override_settings(MEDIA_QUOTA_PER_COUPLE_BYTES=1000 + 10):
+            body = self.post_photo().json()
+        self.assertFalse(body["ok"])
+        self.assertIn("가득", body["error"])
+        self.assertEqual(Photo.objects.count(), 1)
+
+    def test_total_storage_limit_counts_every_couple(self):
+        b = User.objects.create_user("b", password="pw", couple=self.other)
+        Photo.objects.create(couple=self.other, uploaded_by=b, image="x.png", size=5000)
+        with override_settings(MEDIA_QUOTA_TOTAL_BYTES=5000 + 10):
+            body = self.post_photo().json()
+        self.assertFalse(body["ok"])
+        self.assertIn("앱 전체", body["error"])
+
+    def test_daily_upload_limit(self):
+        with override_settings(MEDIA_UPLOADS_PER_DAY=2):
+            self.assertTrue(self.post_photo().json()["ok"])
+            self.assertTrue(self.post_photo().json()["ok"])
+            body = self.post_photo().json()
+        self.assertFalse(body["ok"])
+        self.assertIn("오늘은 2장", body["error"])
+
+    def test_deleting_photos_frees_space(self):
+        from . import quota
+
+        body = self.post_photo().json()
+        used = quota.used_bytes(self.couple)
+        self.assertGreater(used, 0)
+        self.client.post(reverse("photo_delete", args=[body["id"]]))
+        self.assertEqual(quota.used_bytes(self.couple), 0)
+
+    def test_taste_image_counts_toward_storage(self):
+        from . import quota
+
+        self.client.post(reverse("taste_create"), {"category": "영화", "title": "패터슨", "image": _png()})
+        taste = Taste.objects.get()
+        self.assertEqual(taste.image_size, taste.image.size)
+        self.assertEqual(quota.used_bytes(self.couple), taste.image_size)
+        self.client.post(reverse("taste_update", args=[taste.pk]), {"category": "영화", "title": "패터슨", "clear_image": "on"})
+        taste.refresh_from_db()
+        self.assertEqual(taste.image_size, 0)
+
+    def test_taste_image_respects_storage_limit(self):
+        with override_settings(MEDIA_QUOTA_PER_COUPLE_BYTES=10):
+            response = self.client.post(reverse("taste_create"), {"category": "영화", "title": "패터슨", "image": _png()})
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Taste.objects.exists())
+
+    def test_upload_page_shows_room_left_and_album_notice(self):
+        page = self.client.get(reverse("photo_create"))
+        self.assertContains(page, "남은 공간")
+        self.assertContains(page, "multiple")
+        self.assertContains(page, "data-batch-upload")
+        self.assertContains(self.client.get(reverse("albums") + "?uploaded=3"), "사진 3장을 올렸어요")
