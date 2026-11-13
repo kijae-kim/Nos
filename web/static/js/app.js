@@ -256,6 +256,24 @@
     wrap.closest("form").addEventListener("submit", sync);
   });
 
+  // 숫자로 치는 날짜 칸 (config/fields.py): 20261113 → 2026.11.13 처럼 점을 넣는다.
+  // 숫자만 친 경우에만 바꾸고, 사용자가 직접 점·줄표를 넣으면 그대로 둔다.
+  $$("input[data-date-type]").forEach(function (input) {
+    input.addEventListener("input", function (e) {
+      if (e.inputType && e.inputType.indexOf("delete") === 0) return; // 지울 때는 건드리지 않는다
+      var raw = input.value;
+      if (/[^\d.]/.test(raw) || /\.$/.test(raw)) return; // 줄표·빗금을 쓰거나 점을 직접 찍었으면 그대로
+      // 2026.1. 처럼 직접 짧게 끊어 쓰는 중이면 그대로 둔다
+      var parts = raw.split(".");
+      if (parts.length > 1 && (parts[0].length !== 4 || (parts.length > 2 && parts[1].length !== 2))) return;
+      var digits = raw.replace(/\D/g, "").slice(0, 8);
+      var out = digits.slice(0, 4);
+      if (digits.length > 4) out += "." + digits.slice(4, 6);
+      if (digits.length > 6) out += "." + digits.slice(6, 8);
+      if (out !== raw) input.value = out;
+    });
+  });
+
   // 바꾸면 바로 저장하는 폼 (구독 설정의 스위치 등)
   $$("form[data-autosubmit]").forEach(function (form) {
     form.addEventListener("change", function () {
