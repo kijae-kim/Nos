@@ -69,6 +69,15 @@
       <svg class="i chev"><use href="#i-right"/></svg>
     </a>
   </li>
+  {% if WEBPUSH_ENABLED %}
+  <li>
+    <a href="{% url 'notifications' %}">
+      <span class="icon-tile" style="background:var(--peach)"><svg class="i"><use href="#i-bell"/></svg></span>
+      <span class="main"><strong>알림</strong><small>기념일 당일과 미리 알림</small></span>
+      <svg class="i chev"><use href="#i-right"/></svg>
+    </a>
+  </li>
+  {% endif %}
   {% get_social_accounts user as connected %}
   <li>
     <a href="{% url 'socialaccount_connections' %}">

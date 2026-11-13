@@ -1,0 +1,40 @@
+{% extends "layout_app.html" %}
+{% block head_title %}알림 · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'us' %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">알림</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<p class="muted">기념일 당일에는 항상 알려 드려요. 하루 전, 일주일 전에도 받고 싶으면 아래에서 켜 주세요. 알림은 매일 아침 9시쯤 와요.</p>
+
+{# 이 기기 상태와 켜고 끄기 버튼은 app.js 의 '기념일 알림' 구역이 맞춘다 #}
+<section class="push card" data-push data-public-key="{{ VAPID_PUBLIC_KEY }}">
+  <p data-push-state="on" hidden><strong>이 기기에서 알림을 받고 있어요</strong></p>
+  <p data-push-state="off" hidden><strong>이 기기는 알림이 꺼져 있어요</strong></p>
+  <p data-push-state="unsupported" hidden><strong>이 브라우저에서는 알림을 받을 수 없어요</strong></p>
+  <p data-push-state="ios-install" hidden><strong>아이폰은 홈 화면에 추가한 앱에서 알림을 켤 수 있어요</strong><small>Safari 공유 버튼 › 홈 화면에 추가 › 추가한 앱에서 다시 열어 주세요.</small></p>
+  <p data-push-state="denied" hidden><strong>알림이 막혀 있어요. 기기 설정에서 NÓS 알림을 허용해 주세요</strong></p>
+  <button type="button" class="btn primary" data-push-on hidden><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg>이 기기에서 알림 받기</button>
+  <button type="button" class="btn" data-push-test hidden>시험 알림 보내기</button>
+  <button type="button" class="btn" data-push-off hidden>이 기기에서 끄기</button>
+  <small class="muted" data-push-msg role="status" aria-live="polite" hidden></small>
+</section>
+
+<h2 class="group">미리 알림</h2>
+<form method="post" class="card subscribe-option" data-autosubmit>
+  {% csrf_token %}
+  <label class="check">
+    <span><strong>하루 전 알림</strong><small>기념일 전날 아침에 알려 드려요.</small></span>
+    <input type="checkbox" name="notify_day_before"{% if user.notify_day_before %} checked{% endif %}>
+  </label>
+  <label class="check">
+    <span><strong>일주일 전 알림</strong><small>선물이나 데이트를 준비할 수 있게 일주일 전에 알려 드려요.</small></span>
+    <input type="checkbox" name="notify_week_before"{% if user.notify_week_before %} checked{% endif %}>
+  </label>
+  <noscript><button type="submit" class="btn">저장</button></noscript>
+</form>
+<small class="muted">미리 알림 설정은 계정에 저장돼서, 알림을 켠 모든 기기에 같이 적용돼요.</small>
+{% endblock %}

@@ -7,3 +7,4 @@ dj-database-url>=2.3,<3
 psycopg[binary]>=3.2,<4
 whitenoise>=6.9,<7
 certifi>=2024.2
+pywebpush>=2.0,<3
