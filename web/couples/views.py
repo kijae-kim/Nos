@@ -98,7 +98,7 @@ def home(request):
             "next_item": upcoming[0] if upcoming else None,
             "anniversaries": upcoming[:3],
             # 공통 일정과 내 개인 일정만 보인다 (캘린더와 같은 규칙)
-            "events": Event.objects.visible_to(user).filter(date__gte=today).prefetch_related("labels")[:3],
+            "events": Event.objects.visible_to(user).filter(date__gte=today).select_related("created_by").prefetch_related("labels")[:3],
             "tastes": Taste.objects.filter(couple=couple).select_related("author")[:3],
             "photos": Photo.objects.filter(couple=couple)[:4],
         },
@@ -160,7 +160,7 @@ def calendar(request):
 
     # 일요일부터 시작하는 달력. 앞뒤 달의 날짜도 함께 받아 주차를 채운다.
     weeks = month_calendar.Calendar(firstweekday=6).monthdatescalendar(first.year, first.month)
-    visible = Event.objects.visible_to(user).prefetch_related("labels")
+    visible = Event.objects.visible_to(user).select_related("created_by").prefetch_related("labels")
     by_date = defaultdict(list)
     for event in visible.filter(date__gte=weeks[0][0], date__lte=weeks[-1][-1]):
         by_date[event.date].append(event)
@@ -186,6 +186,17 @@ def calendar(request):
     if selected == today:
         day_events = upcoming
 
+    # 이름표 모아 보기: ?label=<id> 이면 그 이름표가 붙은 일정만 (다가오는 것 먼저, 지난 것은 아래에)
+    label = None
+    label_upcoming, label_past = [], []
+    label_id = request.GET.get("label", "")
+    if label_id.isdigit():
+        label = user.couple.labels.filter(pk=int(label_id)).first()
+    if label:
+        tagged = visible.filter(labels=label)
+        label_upcoming = list(tagged.filter(date__gte=today))
+        label_past = list(tagged.filter(date__lt=today).order_by("-date", "-start_time"))
+
     anniversaries, _ = anniversary_services.build(user.couple)
     return render(
         request,
@@ -203,7 +214,11 @@ def calendar(request):
             "new_event_url": f"/calendar/events/new/?date={selected:%Y-%m-%d}",
             "days": user.couple.days_together,
             "next_item": anniversaries[0] if anniversaries else None,
-            "labels": user.couple.labels.all(),
+            "labels": user.couple.labels.filter(events__in=visible).distinct(),
+            "label": label,
+            "label_upcoming": label_upcoming,
+            "label_past": label_past,
+            "month_param": f"{first:%Y-%m}",
         },
     )
 

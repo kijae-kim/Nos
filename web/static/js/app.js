@@ -245,11 +245,52 @@
     });
   });
 
-  // 되돌리기 어려운 동작은 한 번 더 확인
+  // 되돌리기 어려운 동작은 한 번 더 확인. 브라우저 기본 창 대신 앱 디자인의 창을 쓴다.
+  // data-confirm 에 물을 말, data-confirm-ok 에 확인 버튼 글자 (없으면 "지울게요").
+  var confirmBox = null;
+  function askConfirm(text, okLabel) {
+    if (!window.HTMLDialogElement) return Promise.resolve(window.confirm(text)); // 아주 오래된 브라우저
+    if (!confirmBox) {
+      confirmBox = document.createElement("dialog");
+      confirmBox.className = "confirm";
+      confirmBox.innerHTML = '<form method="dialog"><p></p><div class="actions">' +
+        '<button class="btn" value="cancel">취소</button><button class="btn ok" value="ok"></button></div></form>';
+      // 바깥(어두운 곳)을 누르면 닫는다
+      confirmBox.addEventListener("click", function (e) { if (e.target === confirmBox) confirmBox.close("cancel"); });
+      document.body.appendChild(confirmBox);
+    }
+    confirmBox.querySelector("p").textContent = text;
+    confirmBox.querySelector(".ok").textContent = okLabel || "지울게요";
+    confirmBox.returnValue = "";
+    return new Promise(function (resolve) {
+      confirmBox.addEventListener("close", function () { resolve(confirmBox.returnValue === "ok"); }, { once: true });
+      confirmBox.showModal();
+      confirmBox.querySelector("[value=cancel]").focus(); // 실수로 Enter 를 눌러도 지워지지 않게
+    });
+  }
   $$("form[data-confirm]").forEach(function (form) {
     form.addEventListener("submit", function (event) {
-      if (!window.confirm(form.dataset.confirm)) event.preventDefault();
+      if (form._confirmed) { form._confirmed = false; return; }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      var submitter = event.submitter;
+      askConfirm(form.dataset.confirm, form.dataset.confirmOk).then(function (ok) {
+        if (!ok) return;
+        form._confirmed = true;
+        if (form.requestSubmit) form.requestSubmit(submitter && submitter.form === form ? submitter : undefined);
+        else { showLoaderSoon(); form.submit(); }
+      });
     });
+  });
+
+  // 안내 문구("로그인 되었습니다" 등)는 몇 초 뒤 접히며 사라진다. 누르면 바로 닫힌다.
+  $$(".notice.flash").forEach(function (note, i) {
+    var hide = function () {
+      note.classList.add("gone");
+      setTimeout(function () { note.parentNode && note.parentNode.removeChild(note); }, 400);
+    };
+    note.addEventListener("click", hide);
+    setTimeout(hide, 4000 + i * 600);
   });
 
   // ---------- D-day 장면 ----------

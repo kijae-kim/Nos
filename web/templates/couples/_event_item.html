@@ -1,14 +1,22 @@
-<li class="rise">
+{# 일정 한 줄. 이름표는 줄 링크 밖에 두어 따로 누를 수 있게 한다 (링크 안에 링크를 넣을 수 없다). #}
+<li class="rise event-li">
   <a class="event-row" href="{% url 'event_update' event.pk %}">
     <i class="bar" style="background:var(--{{ event.color }})"></i>
     <span class="main">
       <small>{{ event.date|date:"n. j." }}{% if event.start_time %} · {{ event.start_time|time:"A g:i" }}{% if event.end_time %} – {{ event.end_time|time:"g:i" }}{% endif %}{% else %} · 하루 종일{% endif %}{% if event.place %} · {{ event.place }}{% endif %}</small>
       <strong>{{ event.title }}{% if event.scope == 'personal' %}<span class="kind">개인</span>{% endif %}</strong>
-      {% if event.labels.all %}
-        <span class="label-chips">
-          {% for l in event.labels.all %}<span class="label-chip" style="--c: var(--{{ l.color }})">{{ l.token }}</span>{% endfor %}
-        </span>
-      {% endif %}
     </span>
+    {% if event.scope == 'shared' %}
+      {% if event.created_by_id == user.id %}
+        <span class="by" title="내가 만든 일정"><i class="av a"></i>나</span>
+      {% else %}
+        <span class="by" title="{{ event.created_by.display_name }}님이 만든 일정"><i class="av b"></i>{{ event.created_by.display_name|truncatechars:6 }}</span>
+      {% endif %}
+    {% endif %}
   </a>
+  {% if event.labels.all %}
+    <span class="label-chips">
+      {% for l in event.labels.all %}<a class="label-chip" style="--c: var(--{{ l.color }})" href="{% url 'calendar' %}?label={{ l.pk }}" aria-label="{{ l.token }} 일정 모아 보기">{{ l.token }}</a>{% endfor %}
+    </span>
+  {% endif %}
 </li>

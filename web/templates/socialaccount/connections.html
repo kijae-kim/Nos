@@ -26,7 +26,7 @@
         {# 카카오는 닉네임, Google 은 이메일. 없으면 연결한 날 #}
         <small>{% if account.provider == "kakao" and account.extra_data.kakao_account.profile.nickname %}{{ account.extra_data.kakao_account.profile.nickname }}{% elif account.extra_data.email %}{{ account.extra_data.email }}{% else %}{{ account.date_joined|date:"Y. n. j." }} 연결{% endif %}</small>
       </span>
-      <form method="post" action="{% url 'socialaccount_connections' %}" data-confirm="이 로그인 방법의 연결을 끊을까요?">
+      <form method="post" action="{% url 'socialaccount_connections' %}" data-confirm="이 로그인 방법의 연결을 끊을까요?" data-confirm-ok="끊을게요">
         {% csrf_token %}
         <input type="hidden" name="account" value="{{ account.pk }}">
         <button type="submit" class="link-btn danger">끊기</button>

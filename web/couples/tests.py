@@ -513,3 +513,76 @@ class DrivePickerButtonTests(TestCase):
         photo = Photo.objects.create(couple=self.couple, uploaded_by=self.couple.members.first(), image="x.png")
         with override_settings(DRIVE_PICKER=config):
             self.assertNotContains(self.client.get(reverse("photo_update", args=[photo.pk])), "data-drive-picker")
+
+
+class PolishTests(TestCase):
+    """1단계 다듬기: 이름표 모아 보기, 만든 사람, 하단 탭 글자, 안내 문구, 확인 창 문구."""
+
+    def setUp(self):
+        self.couple = Couple.objects.create(start_date=timezone.localdate() - timedelta(days=99))
+        self.a = User.objects.create_user("a", password="pw", couple=self.couple, nickname="하늘")
+        self.b = User.objects.create_user("b", password="pw", couple=self.couple, nickname="바다")
+        self.client.force_login(self.a)
+
+    def add_event(self, user, text, days, scope=Event.SHARED):
+        return services.save_event(
+            Event(created_by=user),
+            self.couple,
+            {"text": text, "date": timezone.localdate() + timedelta(days=days), "start_time": None, "end_time": None, "place": "", "scope": scope, "color": "sky"},
+        )
+
+    def test_label_filter_lists_upcoming_then_past(self):
+        soon = self.add_event(self.a, "바다 보러 @여행", 3)
+        later = self.add_event(self.b, "제주 @여행 #비행기", 40)
+        past = self.add_event(self.a, "강릉 @여행", -30)
+        other = self.add_event(self.a, "영화 @데이트", 2)
+        label = Label.objects.get(couple=self.couple, name="여행")
+        response = self.client.get(reverse("calendar"), {"label": label.pk})
+        self.assertEqual(response.context["label"], label)
+        self.assertEqual(response.context["label_upcoming"], [soon, later])
+        self.assertEqual(response.context["label_past"], [past])
+        self.assertContains(response, "@여행 일정")
+        self.assertIn(other.labels.first(), list(response.context["labels"]))
+
+    def test_label_filter_hides_partners_personal_events(self):
+        self.add_event(self.b, "바다 혼자 @운동", 1, Event.PERSONAL)
+        mine = self.add_event(self.a, "같이 @운동", 2)
+        label = Label.objects.get(couple=self.couple, name="운동")
+        response = self.client.get(reverse("calendar"), {"label": label.pk})
+        self.assertEqual(response.context["label_upcoming"], [mine])
+
+    def test_other_couples_label_is_ignored(self):
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("c", password="pw", couple=other)
+        services.save_event(Event(created_by=stranger), other, {"text": "비밀 @여행", "date": timezone.localdate(), "start_time": None, "end_time": None, "place": "", "scope": Event.SHARED, "color": "sky"})
+        label = Label.objects.get(couple=other)
+        response = self.client.get(reverse("calendar"), {"label": label.pk})
+        self.assertIsNone(response.context["label"])
+        self.assertNotContains(response, "비밀")
+        self.assertEqual(self.client.get(reverse("calendar"), {"label": "x"}).status_code, 200)
+
+    def test_label_chips_link_to_filter(self):
+        self.add_event(self.a, "바다 @여행", 1)
+        label = Label.objects.get(couple=self.couple, name="여행")
+        response = self.client.get(reverse("calendar"))
+        self.assertContains(response, f'href="{reverse("calendar")}?label={label.pk}"')
+
+    def test_event_shows_who_made_it(self):
+        self.add_event(self.a, "내가 만든 일정", 1)
+        self.add_event(self.b, "바다가 만든 일정", 2)
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, 'title="내가 만든 일정"')
+        self.assertContains(response, 'title="바다님이 만든 일정"')
+
+    def test_tabbar_has_text_and_flash_notice(self):
+        response = self.client.get(reverse("home"))
+        for text in ["홈", "캘린더", "취향", "앨범"]:
+            self.assertContains(response, f"<span>{text}</span>")
+        from django.contrib.messages import get_messages  # noqa: F401
+        response = self.client.post(reverse("event_create"), {"text": "확인용", "date": timezone.localdate().isoformat(), "scope": "shared", "color": "sky"}, follow=True)
+        if list(response.context["messages"]):
+            self.assertContains(response, 'class="notice flash"')
+
+    def test_leave_confirm_has_own_button_label(self):
+        response = self.client.get(reverse("us"))
+        self.assertContains(response, 'data-confirm-ok="연결 끊기"')

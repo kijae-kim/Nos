@@ -1,0 +1,20 @@
+{# 이름표 하나로 모은 일정. 다가오는 것 먼저, 지난 것은 아래에. #}
+<div class="list-head row-between">
+  <h2>{{ label.token }} 일정</h2>
+  <a class="add-link" href="?month={{ month_param }}">모두 보기</a>
+</div>
+<ul class="events">
+  {% for e in label_upcoming %}
+    {% include "couples/_event_item.html" with event=e %}
+  {% empty %}
+    <li class="empty-line">다가오는 일정이 없어요</li>
+  {% endfor %}
+</ul>
+{% if label_past %}
+  <h3 class="list-sub">지난 일정 {{ label_past|length }}개</h3>
+  <ul class="events past">
+    {% for e in label_past %}
+      {% include "couples/_event_item.html" with event=e %}
+    {% endfor %}
+  </ul>
+{% endif %}

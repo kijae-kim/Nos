@@ -19,7 +19,7 @@
   <main class="page">
     {% block header %}{% endblock %}
     {% if messages %}
-      {% for message in messages %}<p class="notice">{{ message }}</p>{% endfor %}
+      {% for message in messages %}<p class="notice flash" role="status">{{ message }}</p>{% endfor %}
     {% endif %}
     {% block content %}{% endblock %}
   </main>
@@ -33,17 +33,17 @@
     <a class="quick" style="--x:40px;--y:-116px" href="{% url 'photo_create' %}"><i style="background:var(--lav)"><svg class="i"><use href="#i-album"/></svg></i>사진</a>
     <a class="quick" style="--x:112px;--y:-74px" href="{% url 'anniversary_create' %}"><i style="background:var(--sand)"><svg class="i"><use href="#i-gift"/></svg></i>기념일</a>
 
-    <a class="tab{% if tab == 'home' %} on{% endif %}" style="left:11.7%" href="{% url 'home' %}"{% if tab == 'home' %} aria-current="page"{% endif %} aria-label="홈">
-      <svg class="i"><use href="#i-home"/></svg>
+    <a class="tab{% if tab == 'home' %} on{% endif %}" style="left:11.7%" href="{% url 'home' %}"{% if tab == 'home' %} aria-current="page"{% endif %}>
+      <svg class="i" aria-hidden="true"><use href="#i-home"/></svg><span>홈</span>
     </a>
-    <a class="tab{% if tab == 'calendar' %} on{% endif %}" style="left:28.7%" href="{% url 'calendar' %}"{% if tab == 'calendar' %} aria-current="page"{% endif %} aria-label="캘린더">
-      <svg class="i"><use href="#i-cal"/></svg>
+    <a class="tab{% if tab == 'calendar' %} on{% endif %}" style="left:28.7%" href="{% url 'calendar' %}"{% if tab == 'calendar' %} aria-current="page"{% endif %}>
+      <svg class="i" aria-hidden="true"><use href="#i-cal"/></svg><span>캘린더</span>
     </a>
-    <a class="tab{% if tab == 'tastes' %} on{% endif %}" style="left:71.3%" href="{% url 'tastes' %}"{% if tab == 'tastes' %} aria-current="page"{% endif %} aria-label="취향">
-      <svg class="i"><use href="#i-note"/></svg>
+    <a class="tab{% if tab == 'tastes' %} on{% endif %}" style="left:71.3%" href="{% url 'tastes' %}"{% if tab == 'tastes' %} aria-current="page"{% endif %}>
+      <svg class="i" aria-hidden="true"><use href="#i-note"/></svg><span>취향</span>
     </a>
-    <a class="tab{% if tab == 'albums' %} on{% endif %}" style="left:88.3%" href="{% url 'albums' %}"{% if tab == 'albums' %} aria-current="page"{% endif %} aria-label="앨범">
-      <svg class="i"><use href="#i-album"/></svg>
+    <a class="tab{% if tab == 'albums' %} on{% endif %}" style="left:88.3%" href="{% url 'albums' %}"{% if tab == 'albums' %} aria-current="page"{% endif %}>
+      <svg class="i" aria-hidden="true"><use href="#i-album"/></svg><span>앨범</span>
     </a>
     <button class="fab" id="fab" type="button" aria-label="추가" aria-expanded="false">
       <svg class="i"><use href="#i-plus"/></svg>
