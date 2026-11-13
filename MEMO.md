@@ -105,7 +105,7 @@
 - 마이그레이션 2개 추가 (`accounts.0002_appearance`, `couples.0006_taste_likes_comments`) → 맥 migrate 확인 숫자 42.
 - 확인할 것: 배포 뒤 휴대폰이 예전 JS·CSS 를 들고 있을 수 있다 (정적 파일 이름에 버전이 없음). 개발 중에도 브라우저가 옛 `theme.js` 를 써서 한 번 헷갈렸다. 2단계에서 실제로 문제가 되면 파일 이름에 버전을 붙이는 방식(ManifestStaticFilesStorage)으로 바꾼다.
   - [x] 정적 파일 주소에 버전 붙이기 (2026-11-13): `{% static %}` 이 `?v=<내용 해시 12자리>` 를 붙인다 (`config/storage.py`). `vercel.json` 이 `?v=` 붙은 `/static/` 요청만 1년 캐시(immutable). 배포 전에는 Vercel 이 정적 파일을 `max-age=0, must-revalidate` 로 내줘서 예전 파일이 남지는 않았고, 매번 서버에 확인하느라 느렸다.
-  - 배포 뒤 확인: `curl -sI "https://nos-rho-jade.vercel.app/static/css/app.css?v=x"` 의 `cache-control` 이 `max-age=31536000, immutable` 인지. 아니면 vercel.json headers 가 Vercel 정적 파일에 안 먹는 것.
+  - [x] 배포 뒤 확인 (2026-11-13): `?v=` 붙은 정적 파일 5개 모두 `public, max-age=31536000, immutable`, 버전 없는 주소는 `max-age=0, must-revalidate` 그대로. 실제 폰에서 시작이 빨라졌는지는 폰 시험 때 본다.
   - 바로잡기: 서비스 워커(`templates/sw.js`)는 설치용 최소 코드라 아무것도 캐시하지 않는다. 개발 중 예전 화면이 보인 것은 브라우저 캐시였다.
 
 ### 4단계. 기능 더하기 — 먼저 정할 것이 있음 (아래 "정해야 할 것")
