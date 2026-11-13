@@ -3,7 +3,13 @@ from django.db import models
 
 
 class User(AbstractUser):
+    PALETTE_CHOICES = [("boat", "배"), ("journey", "여정")]
+    MODE_CHOICES = [("system", "기기 설정"), ("light", "라이트"), ("dark", "다크")]
+
     nickname = models.CharField("닉네임", max_length=20, blank=True)
+    # 테마와 화면 모드. 계정에 두어 휴대폰을 바꾸거나 새로 설치해도 그대로 따라온다 (static/js/theme.js)
+    palette = models.CharField("테마", max_length=10, choices=PALETTE_CHOICES, default="boat")
+    mode = models.CharField("화면 모드", max_length=10, choices=MODE_CHOICES, default="system")
     couple = models.ForeignKey(
         "couples.Couple",
         null=True,

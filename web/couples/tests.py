@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from . import services
-from .models import Album, Couple, Event, Label, Photo, Taste
+from .models import Album, Couple, Event, Label, Photo, Taste, TasteComment, TasteLike
 
 User = get_user_model()
 
@@ -586,3 +586,92 @@ class PolishTests(TestCase):
     def test_leave_confirm_has_own_button_label(self):
         response = self.client.get(reverse("us"))
         self.assertContains(response, 'data-confirm-ok="연결 끊기"')
+
+
+class TasteLikeCommentTests(TestCase):
+    """취향 좋아요·댓글."""
+
+    def setUp(self):
+        self.couple = Couple.objects.create()
+        self.a = User.objects.create_user("a", password="pw", couple=self.couple, nickname="하늘")
+        self.b = User.objects.create_user("b", password="pw", couple=self.couple, nickname="바다")
+        self.taste = Taste.objects.create(couple=self.couple, author=self.b, category="음악", title="밤편지")
+        self.client.force_login(self.a)
+
+    def like(self, **extra):
+        return self.client.post(reverse("taste_like", args=[self.taste.pk]), **extra)
+
+    def test_like_toggles(self):
+        self.assertRedirects(self.like(), reverse("taste_detail", args=[self.taste.pk]))
+        self.assertEqual(self.taste.likes.count(), 1)
+        self.like()
+        self.assertEqual(self.taste.likes.count(), 0)
+
+    def test_like_json_says_who_likes(self):
+        data = self.like(HTTP_ACCEPT="application/json").json()
+        self.assertEqual(data, {"liked": True, "count": 1, "text": "내가 좋아해요"})
+        TasteLike.objects.create(taste=self.taste, user=self.b)
+        data = self.like(HTTP_ACCEPT="application/json").json()
+        self.assertEqual(data, {"liked": False, "count": 1, "text": "바다님이 좋아해요"})
+        data = self.like(HTTP_ACCEPT="application/json").json()
+        self.assertEqual(data["text"], "둘 다 좋아해요")
+
+    def test_detail_shows_like_state(self):
+        TasteLike.objects.create(taste=self.taste, user=self.b)
+        response = self.client.get(reverse("taste_detail", args=[self.taste.pk]))
+        self.assertFalse(response.context["liked"])
+        self.assertContains(response, "바다님이 좋아해요")
+
+    def test_comment_create_and_show(self):
+        response = self.client.post(reverse("taste_comment_create", args=[self.taste.pk]), {"text": "  이 노래 좋다  "})
+        self.assertRedirects(response, reverse("taste_detail", args=[self.taste.pk]) + "#comments", fetch_redirect_response=False)
+        comment = self.taste.comments.get()
+        self.assertEqual((comment.text, comment.author), ("이 노래 좋다", self.a))
+        response = self.client.get(reverse("taste_detail", args=[self.taste.pk]))
+        self.assertContains(response, "이 노래 좋다")
+        self.assertContains(response, reverse("taste_comment_delete", args=[comment.pk]))
+
+    def test_empty_or_long_comment_is_rejected(self):
+        url = reverse("taste_comment_create", args=[self.taste.pk])
+        self.assertEqual(self.client.post(url, {"text": "   "}).status_code, 400)
+        response = self.client.post(url, {"text": "가" * 301})
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "300자까지", status_code=400)
+        self.assertFalse(self.taste.comments.exists())
+
+    def test_only_author_can_delete_comment(self):
+        theirs = TasteComment.objects.create(taste=self.taste, author=self.b, text="바다 댓글")
+        mine = TasteComment.objects.create(taste=self.taste, author=self.a, text="내 댓글")
+        response = self.client.get(reverse("taste_detail", args=[self.taste.pk]))
+        self.assertNotContains(response, reverse("taste_comment_delete", args=[theirs.pk]))
+        self.assertEqual(self.client.post(reverse("taste_comment_delete", args=[theirs.pk])).status_code, 404)
+        self.client.post(reverse("taste_comment_delete", args=[mine.pk]))
+        self.assertEqual(list(self.taste.comments.all()), [theirs])
+
+    def test_other_couple_cannot_like_or_comment(self):
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("c", password="pw", couple=other)
+        self.client.force_login(stranger)
+        self.assertEqual(self.like().status_code, 404)
+        self.assertEqual(self.client.post(reverse("taste_comment_create", args=[self.taste.pk]), {"text": "안녕"}).status_code, 404)
+        self.assertFalse(self.taste.likes.exists() or self.taste.comments.exists())
+
+    def test_like_and_comment_need_post(self):
+        self.assertEqual(self.client.get(reverse("taste_like", args=[self.taste.pk])).status_code, 405)
+
+    def test_feed_counts(self):
+        TasteLike.objects.create(taste=self.taste, user=self.a)
+        TasteLike.objects.create(taste=self.taste, user=self.b)
+        TasteComment.objects.create(taste=self.taste, author=self.b, text="하나")
+        quiet = Taste.objects.create(couple=self.couple, author=self.a, category="영화", title="조용한 취향")
+        response = self.client.get(reverse("tastes"))
+        tastes = {t.pk: t for t in response.context["tastes"]}
+        self.assertEqual((tastes[self.taste.pk].like_count, tastes[self.taste.pk].comment_count, tastes[self.taste.pk].liked), (2, 1, True))
+        self.assertEqual((tastes[quiet.pk].like_count, tastes[quiet.pk].comment_count, tastes[quiet.pk].liked), (0, 0, False))
+        self.assertContains(response, 'aria-label="좋아요 2"')
+
+    def test_deleting_taste_removes_likes_and_comments(self):
+        TasteLike.objects.create(taste=self.taste, user=self.a)
+        TasteComment.objects.create(taste=self.taste, author=self.a, text="지워질 댓글")
+        self.client.post(reverse("taste_delete", args=[self.taste.pk]))
+        self.assertFalse(TasteLike.objects.exists() or TasteComment.objects.exists())

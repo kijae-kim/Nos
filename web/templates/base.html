@@ -1,5 +1,5 @@
 {% load static %}<!doctype html>
-<html lang="ko" data-theme="boat" data-mode="light">
+<html lang="ko" data-theme="boat" data-mode="light"{% if user.is_authenticated %} data-account-palette="{{ user.palette }}" data-account-mode="{{ user.mode }}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">

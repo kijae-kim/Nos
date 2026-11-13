@@ -17,6 +17,13 @@
     <a class="link-row" href="{{ taste.link }}" target="_blank" rel="noopener noreferrer">{{ taste.link }}</a>
   {% endif %}
   <p class="muted">{{ taste.author.display_name }} · {{ taste.created_at|date:"Y. n. j." }}{% if taste.updated_at > taste.created_at %} · 고침{% endif %}</p>
+  <form class="like-form" method="post" action="{% url 'taste_like' taste.pk %}" data-like>
+    {% csrf_token %}
+    <button type="submit" class="like-btn{% if liked %} on{% endif %}" aria-pressed="{% if liked %}true{% else %}false{% endif %}" aria-label="좋아요">
+      <svg class="i" aria-hidden="true"><use href="#i-heart"/></svg>
+    </button>
+    <span class="like-text" data-like-text aria-live="polite">{% if not likers %}좋아요{% elif likers|length >= 2 %}둘 다 좋아해요{% elif likers.0 == user %}내가 좋아해요{% else %}{{ likers.0.display_name }}님이 좋아해요{% endif %}</span>
+  </form>
 </article>
 <div class="action-row">
   <a class="btn" href="{% url 'taste_update' taste.pk %}">고치기</a>
@@ -25,4 +32,36 @@
     <button type="submit" class="btn danger">지우기</button>
   </form>
 </div>
+
+<section class="comments" id="comments" aria-label="댓글">
+  <h2 class="group">댓글{% if comments %} {{ comments|length }}{% endif %}</h2>
+  {% if comments %}
+    <ul class="comment-list">
+      {% for c in comments %}
+        <li class="comment-item{% if c.author == user %} mine{% endif %}">
+          <i class="av {% if c.author == user %}a{% else %}b{% endif %}" aria-hidden="true"></i>
+          <div class="bubble">
+            <small>{{ c.author.display_name }} · {{ c.created_at|date:"n. j. A g:i" }}</small>
+            <p>{{ c.text|linebreaksbr }}</p>
+          </div>
+          {% if c.author == user %}
+            <form method="post" action="{% url 'taste_comment_delete' c.pk %}" data-confirm="이 댓글을 지울까요?">
+              {% csrf_token %}
+              <button type="submit" class="comment-del" aria-label="댓글 지우기"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg></button>
+            </form>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">아직 댓글이 없어요. 첫 마디를 남겨 보세요.</p>
+  {% endif %}
+  <form class="comment-form" method="post" action="{% url 'taste_comment_create' taste.pk %}">
+    {% csrf_token %}
+    <label class="sr-only" for="comment-text">댓글</label>
+    <textarea id="comment-text" name="text" rows="1" maxlength="{{ comment_form.fields.text.max_length }}" placeholder="한마디 남기기" required data-grow>{{ comment_form.text.value|default_if_none:"" }}</textarea>
+    <button type="submit" class="btn primary">보내기</button>
+  </form>
+  {% if comment_form.text.errors %}<p class="error">{{ comment_form.text.errors.0 }}</p>{% endif %}
+</section>
 {% endblock %}

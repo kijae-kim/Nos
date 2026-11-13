@@ -20,6 +20,9 @@ urlpatterns = [
     path("tastes/<int:pk>/", views.taste_detail, name="taste_detail"),
     path("tastes/<int:pk>/edit/", views.taste_update, name="taste_update"),
     path("tastes/<int:pk>/delete/", views.taste_delete, name="taste_delete"),
+    path("tastes/<int:pk>/like/", views.taste_like, name="taste_like"),
+    path("tastes/<int:pk>/comments/", views.taste_comment_create, name="taste_comment_create"),
+    path("tastes/comments/<int:pk>/delete/", views.taste_comment_delete, name="taste_comment_delete"),
     # 앨범
     path("albums/", views.album, name="albums"),
     path("albums/<int:pk>/", views.album_detail, name="album_detail"),

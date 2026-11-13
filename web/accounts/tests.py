@@ -88,3 +88,37 @@ class ScreenTests(TestCase):
         self.assertContains(self.client.get(reverse("account_logout")), "로그아웃할까요?")
         self.assertContains(self.client.get(reverse("socialaccount_login_cancelled")), "로그인을 취소했어요")
         self.assertContains(self.client.get(reverse("socialaccount_login_error")), "로그인하지 못했어요", status_code=401)
+
+
+class AppearanceTests(TestCase):
+    """테마·화면 모드를 계정에 저장한다."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("t", password="pw", couple=Couple.objects.create())
+        self.client.force_login(self.user)
+
+    def test_defaults(self):
+        self.assertEqual((self.user.palette, self.user.mode), ("boat", "system"))
+
+    def test_save_palette_and_mode(self):
+        response = self.client.post(reverse("appearance"), {"palette": "journey"})
+        self.assertEqual(response.json(), {"ok": True, "palette": "journey", "mode": "system"})
+        self.client.post(reverse("appearance"), {"mode": "dark"})
+        self.user.refresh_from_db()
+        self.assertEqual((self.user.palette, self.user.mode), ("journey", "dark"))
+
+    def test_rejects_unknown_values(self):
+        self.assertEqual(self.client.post(reverse("appearance"), {"palette": "neon", "mode": "x"}).status_code, 400)
+        self.user.refresh_from_db()
+        self.assertEqual((self.user.palette, self.user.mode), ("boat", "system"))
+
+    def test_needs_login_and_post(self):
+        self.assertEqual(self.client.get(reverse("appearance")).status_code, 405)
+        self.client.logout()
+        self.assertEqual(self.client.post(reverse("appearance"), {"mode": "dark"}).status_code, 302)
+
+    def test_page_carries_account_values(self):
+        self.user.palette, self.user.mode = "journey", "dark"
+        self.user.save()
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, 'data-account-palette="journey" data-account-mode="dark"')

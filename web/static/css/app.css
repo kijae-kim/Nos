@@ -758,3 +758,50 @@ a.label-chip:active { transform: scale(.94); }
 @media (min-width: 900px) { .confirm { margin: auto; } }
 @keyframes confirm-in { from { transform: translateY(24px) scale(.97); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .confirm[open] { animation: none; } }
+
+/* ---------- 취향 좋아요·댓글 ---------- */
+.taste-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.taste-counts { display: inline-flex; gap: 10px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.taste-counts span { display: inline-flex; align-items: center; gap: 3px; }
+.taste-counts svg.i { width: 15px; height: 15px; }
+.taste-counts .on { color: var(--accent); }
+.taste-counts .on svg.i { fill: currentColor; }
+
+.like-form { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.like-btn {
+  width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--tile); color: var(--muted); transition: color .2s, background .2s, transform .2s var(--spring);
+}
+.like-btn:active { transform: scale(.9); }
+.like-btn.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.like-btn.on svg.i { fill: currentColor; }
+.like-btn.pop svg.i { animation: like-pop .45s var(--spring); }
+@keyframes like-pop { 40% { transform: scale(1.35); } }
+.like-text { font-size: 13px; font-weight: 600; color: var(--muted); }
+
+.comments { display: grid; gap: 12px; }
+.comments .group { margin-top: 6px; }
+.comment-list { display: grid; gap: 10px; }
+.comment-item { display: flex; align-items: flex-start; gap: 10px; }
+.comment-item .av { width: 30px; height: 30px; border-width: 0; margin-top: 2px; }
+.comment-item .bubble {
+  flex: 1; min-width: 0; background: var(--surface); border-radius: 4px 18px 18px 18px;
+  padding: 9px 13px 10px; box-shadow: var(--shadow);
+}
+.comment-item.mine .bubble { background: color-mix(in srgb, var(--primary) 9%, var(--surface)); }
+.comment-item small { font-size: 11px; color: var(--muted); }
+.comment-item p { font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; margin-top: 1px; }
+.comment-del { width: 32px; height: 32px; display: grid; place-items: center; color: var(--faint); border-radius: 50%; }
+.comment-del svg.i { width: 16px; height: 16px; }
+.comment-form {
+  display: flex; align-items: flex-end; gap: 8px; background: var(--surface); border-radius: 22px;
+  padding: 6px 6px 6px 16px; box-shadow: var(--shadow);
+}
+.comment-form textarea {
+  flex: 1; min-width: 0; border: 0; background: none; resize: none; font: inherit; font-size: 15px;
+  line-height: 1.45; color: var(--text); padding: 8px 0; max-height: 160px; outline: none;
+  height: auto; min-height: 38px; border-radius: 0; box-shadow: none;
+}
+.comment-form textarea::placeholder { color: var(--faint); }
+.comment-form .btn { width: auto; flex: none; padding: 0 16px; height: 40px; margin: 0; border-radius: 18px; font-size: 14px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

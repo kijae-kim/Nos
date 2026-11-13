@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.db.models import Count, Exists, OuterRef
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -16,8 +17,8 @@ from anniversaries import services as anniversary_services
 
 from . import quota, services
 from .storage import MAX_IMAGE_BYTES, delete_file
-from .forms import AlbumForm, CreateForm, EventForm, JoinForm, PhotoForm, ProfileForm, TasteForm
-from .models import Album, Couple, Event, Photo, Taste
+from .forms import AlbumForm, CreateForm, EventForm, JoinForm, PhotoForm, ProfileForm, TasteCommentForm, TasteForm
+from .models import Album, Couple, Event, Photo, Taste, TasteComment, TasteLike
 
 
 def _render_connect(request, create_form=None, join_form=None):
@@ -288,7 +289,11 @@ def taste(request):
     category = request.GET.get("cat", "전체")
     who = request.GET.get("who", "all")
 
-    tastes = Taste.objects.filter(couple=couple).select_related("author")
+    tastes = Taste.objects.filter(couple=couple).select_related("author").annotate(
+        like_count=Count("likes", distinct=True),
+        comment_count=Count("comments", distinct=True),
+        liked=Exists(TasteLike.objects.filter(taste=OuterRef("pk"), user=user)),
+    )
     if category != "전체":
         tastes = tastes.filter(category=category)
     if who.isdigit():
@@ -322,8 +327,65 @@ def taste_create(request):
 
 @login_required
 def taste_detail(request, pk):
+    taste = get_object_or_404(Taste.objects.select_related("author"), pk=pk, couple=request.user.couple)
+    return render(request, "couples/taste_detail.html", _taste_detail_context(request, taste))
+
+
+def _taste_detail_context(request, taste, comment_form=None):
+    likers = [like.user for like in taste.likes.select_related("user").order_by("created_at")]
+    return {
+        "taste": taste,
+        "likers": likers,
+        "liked": request.user in likers,
+        "comments": taste.comments.select_related("author"),
+        "comment_form": comment_form or TasteCommentForm(),
+    }
+
+
+def _like_text(likers, user):
+    """좋아요 옆에 보일 말: "바다님이 좋아해요", "둘 다 좋아해요" 등."""
+    if not likers:
+        return "좋아요"
+    if len(likers) >= 2:
+        return "둘 다 좋아해요"
+    return "내가 좋아해요" if likers[0] == user else f"{likers[0].display_name}님이 좋아해요"
+
+
+@login_required
+@require_POST
+def taste_like(request, pk):
+    """좋아요를 누르면 켜고, 다시 누르면 끈다."""
     taste = get_object_or_404(Taste, pk=pk, couple=request.user.couple)
-    return render(request, "couples/taste_detail.html", {"taste": taste})
+    like = TasteLike.objects.filter(taste=taste, user=request.user).first()
+    if like:
+        like.delete()
+    else:
+        TasteLike.objects.get_or_create(taste=taste, user=request.user)
+    if _wants_json(request):
+        likers = [l.user for l in taste.likes.select_related("user").order_by("created_at")]
+        return JsonResponse({"liked": request.user in likers, "count": len(likers), "text": _like_text(likers, request.user)})
+    return redirect("taste_detail", pk=taste.pk)
+
+
+@login_required
+@require_POST
+def taste_comment_create(request, pk):
+    taste = get_object_or_404(Taste, pk=pk, couple=request.user.couple)
+    form = TasteCommentForm(request.POST)
+    if form.is_valid():
+        TasteComment.objects.create(taste=taste, author=request.user, text=form.cleaned_data["text"])
+        return redirect(f"{reverse('taste_detail', args=[taste.pk])}#comments")
+    return render(request, "couples/taste_detail.html", _taste_detail_context(request, taste, form), status=400)
+
+
+@login_required
+@require_POST
+def taste_comment_delete(request, pk):
+    comment = get_object_or_404(TasteComment, pk=pk, taste__couple=request.user.couple, author=request.user)
+    taste_pk = comment.taste_id
+    comment.delete()
+    messages.success(request, "댓글을 지웠어요.")
+    return redirect(f"{reverse('taste_detail', args=[taste_pk])}#comments")
 
 
 @login_required
