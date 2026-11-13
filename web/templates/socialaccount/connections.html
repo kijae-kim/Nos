@@ -20,7 +20,7 @@
   {% for choice in form.fields.account.choices %}
     {% with account=choice.0.instance %}
     <li class="account-row">
-      <span class="provider-badge {{ account.provider }}" aria-hidden="true">{% if account.provider == "kakao" %}K{% elif account.provider == "google" %}G{% else %}{{ account.provider|first|upper }}{% endif %}</span>
+      <span class="provider-badge {{ account.provider }}" aria-hidden="true">{% if account.provider == "kakao" %}<svg class="kakao-symbol" aria-hidden="true"><use href="#i-kakao"/></svg>{% elif account.provider == "google" %}G{% else %}{{ account.provider|first|upper }}{% endif %}</span>
       <span class="main">
         <strong>{% if account.provider == "kakao" %}카카오{% elif account.provider == "google" %}Google{% else %}{{ account.get_provider.name }}{% endif %}</strong>
         {# 카카오는 닉네임, Google 은 이메일. 없으면 연결한 날 #}
@@ -48,6 +48,7 @@
           {% csrf_token %}
           <button type="submit" class="btn {{ provider.id }}">
             {% if provider.id == "google" %}<span class="g">G</span>{% endif %}
+            {% if provider.id == "kakao" %}<svg class="kakao-symbol" aria-hidden="true"><use href="#i-kakao"/></svg>{% endif %}
             {% if provider.id == "kakao" %}카카오 연결하기{% elif provider.id == "google" %}Google 연결하기{% else %}{{ provider.name }} 연결하기{% endif %}
           </button>
         </form>

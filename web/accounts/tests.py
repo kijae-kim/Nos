@@ -86,7 +86,7 @@ class ScreenTests(TestCase):
 
     def test_logout_and_social_problem_pages_use_app_layout(self):
         self.assertContains(self.client.get(reverse("account_logout")), "로그아웃할까요?")
-        self.assertContains(self.client.get(reverse("socialaccount_login_cancelled")), "로그인을 취소했어요")
+        # 로그인 취소는 화면 없이 로그인으로 돌아간다 (SocialLoginCancelledTests)
         self.assertContains(self.client.get(reverse("socialaccount_login_error")), "로그인하지 못했어요", status_code=401)
 
 
@@ -122,3 +122,19 @@ class AppearanceTests(TestCase):
         self.user.save()
         response = self.client.get(reverse("home"))
         self.assertContains(response, 'data-account-palette="journey" data-account-mode="dark"')
+
+
+class SocialLoginCancelledTests(TestCase):
+    """카카오·구글 로그인 창에서 취소하면 안내 문구만 보이고 로그인 화면으로 돌아간다."""
+
+    def test_cancel_redirects_to_login_with_notice(self):
+        res = self.client.get(reverse("socialaccount_login_cancelled"), follow=True)
+        self.assertRedirects(res, reverse("account_login"))
+        self.assertContains(res, "로그인을 취소했어요.")
+
+    def test_cancel_while_connecting_returns_to_connections(self):
+        user = get_user_model().objects.create_user("c", password="pw", couple=Couple.objects.create())
+        self.client.force_login(user)
+        res = self.client.get(reverse("socialaccount_login_cancelled"), follow=True)
+        self.assertRedirects(res, reverse("socialaccount_connections"))
+        self.assertContains(res, "계정 연결을 취소했어요.")

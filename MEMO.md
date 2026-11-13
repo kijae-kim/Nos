@@ -66,10 +66,12 @@
 
 ### 2. 어디서나: 키 발급과 설정
 
-- [ ] 카카오 로그인 키·Redirect URI → README "소셜 로그인 설정"
-- [ ] 구글 로그인: Google Cloud 프로젝트 `nos`, 테스트 상태, 테스트 사용자 등록 → README 같은 곳
-- [ ] 드라이브 가져오기: Picker API·Drive API 켜기, API 키(웹사이트 제한에 `https://docs.google.com/*` 포함), 프로젝트 번호 → README "드라이브에서 골라 가져오기"
-- [ ] 위 값들을 Vercel 환경 변수(Production)에 넣고 재배포
+- [x] 카카오 로그인 키·Redirect URI → README "소셜 로그인 설정"
+- [x] 구글 로그인: Google Cloud 프로젝트 `nos`, 테스트 상태, 테스트 사용자 등록 → README 같은 곳
+- [x] 드라이브 가져오기: Picker API·Drive API 켜기, API 키(웹사이트 제한에 `https://docs.google.com/*` 포함), 프로젝트 번호 → README "드라이브에서 골라 가져오기"
+- [x] 위 값들을 Vercel 환경 변수(Production)에 넣고 재배포 (2026-11-13. 폰에서 카카오·구글 로그인 됨. 카카오는 새 콘솔에서 Redirect URI 를 "앱 › 플랫폼 키 › REST API 키" 안에 넣어야 했다(KOE006))
+- [x] 카카오 버튼·연결된 계정에 카카오 말풍선 심볼 (2026-11-14)
+- [x] 소셜 로그인 창에서 취소하면 "로그인을 취소했어요." 안내만 띄우고 로그인 화면으로 (연결하다 취소하면 연결된 계정 화면으로) (2026-11-14)
 
 ### 3. 사이트가 열린 뒤: 실제 폰에서 시험
 
@@ -159,7 +161,7 @@
 
 ## 참고
 
-- Vercel 환경 변수 (모두 Production 에만): `DATABASE_URL`(Neon **풀링** 주소), `DJANGO_DEBUG=0`, `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=nos-rho-jade.vercel.app`, `DJANGO_CSRF_TRUSTED_ORIGINS=https://nos-rho-jade.vercel.app`, `MEDIA_BUCKET_NAME`, `MEDIA_ENDPOINT_URL`, `MEDIA_REGION=auto`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET`. 앞으로 더할 것: `KAKAO_CLIENT_ID`, (`KAKAO_CLIENT_SECRET`), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_PICKER_API_KEY`, `GOOGLE_PROJECT_NUMBER`.
+- Vercel 환경 변수 (모두 Production 에만): `DATABASE_URL`(Neon **풀링** 주소), `DJANGO_DEBUG=0`, `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=nos-rho-jade.vercel.app`, `DJANGO_CSRF_TRUSTED_ORIGINS=https://nos-rho-jade.vercel.app`, `MEDIA_BUCKET_NAME`, `MEDIA_ENDPOINT_URL`, `MEDIA_REGION=auto`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET`. `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_PICKER_API_KEY`, `GOOGLE_PROJECT_NUMBER` (2026-11-13 넣음).
 - Vercel 에 넣은 값은 학원 PC 와 집 맥의 `.env.vercel` 에 정리돼 있다 (git 에 없음).
 - 작업 브랜치(`feat/*`, `fix/*`, `docs/*`)는 Vercel 미리보기 배포를 하지 않는다 (`web/vercel.json`).
 - 로고 시안(`design/logo.html`)은 참고용으로 남겨 둔다. 앱에는 쓰지 않는다.

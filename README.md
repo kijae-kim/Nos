@@ -137,7 +137,7 @@ Redirect URI 는 주소마다 따로 등록합니다. 끝의 `/` 까지 정확�
 ### 카카오 ([developers.kakao.com](https://developers.kakao.com))
 
 1. 애플리케이션을 만들고, 플랫폼의 Web 사이트 도메인에 배포 주소와 `http://localhost:8000` 을 넣습니다.
-2. 카카오 로그인을 켜고 위의 Redirect URI 를 등록합니다.
+2. 카카오 로그인을 켜고 위의 Redirect URI 를 등록합니다. 새 콘솔에서는 **앱 › 플랫폼 키 › REST API 키** 안에 리다이렉트 URI 칸이 있습니다 (빠지면 KOE006 오류).
 3. 동의 항목에서 **닉네임**을 필수로 둡니다. 이메일은 비즈 앱 심사가 필요해서 쓰지 않습니다. 앱은 카카오 닉네임을 앱 닉네임으로 넣습니다.
 
 ### Google ([console.cloud.google.com](https://console.cloud.google.com))
