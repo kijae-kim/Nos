@@ -8,7 +8,7 @@
 
 | 영역 | 상태 |
 |---|---|
-| 배포 (Vercel·Neon·R2, 싱가포르) | 배포됨. **Neon 에 DB 표가 없어 로그인 화면이 500 오류** → 아래 "맥에서 할 일" |
+| 배포 (Vercel·Neon·R2, 싱가포르) | 배포됨. Neon migrate 완료(2026-11-13, 44개), 로그인 화면 열림 |
 | 이메일 가입·로그인, 커플 연결 | 완료 |
 | 카카오·구글 로그인 | 코드 완료. 키 발급·등록 남음 |
 | 기념일·D-day | 완료 (알림 발송은 아직) |
@@ -22,7 +22,9 @@
 
 ## 내가 직접 할 일
 
-### 1. 집 맥에서: Neon 에 DB 표 만들기 (이걸 해야 사이트가 열린다)
+### 1. 집 맥에서: Neon 에 DB 표 만들기 — 완료 (2026-11-13, 44개 적용)
+
+남은 것: 4번 Autoscaling 낮추기, 6번 사이트에서 가입·연결·사진 시험. 맥에는 `.env.neon`, `.env.vercel` 이 저장소 맨 위에 있다 (파일 이름 앞의 점을 빼먹으면 git 이 무시하지 않으니 주의).
 
 학원 PC 네트워크는 Postgres 포트(5432)를 막아서 거기서는 못 한다. 재배포는 필요 없다.
 
@@ -146,7 +148,7 @@
 ## 참고
 
 - Vercel 환경 변수 (모두 Production 에만): `DATABASE_URL`(Neon **풀링** 주소), `DJANGO_DEBUG=0`, `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=nos-rho-jade.vercel.app`, `DJANGO_CSRF_TRUSTED_ORIGINS=https://nos-rho-jade.vercel.app`, `MEDIA_BUCKET_NAME`, `MEDIA_ENDPOINT_URL`, `MEDIA_REGION=auto`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`. 앞으로 더할 것: `KAKAO_CLIENT_ID`, (`KAKAO_CLIENT_SECRET`), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_PICKER_API_KEY`, `GOOGLE_PROJECT_NUMBER`.
-- Vercel 에 넣은 값은 학원 PC 의 `.env.vercel` 에만 정리돼 있다 (git 에 없음).
+- Vercel 에 넣은 값은 학원 PC 와 집 맥의 `.env.vercel` 에 정리돼 있다 (git 에 없음).
 - 작업 브랜치(`feat/*`, `fix/*`, `docs/*`)는 Vercel 미리보기 배포를 하지 않는다 (`web/vercel.json`).
 - 로고 시안(`design/logo.html`)은 참고용으로 남겨 둔다. 앱에는 쓰지 않는다.
 
