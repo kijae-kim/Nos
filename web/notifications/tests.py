@@ -93,3 +93,61 @@ class ScheduleTests(TestCase):
         self.assertEqual(josa_ieyo("바다 생일"), "바다 생일이에요")
         self.assertEqual(josa_ieyo("파티"), "파티예요")
         self.assertEqual(josa_ieyo("Anniversary"), "Anniversary이에요")
+
+
+import base64  # noqa: E402
+import io  # noqa: E402
+from unittest import mock  # noqa: E402
+
+import requests  # noqa: E402
+from django.core.management import call_command  # noqa: E402
+from py_vapid import Vapid  # noqa: E402
+from pywebpush import WebPushException  # noqa: E402
+
+from . import push  # noqa: E402
+from .models import PushSubscription  # noqa: E402
+
+
+def make_sub(user, n=1):
+    return PushSubscription.objects.create(user=user, endpoint=f"https://push.example.com/{user.pk}/{n}", p256dh="p", auth="a")
+
+
+def gone(status=410):
+    return WebPushException("gone", response=mock.Mock(status_code=status))
+
+
+class PushTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("a", password="pw")
+
+    @mock.patch("notifications.push.webpush")
+    def test_send_success(self, webpush):
+        sub = make_sub(self.user)
+        self.assertTrue(push.send(sub, {"title": "t", "body": "b", "url": "/", "tag": "x"}))
+        kwargs = webpush.call_args.kwargs
+        self.assertEqual(kwargs["subscription_info"]["endpoint"], sub.endpoint)
+        self.assertEqual(kwargs["ttl"], 86400)
+
+    @mock.patch("notifications.push.webpush")
+    def test_gone_subscription_deleted_others_still_sent(self, webpush):
+        dead, alive = make_sub(self.user, 1), make_sub(self.user, 2)
+        webpush.side_effect = lambda **kw: (_ for _ in ()).throw(gone()) if kw["subscription_info"]["endpoint"] == dead.endpoint else None
+        self.assertEqual(push.send_to_user(self.user, {"title": "t"}), 1)
+        self.assertEqual(list(PushSubscription.objects.all()), [alive])
+
+    @mock.patch("notifications.push.webpush", side_effect=requests.exceptions.ConnectionError())
+    def test_network_error_returns_false(self, webpush):
+        sub = make_sub(self.user)
+        self.assertFalse(push.send(sub, {"title": "t"}))
+        self.assertTrue(PushSubscription.objects.filter(pk=sub.pk).exists())
+
+
+class VapidKeyCommandTests(TestCase):
+    def test_make_vapid_keys_output_loads(self):
+        buf = io.StringIO()
+        call_command("make_vapid_keys", stdout=buf)
+        lines = dict(line.split("=", 1) for line in buf.getvalue().splitlines() if "=" in line and not line.startswith("#"))
+        Vapid.from_string(lines["VAPID_PRIVATE_KEY"])
+        public = base64.urlsafe_b64decode(lines["VAPID_PUBLIC_KEY"] + "==")
+        self.assertEqual(len(public), 65)
+        self.assertTrue(lines["VAPID_SUBJECT"].startswith("mailto:"))

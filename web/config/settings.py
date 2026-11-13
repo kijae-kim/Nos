@@ -196,6 +196,14 @@ MEDIA_UPLOADS_PER_DAY = int(os.getenv("MEDIA_UPLOADS_PER_DAY", "300"))
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # 배포(DEBUG 끔)에서만 쓰는 보안 설정. Vercel 이 HTTPS를 맡아 주므로 프록시 헤더를 믿는다.
+# 기념일 알림 (웹 푸시). 세 값이 모두 있어야 알림 기능이 보인다. 만들기: python web/manage.py make_vapid_keys
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
+VAPID_SUBJECT = os.getenv("VAPID_SUBJECT", "")
+WEBPUSH_ENABLED = bool(VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY and VAPID_SUBJECT)
+# Vercel Cron 이 /cron/anniversaries/ 를 부를 때 붙여 보내는 비밀 값. 비어 있으면 그 주소는 항상 거절한다.
+CRON_SECRET = os.getenv("CRON_SECRET", "")
+
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
