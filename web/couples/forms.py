@@ -1,16 +1,17 @@
 from django import forms
 from django.utils import timezone
 
-from .models import CODE_LENGTH, COLOR_CHOICES, Album, Photo, Taste, TasteComment
+from config.fields import TypedDateField
+
 from . import quota
+from .models import CODE_LENGTH, COLOR_CHOICES, Album, Photo, Taste, TasteComment
 from .storage import ImageUploadField, delete_file
 
 
-class StartDateField(forms.DateField):
+class StartDateField(TypedDateField):
     def __init__(self, **kwargs):
         kwargs.setdefault("label", "사귀기 시작한 날")
         kwargs.setdefault("required", False)
-        kwargs.setdefault("widget", forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
         super().__init__(**kwargs)
 
     def validate(self, value):
