@@ -168,11 +168,13 @@ MEDIA_ROOT = BASE_DIR / "media"
 # 업로드 저장소. 배포에서는 S3 호환 저장소(AWS S3, Cloudflare R2 등)를 쓴다.
 # MEDIA_BUCKET_NAME 이 없으면 개발용으로 web/media/ 에 저장한다.
 # 사진은 비공개로 두고, 주소는 1시간짜리 서명 주소로만 보여 준다.
+# 정적 파일 주소 뒤에 내용 해시(?v=)를 붙인다 (config/storage.py)
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "config.storage.VersionedStaticFilesStorage"},
+}
 if os.getenv("MEDIA_BUCKET_NAME"):
-    STORAGES = {
-        "default": {"BACKEND": "storages.backends.s3.S3Storage"},
-        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
-    }
+    STORAGES["default"] = {"BACKEND": "storages.backends.s3.S3Storage"}
     AWS_STORAGE_BUCKET_NAME = os.getenv("MEDIA_BUCKET_NAME")
     AWS_S3_ENDPOINT_URL = os.getenv("MEDIA_ENDPOINT_URL") or None
     AWS_S3_REGION_NAME = os.getenv("MEDIA_REGION") or None
