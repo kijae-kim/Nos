@@ -5,6 +5,7 @@ from datetime import date
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -12,8 +13,8 @@ from django.views.decorators.http import require_POST
 
 from anniversaries import services as anniversary_services
 
-from . import services
-from .storage import delete_file
+from . import quota, services
+from .storage import MAX_IMAGE_BYTES, delete_file
 from .forms import AlbumForm, CreateForm, EventForm, JoinForm, PhotoForm, ProfileForm, TasteForm
 from .models import Album, Couple, Event, Photo, Taste
 
@@ -295,7 +296,7 @@ def taste(request):
 
 @login_required
 def taste_create(request):
-    form = TasteForm(request.POST or None, request.FILES or None)
+    form = TasteForm(request.POST or None, request.FILES or None, couple=request.user.couple)
     if request.method == "POST" and form.is_valid():
         taste = form.save_for(request.user.couple, request.user)
         messages.success(request, "취향을 공유했어요.")
@@ -312,7 +313,7 @@ def taste_detail(request, pk):
 @login_required
 def taste_update(request, pk):
     taste = get_object_or_404(Taste, pk=pk, couple=request.user.couple)
-    form = TasteForm(request.POST or None, request.FILES or None, instance=taste)
+    form = TasteForm(request.POST or None, request.FILES or None, instance=taste, couple=request.user.couple)
     if request.method == "POST" and form.is_valid():
         form.save_for(request.user.couple, request.user)
         messages.success(request, "취향을 고쳤어요.")
@@ -344,8 +345,15 @@ def _memory(couple, today):
 
 
 @login_required
+def _uploaded_notice(request):
+    count = request.GET.get("uploaded", "")
+    if count.isdigit() and int(count) > 0:
+        messages.success(request, f"사진 {int(count)}장을 올렸어요.")
+
+
 def album(request):
     couple = request.user.couple
+    _uploaded_notice(request)
     today = timezone.localdate()
     photos = list(couple.photos.select_related("album"))
     by_month = defaultdict(list)
@@ -368,6 +376,8 @@ def album(request):
 def album_detail(request, pk):
     couple = request.user.couple
     album = get_object_or_404(Album, pk=pk, couple=couple)
+    if request.method == "GET":
+        _uploaded_notice(request)
     form = AlbumForm(request.POST or None, instance=album)
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -385,15 +395,31 @@ def album_delete(request, pk):
     return redirect("albums")
 
 
+def _wants_json(request):
+    return "application/json" in request.headers.get("Accept", "")
+
+
 @login_required
 def photo_create(request):
+    """사진 올리기. 여러 장은 화면의 스크립트가 한 장씩 따로 보낸다 (Vercel 은 요청 하나에 4.5MB까지만 받는다).
+    스크립트가 보낸 요청에는 JSON 으로 답한다. 스크립트가 없으면 고른 사진 한 장만 올라간다."""
     couple = request.user.couple
     form = PhotoForm(request.POST or None, request.FILES or None, couple=couple)
-    if request.method == "POST" and form.is_valid():
-        photo = form.save_for(couple, request.user)
-        messages.success(request, "사진을 올렸어요.")
-        return redirect("photo_detail", pk=photo.pk)
-    return render(request, "couples/photo_form.html", {"form": form, "photo": None, "albums": couple.albums.all()})
+    if request.method == "POST":
+        if form.is_valid():
+            photo = form.save_for(couple, request.user)
+            if _wants_json(request):
+                return JsonResponse({"ok": True, "id": photo.pk, "album": photo.album_id})
+            messages.success(request, "사진을 올렸어요.")
+            return redirect("photo_detail", pk=photo.pk)
+        if _wants_json(request):
+            errors = [e for field_errors in form.errors.values() for e in field_errors]
+            return JsonResponse({"ok": False, "error": errors[0] if errors else "올리지 못했어요."}, status=400)
+    return render(
+        request,
+        "couples/photo_form.html",
+        {"form": form, "photo": None, "albums": couple.albums.all(), "room": quota.room_for(couple), "max_bytes": MAX_IMAGE_BYTES},
+    )
 
 
 @login_required

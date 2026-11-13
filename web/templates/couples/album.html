@@ -31,7 +31,7 @@
     {% for a in albums %}
       <a class="album" href="{% url 'album_detail' a.pk %}">
         <span class="cover">
-          {% for p in a.photos.all %}{% if forloop.counter <= 3 %}<img src="{{ p.image.url }}" alt="">{% endif %}{% endfor %}
+          {% for p in a.photos.all %}{% if forloop.counter <= 3 %}<img src="{{ p.image.url }}" loading="lazy" decoding="async" alt="">{% endif %}{% endfor %}
           {% if not a.photos.all %}<span class="cover-empty"></span>{% endif %}
         </span>
         <span class="album-text"><strong>{{ a.title }}</strong><small>{{ a.photos.all|length }}장</small></span>
@@ -48,7 +48,7 @@
     <h3 class="month-label">{{ g.month }}</h3>
     <div class="photos">
       {% for p in g.photos %}
-        <a class="tile" href="{% url 'photo_detail' p.pk %}" aria-label="{{ p.caption|default:'사진' }} 보기"><img src="{{ p.image.url }}" alt=""></a>
+        <a class="tile" href="{% url 'photo_detail' p.pk %}" aria-label="{{ p.caption|default:'사진' }} 보기"><img src="{{ p.image.url }}" loading="lazy" decoding="async" alt=""></a>
       {% endfor %}
     </div>
   {% empty %}

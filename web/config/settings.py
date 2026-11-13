@@ -172,6 +172,13 @@ if os.getenv("MEDIA_BUCKET_NAME"):
     AWS_QUERYSTRING_EXPIRE = 3600
     AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "private, max-age=3600"}
 
+# 사진 저장소 한도 (couples/quota.py). R2 무료 한도(저장 10GB, 쓰기 100만 회/월)를 넘지 않도록 앱이 먼저 멈춘다.
+# R2 저장량은 날마다의 최고치로 계산되므로 여유를 둔다.
+_GB = 1024 ** 3
+MEDIA_QUOTA_TOTAL_BYTES = int(float(os.getenv("MEDIA_QUOTA_TOTAL_GB", "8")) * _GB)
+MEDIA_QUOTA_PER_COUPLE_BYTES = int(float(os.getenv("MEDIA_QUOTA_PER_COUPLE_GB", "2")) * _GB)
+MEDIA_UPLOADS_PER_DAY = int(os.getenv("MEDIA_UPLOADS_PER_DAY", "300"))
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # 배포(DEBUG 끔)에서만 쓰는 보안 설정. Vercel 이 HTTPS를 맡아 주므로 프록시 헤더를 믿는다.

@@ -128,6 +128,8 @@ class Taste(models.Model):
     link = models.URLField("링크", blank=True)
     comment = models.TextField("한마디", blank=True)
     image = models.ImageField("사진", upload_to=taste_upload_to, blank=True, null=True)
+    # 저장 공간 한도 계산용 (couples/quota.py). 이미지가 없으면 0
+    image_size = models.PositiveIntegerField(default=0, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -160,6 +162,8 @@ class Photo(models.Model):
     album = models.ForeignKey(Album, on_delete=models.SET_NULL, null=True, blank=True, related_name="photos")
     uploaded_by = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="photos")
     image = models.ImageField("사진", upload_to=photo_upload_to)
+    # 저장 공간 한도 계산용 (couples/quota.py)
+    size = models.PositiveIntegerField(default=0, editable=False)
     caption = models.TextField("한마디", blank=True)
     taken_on = models.DateField("찍은 날", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

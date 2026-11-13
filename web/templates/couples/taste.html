@@ -26,7 +26,7 @@
 <div class="feed">
   {% for t in tastes %}
     <a class="taste-card rise" href="{% url 'taste_detail' t.pk %}" style="--cat: var(--{{ t.color }})">
-      {% if t.image %}<img class="taste-thumb" src="{{ t.image.url }}" alt="">{% endif %}
+      {% if t.image %}<img class="taste-thumb" src="{{ t.image.url }}" loading="lazy" decoding="async" alt="">{% endif %}
       <span class="chip">{{ t.category }}</span>
       <h3>{{ t.title }}</h3>
       {% if t.comment %}<p>{{ t.comment|truncatechars:70 }}</p>{% endif %}

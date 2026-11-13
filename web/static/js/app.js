@@ -425,6 +425,194 @@
   });
   window.addEventListener("pageshow", hideLoader); // 뒤로 가기로 돌아왔을 때
 
+  // ---------- 사진 여러 장 올리기 ----------
+  // 고른 사진을 한 장씩 줄여서 따로 보낸다. 배포 서버는 요청 하나에 4.5MB까지만 받기 때문이다.
+  // 찍은 날은 사진의 촬영 정보(EXIF)에서 읽는다. 줄이면 그 정보가 빠지므로 줄이기 전에 읽는다.
+  function readTakenDate(file) {
+    return new Promise(function (resolve) {
+      if (!/^image\/jpe?g$/i.test(file.type)) return resolve(null);
+      var reader = new FileReader();
+      reader.onerror = function () { resolve(null); };
+      reader.onload = function () {
+        try { resolve(exifDate(new DataView(reader.result))); } catch (e) { resolve(null); }
+      };
+      reader.readAsArrayBuffer(file.slice(0, 256 * 1024));
+    });
+  }
+  // JPEG 의 EXIF 에서 촬영일(DateTimeOriginal, 없으면 DateTime)을 "YYYY-MM-DD" 로 꺼낸다
+  function exifDate(view) {
+    if (view.getUint16(0) !== 0xFFD8) return null;
+    var offset = 2;
+    while (offset + 10 < view.byteLength) {
+      var marker = view.getUint16(offset);
+      if ((marker & 0xFF00) !== 0xFF00) return null;
+      if (marker === 0xFFE1 && view.getUint32(offset + 4) === 0x45786966) {
+        var tiff = offset + 10;
+        var little = view.getUint16(tiff) === 0x4949;
+        var u16 = function (o) { return view.getUint16(o, little); };
+        var u32 = function (o) { return view.getUint32(o, little); };
+        var find = function (dir, tag) {
+          var count = u16(dir);
+          for (var i = 0; i < count; i++) {
+            var entry = dir + 2 + i * 12;
+            if (u16(entry) === tag) return entry;
+          }
+          return null;
+        };
+        var ifd0 = tiff + u32(tiff + 4);
+        var exifPointer = find(ifd0, 0x8769);
+        var entry = exifPointer !== null ? find(tiff + u32(exifPointer + 8), 0x9003) : null;
+        if (entry === null) entry = find(ifd0, 0x0132);
+        if (entry === null) return null;
+        var at = tiff + u32(entry + 8), text = "";
+        for (var j = 0; j < 10; j++) text += String.fromCharCode(view.getUint8(at + j));
+        var m = /^(\d{4}):(\d{2}):(\d{2})$/.exec(text);
+        return m && m[1] !== "0000" ? m[1] + "-" + m[2] + "-" + m[3] : null;
+      }
+      offset += 2 + view.getUint16(offset + 2);
+    }
+    return null;
+  }
+
+  $$("form[data-batch-upload]").forEach(function (form) {
+    var input = form.querySelector('input[type="file"][multiple]');
+    if (!input || !window.fetch || !window.FormData) return; // 스크립트 없이 보내면 고른 사진 중 한 장만 올라간다
+    var zone = form.querySelector("[data-batch-zone]");
+    var list = form.querySelector("[data-batch-list]");
+    var hint = form.querySelector("[data-batch-hint]");
+    var progress = form.querySelector("[data-batch-progress]");
+    var countText = form.querySelector("[data-batch-count]");
+    var bar = form.querySelector("[data-batch-bar]");
+    var submit = form.querySelector("[data-batch-submit]");
+    var captionField = form.querySelector("[data-single-only]");
+    var maxBytes = parseInt(input.dataset.maxBytes, 10) || Infinity;
+    var maxFiles = parseInt(input.dataset.maxFiles, 10) || 30;
+    var hintHtml = hint.innerHTML;
+    var errorBox = document.createElement("p");
+    errorBox.className = "error";
+    errorBox.hidden = true;
+    progress.after(errorBox);
+    var items = [], running = false;
+
+    function setState(item, state, label) {
+      item.state = state;
+      item.li.dataset.state = state;
+      item.li.querySelector(".state").textContent = label;
+    }
+    function choose(fileList) {
+      if (running) return;
+      items.forEach(function (item) { URL.revokeObjectURL(item.preview); });
+      var picked = Array.prototype.filter.call(fileList, function (f) { return f.type.indexOf("image/") === 0; });
+      list.innerHTML = "";
+      items = picked.slice(0, maxFiles).map(function (file) {
+        var li = document.createElement("li");
+        var img = document.createElement("img");
+        var state = document.createElement("span");
+        var item = { file: file, preview: URL.createObjectURL(file), li: li };
+        img.alt = "";
+        img.src = item.preview;
+        state.className = "state";
+        li.append(img, state);
+        list.append(li);
+        setState(item, "wait", "대기");
+        return item;
+      });
+      list.hidden = !items.length;
+      if (captionField) captionField.hidden = items.length > 1; // 한마디는 한 장일 때만. 여러 장이면 올린 뒤 사진마다
+      hint.innerHTML = items.length
+        ? items.length + "장을 골랐어요<br><small>" + (picked.length > maxFiles ? maxFiles + "장까지만 골랐어요" : "다시 고르면 바뀌어요") + "</small>"
+        : hintHtml;
+      errorBox.hidden = true;
+      progress.hidden = true;
+      submit.textContent = "올리기";
+    }
+    input.addEventListener("change", function () { choose(input.files); });
+    zone.addEventListener("dragover", function () { zone.classList.add("dragging"); });
+    zone.addEventListener("dragleave", function () { zone.classList.remove("dragging"); });
+    zone.addEventListener("drop", function () { zone.classList.remove("dragging"); });
+
+    form.addEventListener("submit", function (e) {
+      if (!items.length) return; // 고른 사진이 없으면 서버가 "사진을 골라 주세요"라고 알려 준다
+      e.preventDefault();
+      if (!running) upload();
+    });
+
+    function upload() {
+      var queue = items.filter(function (item) { return item.state !== "done"; });
+      if (!queue.length) return;
+      var base = new FormData(form);
+      base.delete("image");
+      var chosenDate = base.get("taken_on");
+      var albumId = null, done = 0, failed = 0, stopped = false;
+      running = true;
+      submit.disabled = true;
+      input.disabled = true;
+      progress.hidden = false;
+      errorBox.hidden = true;
+      var tick = function () {
+        countText.textContent = (done + failed) + " / " + queue.length + "장";
+        bar.style.width = ((done + failed) / queue.length * 100) + "%";
+      };
+      var fail = function (item, message) {
+        failed++;
+        setState(item, "failed", "실패");
+        errorBox.textContent = message;
+        errorBox.hidden = false;
+        if (/가득|오늘은/.test(message)) stopped = true; // 한도에 걸리면 나머지는 보내지 않는다
+      };
+      tick();
+
+      (function next(i) {
+        if (i >= queue.length || stopped) return finish();
+        var item = queue[i];
+        setState(item, "work", "준비 중");
+        readTakenDate(item.file).then(function (taken) {
+          return shrinkImage(item.file).then(function (ready) { return { ready: ready, taken: taken }; });
+        }).then(function (r) {
+          if (r.ready.size > maxBytes) return { ok: false, error: "사진이 너무 커요 (" + sizeText(r.ready.size) + "). " + sizeText(maxBytes) + " 이하로 골라 주세요." };
+          var data = new FormData();
+          base.forEach(function (value, key) { data.append(key, value); });
+          if (albumId) { data.set("album", albumId); data.delete("new_album"); } // 새 앨범은 첫 장 때 만들어진다
+          if (!chosenDate && r.taken) data.set("taken_on", r.taken);
+          if (items.length > 1) data.delete("caption");
+          data.append("image", r.ready, r.ready.name);
+          setState(item, "work", "올리는 중");
+          return fetch(form.getAttribute("action") || location.href, {
+            method: "POST", body: data, credentials: "same-origin", headers: { Accept: "application/json" }
+          }).then(function (res) {
+            return res.json().catch(function () { return { ok: false, error: "서버가 답하지 않았어요 (" + res.status + "). 잠시 뒤 다시 해 주세요." }; });
+          });
+        }).then(function (result) {
+          if (result.ok) {
+            done++;
+            setState(item, "done", "완료");
+            if (result.album) albumId = String(result.album);
+          } else {
+            fail(item, result.error || "올리지 못했어요.");
+          }
+        }).catch(function () {
+          fail(item, "인터넷 연결을 확인해 주세요.");
+        }).then(function () {
+          tick();
+          next(i + 1);
+        });
+      })(0);
+
+      function finish() {
+        running = false;
+        input.disabled = false;
+        submit.disabled = false;
+        if (!failed && !stopped) {
+          var to = albumId ? form.dataset.albumsUrl + albumId + "/" : form.dataset.albumsUrl;
+          location.href = to + "?uploaded=" + done;
+          return;
+        }
+        countText.textContent = done + "장 올렸고, " + (queue.length - done) + "장은 못 올렸어요";
+        submit.textContent = stopped ? "올리기" : "못 올린 사진 다시 올리기";
+      }
+    }
+  });
+
   // ---------- 앱 안 브라우저 ----------
   // 카카오톡·인스타그램 같은 앱 안의 브라우저에서는 Google 이 로그인을 막는다.
   // 그때는 Google 버튼을 숨기고 다른 브라우저로 열라는 안내를 보인다. 카카오 로그인은 그대로 된다.

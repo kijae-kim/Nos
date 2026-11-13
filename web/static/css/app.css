@@ -696,3 +696,20 @@ button.label-chip.pick { font: inherit; font-size: 12px; cursor: pointer; }
 .inapp-notice[hidden], .inapp-notice [hidden] { display: none; }
 .inapp-notice strong { font-weight: 700; }
 .hint.center { text-align: center; }
+
+/* ---------- 사진 여러 장 올리기 ---------- */
+.batch-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.batch-zone { position: relative; }
+.batch-zone small { font-weight: 500; }
+.batch-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+.batch-list[hidden] { display: none; }
+.batch-list li { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: var(--tile); }
+.batch-list img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.batch-list .state { position: absolute; inset: auto 4px 4px 4px; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: 700; text-align: center; background: rgba(0, 0, 0, .55); color: #fff; }
+.batch-list li[data-state="done"] .state { background: var(--primary); }
+.batch-list li[data-state="failed"] .state { background: var(--accent); }
+.batch-list li[data-state="failed"] img { opacity: .5; }
+.batch-progress { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.batch-progress[hidden], [data-batch-only][hidden], [data-single-only][hidden] { display: none; }
+.batch-progress i { display: block; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.batch-progress b { display: block; height: 100%; width: 0; background: var(--primary); transition: width .3s; }

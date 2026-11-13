@@ -8,22 +8,38 @@
 </header>
 {% endblock %}
 {% block content %}
-<form method="post" enctype="multipart/form-data" class="card form-card">
+<form method="post" enctype="multipart/form-data" class="card form-card"{% if not photo %} data-batch-upload data-albums-url="{% url 'albums' %}"{% endif %}>
   {% csrf_token %}
   {% if photo %}
     <img class="photo-preview" src="{{ photo.image.url }}" alt="">
   {% endif %}
-  {% include "_dropzone.html" with field=form.image current=photo.image %}
+  {% if photo %}
+    {% include "_dropzone.html" with field=form.image current=photo.image %}
+  {% else %}
+    {# 여러 장 고르기. 스크립트가 한 장씩 줄여서 따로 올린다 (app.js 의 data-batch-upload) #}
+    <div class="field">
+      <span class="field-label">사진</span>
+      <label class="dropzone batch-zone" data-batch-zone>
+        <input type="file" name="image" accept="image/*" multiple data-max-bytes="{{ max_bytes }}" data-max-files="30">
+        <span class="dropzone-body" data-batch-hint>사진을 여기에 끌어 놓거나 눌러서 고르세요<br><small>한 번에 30장까지</small></span>
+      </label>
+      <ul class="batch-list" data-batch-list hidden></ul>
+      <p class="hint">남은 공간 {{ room.bytes_left_text }} · 오늘 {{ room.uploads_left }}장 더 올릴 수 있어요</p>
+      {% for e in form.image.errors %}<p class="error">{{ e }}</p>{% endfor %}
+    </div>
+  {% endif %}
 
   {% if albums %}{% include "_choices.html" with field=form.album %}{% endif %}
   {% include "_field.html" with field=form.new_album %}
   {% include "_field.html" with field=form.taken_on %}
-  <div class="field">
+  {% if not photo %}<p class="hint" data-batch-only>비워 두면 사진에 적힌 찍은 날을 써요.</p>{% endif %}
+  <div class="field" data-single-only>
     <label for="{{ form.caption.id_for_label }}">{{ form.caption.label }}</label>
     {{ form.caption }}
     {% for e in form.caption.errors %}<p class="error">{{ e }}</p>{% endfor %}
   </div>
   {% if form.non_field_errors %}{% for e in form.non_field_errors %}<p class="error">{{ e }}</p>{% endfor %}{% endif %}
-  <button type="submit" class="btn primary">{% if photo %}저장{% else %}올리기{% endif %}</button>
+  <p class="batch-progress" data-batch-progress hidden><span data-batch-count></span><i><b data-batch-bar></b></i></p>
+  <button type="submit" class="btn primary" data-batch-submit>{% if photo %}저장{% else %}올리기{% endif %}</button>
 </form>
 {% endblock %}

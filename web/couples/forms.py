@@ -2,6 +2,7 @@ from django import forms
 from django.utils import timezone
 
 from .models import CODE_LENGTH, COLOR_CHOICES, Album, Photo, Taste
+from . import quota
 from .storage import ImageUploadField, delete_file
 
 
@@ -90,10 +91,21 @@ class TasteForm(forms.ModelForm):
             "comment": forms.Textarea(attrs={"rows": 3, "placeholder": "왜 좋았는지 한마디 남겨 보세요"}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, couple=None, **kwargs):
         super().__init__(*args, **kwargs)
-        # 검사하면서 새 사진이 인스턴스에 들어가므로, 바꾸기 전 이름을 미리 적어 둔다
+        self.couple = couple
+        # 검사하면서 새 사진이 인스턴스에 들어가므로, 바꾸기 전 이름과 크기를 미리 적어 둔다
         self.old_image_name = self.instance.image.name if self.instance.pk else None
+        self.old_image_size = self.instance.image_size if self.instance.pk else 0
+
+    def clean(self):
+        cleaned = super().clean()
+        new_file = cleaned.get("image")
+        if self.couple is not None and "image" in self.changed_data and new_file:
+            reason = quota.problem(self.couple, new_file.size, self.old_image_size)
+            if reason:
+                self.add_error("image", reason)
+        return cleaned
 
     def save_for(self, couple, user):
         old_name = self.old_image_name
@@ -103,6 +115,10 @@ class TasteForm(forms.ModelForm):
             taste.author = user
         if self.cleaned_data.get("clear_image") and taste.image:
             taste.image = None
+        if "image" in self.changed_data and self.cleaned_data.get("image"):
+            taste.image_size = self.cleaned_data["image"].size
+        elif not taste.image:
+            taste.image_size = 0
         taste.save()
         if old_name and old_name != taste.image.name:
             delete_file(old_name)
@@ -133,6 +149,7 @@ class PhotoForm(forms.ModelForm):
 
     def __init__(self, *args, couple=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.couple = couple
         self.fields["album"].queryset = Album.objects.filter(couple=couple) if couple else Album.objects.none()
         # 검사하면서 새 사진이 인스턴스에 들어가므로, 바꾸기 전 이름을 미리 적어 둔다
         self.old_image_name = self.instance.image.name if self.instance.pk else None
@@ -145,6 +162,11 @@ class PhotoForm(forms.ModelForm):
         cleaned = super().clean()
         if cleaned.get("album") and cleaned.get("new_album"):
             self.add_error("new_album", "앨범은 하나만 고를 수 있어요. 새 앨범을 만들거나 기존 앨범을 고르세요.")
+        new_file = cleaned.get("image")
+        if self.couple is not None and "image" in self.changed_data and new_file:
+            reason = quota.problem(self.couple, new_file.size, self.instance.size if self.instance.pk else 0)
+            if reason:
+                self.add_error("image", reason)
         return cleaned
 
     def save_for(self, couple, user):
@@ -156,6 +178,8 @@ class PhotoForm(forms.ModelForm):
         name = self.cleaned_data.get("new_album", "").strip()
         if name:
             photo.album, _ = Album.objects.get_or_create(couple=couple, title=name)
+        if "image" in self.changed_data and self.cleaned_data.get("image"):
+            photo.size = self.cleaned_data["image"].size
         photo.save()
         if old_name and old_name != photo.image.name:
             delete_file(old_name)
