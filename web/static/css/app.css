@@ -289,7 +289,8 @@ input::placeholder { color: var(--faint); }
 
 /* ---------- 캘린더 ---------- */
 .month { padding: 14px 10px 12px; }
-.week-names, .days { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+/* minmax(0, 1fr): 일정이 많은 날이 있어도 열 너비가 늘어나지 않게 7등분으로 고정 */
+.week-names, .days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); text-align: center; }
 .week-names { font-size: 11px; font-weight: 500; color: var(--muted); padding-bottom: 8px; }
 .week-names span:first-child, .day.sun b { color: var(--accent); }
 .days { row-gap: 4px; }
@@ -482,9 +483,11 @@ a.label-chip:active { transform: scale(.94); }
 .day.out { opacity: .35; }
 .day.today b { box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent); }
 .day.sel b { background: var(--primary); color: #fff; font-weight: 600; box-shadow: none; }
-.day .bars { display: flex; gap: 2px; height: 5px; }
+.day .bars { display: flex; gap: 2px; height: 5px; max-width: 100%; overflow: hidden; }
 .day .bars i { width: 12px; height: 5px; border-radius: 3px; }
 .day .bars i:only-child { width: 22px; }
+/* 막대는 세 개까지만. 그 날의 모든 일정은 아래 목록에서 본다 */
+.day .bars i:nth-child(n+4) { display: none; }
 .list-head { font-size: 16px; font-weight: 600; padding: 2px; }
 .list-head h2 { font-size: 16px; font-weight: 600; }
 .add-link { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--primary); }
@@ -596,18 +599,20 @@ a.label-chip:active { transform: scale(.94); }
   .cal-controls .circle { width: 36px; height: 36px; background: var(--tile); box-shadow: none; }
   .add { display: flex; align-items: center; gap: 6px; background: var(--primary); color: #fff; font-size: 13px; font-weight: 600; padding: 8px 16px 8px 12px; border-radius: 18px; margin-left: 6px; }
   .add svg.i { width: 18px; height: 18px; }
-  .big-names, .big-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .big-names, .big-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
   .big-names { font-size: 12px; font-weight: 500; color: var(--muted); }
   .big-names span { padding-left: 10px; }
   .big-names span:first-child { color: var(--accent); }
-  .big-days { flex: 1; grid-auto-rows: 1fr; }
-  .cell { background: var(--tile); border-radius: 14px; padding: 8px 6px 6px; display: flex; flex-direction: column; gap: 4px; min-width: 0; color: var(--text); transition: background .2s, transform .2s; }
+  /* 일정이 있든 없든 모든 칸을 같은 높이로. 날짜 + 일정 두 개 + '+N' 이 들어가는 높이 */
+  .big-days { grid-auto-rows: 114px; align-content: start; }
+  .cell { background: var(--tile); border-radius: 14px; padding: 8px 6px 6px; display: flex; flex-direction: column; gap: 4px; min-width: 0; min-height: 0; overflow: hidden; color: var(--text); transition: background .2s, transform .2s; }
   .cell:hover { background: var(--tile-hover); transform: translateY(-2px); }
   .cell.out { opacity: .5; }
   .cell.sel { box-shadow: inset 0 0 0 2px var(--primary); }
   .cell b { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 500; }
   .cell.sun b { color: var(--accent); }
   .cell.today b { background: var(--primary); color: #fff; font-weight: 600; }
+  .cell .more { font-size: 11px; font-weight: 600; font-style: normal; color: var(--muted); padding: 0 6px; }
   .cell span { font-size: 11px; font-weight: 500; padding: 3px 6px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 

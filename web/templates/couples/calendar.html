@@ -91,7 +91,9 @@
         <a class="cell{% if forloop.first %} sun{% endif %}{% if not cell.in_month %} out{% endif %}{% if cell.is_today %} today{% endif %}{% if cell.is_selected %} sel{% endif %}"
            href="?month={{ cell.date|date:'Y-m' }}&amp;day={{ cell.date|date:'Y-m-d' }}">
           <b>{{ cell.day }}</b>
-          {% for e in cell.events %}<span style="background:color-mix(in srgb, var(--{{ e.color }}) 60%, var(--surface))">{{ e.title }}</span>{% endfor %}
+          {# 칸 높이를 고정하므로 일정은 두 개까지, 나머지는 개수로 #}
+          {% for e in cell.events|slice:":2" %}<span style="background:color-mix(in srgb, var(--{{ e.color }}) 60%, var(--surface))">{{ e.title }}</span>{% endfor %}
+          {% if cell.events|length > 2 %}<em class="more">+{{ cell.events|length|add:"-2" }}</em>{% endif %}
         </a>
       {% endfor %}{% endfor %}
     </div>
