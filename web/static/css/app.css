@@ -136,6 +136,9 @@ input:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visibl
 .btn.danger { color: var(--accent); }
 .btn svg { width: 20px; height: 20px; }
 .btn .g { font-size: 17px; font-weight: 800; color: var(--primary); }
+/* 카카오 심볼은 가이드대로 검정 (노란 버튼·배지 위에서만 쓴다) */
+.kakao-symbol { width: 20px; height: 20px; fill: #000; flex: none; }
+.provider-badge .kakao-symbol { width: 22px; height: 22px; }
 .btn.primary + .btn { margin-top: 0; }
 .ghost {
   font-size: 13px; font-weight: 600; color: var(--primary);

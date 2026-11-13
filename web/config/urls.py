@@ -4,10 +4,13 @@ from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import TemplateView
 
+from accounts import views as account_views
 from notifications import views as notification_views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # allauth 의 "로그인 취소" 화면 대신 안내 문구와 함께 로그인 화면으로 (allauth 보다 먼저 둔다)
+    path("accounts/3rdparty/login/cancelled/", account_views.social_login_cancelled, name="socialaccount_login_cancelled"),
     path("accounts/", include("allauth.urls")),
     path(
         "manifest.webmanifest",

@@ -8,6 +8,7 @@
   {% csrf_token %}
   <button type="submit" class="btn {{ provider.id }}">
     {% if provider.id == "google" %}<span class="g">G</span>{% endif %}
+    {% if provider.id == "kakao" %}<svg class="kakao-symbol" aria-hidden="true"><use href="#i-kakao"/></svg>{% endif %}
     {% if provider.id == "kakao" %}카카오로 시작하기{% elif provider.id == "google" %}Google로 시작하기{% else %}{{ provider.name }}로 시작하기{% endif %}
   </button>
 </form>
