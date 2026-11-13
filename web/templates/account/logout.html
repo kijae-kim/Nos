@@ -1,0 +1,11 @@
+{% extends "layout_auth.html" %}
+{% block head_title %}로그아웃 · {{ APP_NAME }}{% endblock %}
+{% block content %}
+<h2 class="page-title">로그아웃할까요?</h2>
+<form method="post" action="{% url 'account_logout' %}">
+  {% csrf_token %}
+  {% if redirect_field_value %}<input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">{% endif %}
+  <button type="submit" class="btn primary">로그아웃</button>
+</form>
+<a class="btn" href="{% url 'home' %}">돌아가기</a>
+{% endblock %}
