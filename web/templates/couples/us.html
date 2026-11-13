@@ -1,4 +1,5 @@
 {% extends "layout_app.html" %}
+{% load socialaccount %}
 {% block head_title %}우리 · {{ APP_NAME }}{% endblock %}
 {% block header %}
 <header class="row-between bar-head">
@@ -58,6 +59,14 @@
     <a href="{% url 'anniversary_index' %}">
       <span class="icon-tile" style="background:var(--sand)"><svg class="i"><use href="#i-gift"/></svg></span>
       <span class="main"><strong>기념일</strong><small>생일, 100일, 주년 관리</small></span>
+      <svg class="i chev"><use href="#i-right"/></svg>
+    </a>
+  </li>
+  {% get_social_accounts user as connected %}
+  <li>
+    <a href="{% url 'socialaccount_connections' %}">
+      <span class="icon-tile" style="background:var(--lav)"><svg class="i"><use href="#i-link"/></svg></span>
+      <span class="main"><strong>연결된 계정</strong><small>{% if user.has_usable_password %}이메일{% endif %}{% for provider in connected %}{% if forloop.first and user.has_usable_password or not forloop.first %} · {% endif %}{% if provider == "kakao" %}카카오{% elif provider == "google" %}Google{% else %}{{ provider }}{% endif %}{% endfor %}</small></span>
       <svg class="i chev"><use href="#i-right"/></svg>
     </a>
   </li>

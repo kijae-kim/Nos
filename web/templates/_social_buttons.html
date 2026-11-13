@@ -2,8 +2,9 @@
 {% get_providers as providers %}
 {% if providers %}
 <div class="divider"><span>또는</span></div>
+<div class="social-list">
 {% for provider in providers %}
-<form method="post" action="{% provider_login_url provider %}">
+<form method="post" action="{% provider_login_url provider %}" data-provider="{{ provider.id }}"{% if provider.id == "google" %} data-needs-browser{% endif %}>
   {% csrf_token %}
   <button type="submit" class="btn {{ provider.id }}">
     {% if provider.id == "google" %}<span class="g">G</span>{% endif %}
@@ -11,4 +12,7 @@
   </button>
 </form>
 {% endfor %}
+</div>
+{% include "_inapp_notice.html" %}
+<p class="hint center">처음 가입한 방법으로 로그인해 주세요. 다른 방법은 로그인한 뒤 '우리 › 연결된 계정'에서 이어 붙일 수 있어요.</p>
 {% endif %}

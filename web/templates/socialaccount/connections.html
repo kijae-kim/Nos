@@ -1,0 +1,62 @@
+{% extends "layout_app.html" %}
+{% load socialaccount %}
+{% block head_title %}연결된 계정 · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'us' %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">연결된 계정</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<p class="muted">여기 연결해 둔 방법이면 무엇으로 로그인해도 같은 계정으로 들어와요.</p>
+
+{# allauth 의 연결 화면을 앱 모양으로 바꾼 것. 지우기는 account 값으로 같은 주소에 POST 한다. #}
+<ul class="menu card accounts">
+  <li class="account-row">
+    <span class="icon-tile" style="background:var(--sky)"><svg class="i"><use href="#i-mail"/></svg></span>
+    <span class="main"><strong>이메일</strong><small>{% if user.has_usable_password and user.email %}{{ user.email }}{% else %}비밀번호를 정하지 않았어요{% endif %}</small></span>
+  </li>
+  {% for choice in form.fields.account.choices %}
+    {% with account=choice.0.instance %}
+    <li class="account-row">
+      <span class="provider-badge {{ account.provider }}" aria-hidden="true">{% if account.provider == "kakao" %}K{% elif account.provider == "google" %}G{% else %}{{ account.provider|first|upper }}{% endif %}</span>
+      <span class="main">
+        <strong>{% if account.provider == "kakao" %}카카오{% elif account.provider == "google" %}Google{% else %}{{ account.get_provider.name }}{% endif %}</strong>
+        {# 카카오는 닉네임, Google 은 이메일. 없으면 연결한 날 #}
+        <small>{% if account.provider == "kakao" and account.extra_data.kakao_account.profile.nickname %}{{ account.extra_data.kakao_account.profile.nickname }}{% elif account.extra_data.email %}{{ account.extra_data.email }}{% else %}{{ account.date_joined|date:"Y. n. j." }} 연결{% endif %}</small>
+      </span>
+      <form method="post" action="{% url 'socialaccount_connections' %}" data-confirm="이 로그인 방법의 연결을 끊을까요?">
+        {% csrf_token %}
+        <input type="hidden" name="account" value="{{ account.pk }}">
+        <button type="submit" class="link-btn danger">끊기</button>
+      </form>
+    </li>
+    {% endwith %}
+  {% endfor %}
+</ul>
+{% for error in form.non_field_errors %}<p class="error">{{ error }}</p>{% endfor %}
+
+{% get_providers as providers %}
+{% get_social_accounts user as connected %}
+{% if providers %}
+  <h2 class="group">로그인 방법 더하기</h2>
+  <div class="social-list">
+    {% for provider in providers %}
+      {% if provider.id not in connected %}
+        <form method="post" action="{% provider_login_url provider process='connect' next=request.path %}" data-provider="{{ provider.id }}"{% if provider.id == "google" %} data-needs-browser{% endif %}>
+          {% csrf_token %}
+          <button type="submit" class="btn {{ provider.id }}">
+            {% if provider.id == "google" %}<span class="g">G</span>{% endif %}
+            {% if provider.id == "kakao" %}카카오 연결하기{% elif provider.id == "google" %}Google 연결하기{% else %}{{ provider.name }} 연결하기{% endif %}
+          </button>
+        </form>
+      {% endif %}
+    {% empty %}
+    {% endfor %}
+  </div>
+  {% include "_inapp_notice.html" %}
+{% else %}
+  <p class="muted">카카오·Google 로그인은 아직 준비 중이에요.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "layout_auth.html" %}
+{% block head_title %}가입 마무리 · {{ APP_NAME }}{% endblock %}
+{% block content %}
+{# 소셜 로그인으로 가입하는데 이메일이 이미 다른 계정에 있을 때 등 한 단계가 더 필요할 때 나온다 #}
+<h2 class="page-title">가입을 마무리해 주세요</h2>
+<p class="muted">{% if account.provider == "kakao" %}카카오{% elif account.provider == "google" %}Google{% else %}{{ account.get_provider.name }}{% endif %} 계정으로 가입하고 있어요. 이미 같은 이메일로 가입했다면, 그 계정으로 로그인한 뒤 '우리 › 연결된 계정'에서 이어 붙여 주세요.</p>
+<form method="post" action="{% url 'socialaccount_signup' %}">
+  {% csrf_token %}
+  {% for error in form.non_field_errors %}<p class="error">{{ error }}</p>{% endfor %}
+  {% for field in form %}{% include "_field.html" %}{% endfor %}
+  {{ redirect_field }}
+  <button type="submit" class="btn primary">가입하기</button>
+</form>
+<a class="btn" href="{% url 'account_login' %}">이미 계정이 있어요</a>
+{% endblock %}

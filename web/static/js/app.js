@@ -425,6 +425,25 @@
   });
   window.addEventListener("pageshow", hideLoader); // 뒤로 가기로 돌아왔을 때
 
+  // ---------- 앱 안 브라우저 ----------
+  // 카카오톡·인스타그램 같은 앱 안의 브라우저에서는 Google 이 로그인을 막는다.
+  // 그때는 Google 버튼을 숨기고 다른 브라우저로 열라는 안내를 보인다. 카카오 로그인은 그대로 된다.
+  var ua = navigator.userAgent || "";
+  var inKakao = /KAKAOTALK/i.test(ua);
+  var inApp = inKakao || /Instagram|FBAN|FBAV|FB_IAB|Line\/|NAVER\(inapp|DaumApps|everytimeApp|; wv\)/i.test(ua);
+  if (inApp) {
+    $$("[data-needs-browser]").forEach(function (el) { el.hidden = true; });
+    $$("[data-inapp-notice]").forEach(function (notice) {
+      notice.hidden = false;
+      var open = notice.querySelector("[data-open-external]");
+      // 카카오톡은 이 주소로 바깥 브라우저를 여는 것으로 알려져 있다 (공식 문서는 없음, 안 되면 아래 안내를 따른다)
+      if (open && inKakao) {
+        open.hidden = false;
+        open.href = "kakaotalk://web/openExternal?url=" + encodeURIComponent(location.href);
+      }
+    });
+  }
+
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch(function () {});
   }

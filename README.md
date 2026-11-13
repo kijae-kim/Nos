@@ -100,7 +100,38 @@ python web/manage.py runserver
 
 ## 소셜 로그인 설정
 
-`.env` 에 키를 넣으면 로그인 화면에 버튼이 나타납니다. 발급 방법과 Redirect URI는 `.env.example` 의 주석을 참고하세요.
+키를 넣은 로그인 방법만 버튼이 나타납니다. 개발 중에는 `.env`, 배포에서는 Vercel 환경 변수(Production)에 넣고 재배포합니다.
+
+| 변수 | 어디서 |
+|---|---|
+| `KAKAO_CLIENT_ID` | 카카오 앱의 **REST API 키** |
+| `KAKAO_CLIENT_SECRET` | 카카오 앱 보안 설정에서 Client Secret 을 켰을 때만 |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Cloud 의 OAuth 클라이언트(웹 애플리케이션) |
+
+Redirect URI 는 주소마다 따로 등록합니다. 끝의 `/` 까지 정확히 같아야 합니다.
+
+- 배포: `https://nos-rho-jade.vercel.app/accounts/kakao/login/callback/`, `https://nos-rho-jade.vercel.app/accounts/google/login/callback/`
+- 개발: `http://localhost:8000/accounts/kakao/login/callback/`, `http://localhost:8000/accounts/google/login/callback/`
+
+### 카카오 ([developers.kakao.com](https://developers.kakao.com))
+
+1. 애플리케이션을 만들고, 플랫폼의 Web 사이트 도메인에 배포 주소와 `http://localhost:8000` 을 넣습니다.
+2. 카카오 로그인을 켜고 위의 Redirect URI 를 등록합니다.
+3. 동의 항목에서 **닉네임**을 필수로 둡니다. 이메일은 비즈 앱 심사가 필요해서 쓰지 않습니다. 앱은 카카오 닉네임을 앱 닉네임으로 넣습니다.
+
+### Google ([console.cloud.google.com](https://console.cloud.google.com))
+
+1. 프로젝트 `nos` 를 만들고 Google 인증 플랫폼(OAuth 동의 화면)을 **외부 · 테스트** 상태로 둡니다.
+2. **테스트 사용자**에 쓸 사람의 Google 계정을 넣습니다 (최대 100명). 등록되지 않은 계정은 로그인할 수 없습니다.
+3. 클라이언트를 **웹 애플리케이션**으로 만들고 위의 Redirect URI 를 넣습니다. 범위는 `openid`, `email`, `profile` 만 씁니다.
+
+테스트 상태로 두는 이유: 나중에 붙일 드라이브 가져오기(`drive.file`)까지 심사 없이 쓸 수 있습니다. 테스트 상태의 "7일 뒤 권한 만료"는 로그인과 그때그때 골라 가져오기에는 영향이 없습니다.
+
+### 알아 둘 점
+
+- **로그인 방법 여러 개**: 같은 사람이 이메일과 카카오로 따로 가입하면 계정이 둘이 됩니다. 이메일이 같아도 저절로 합치지 않습니다(남이 내 이메일로 먼저 가입해 둔 계정에 들어가게 되는 일을 막기 위해서). 로그인한 뒤 **우리 › 연결된 계정**에서 다른 방법을 이어 붙입니다.
+- **카카오톡 안에서 연 링크**: Google 이 앱 안의 브라우저에서 로그인을 막아서, 그때는 Google 버튼을 숨기고 다른 브라우저로 열라는 안내를 보입니다. 카카오 로그인은 그대로 됩니다.
+- **애플 로그인**: Apple Developer Program 가입이 필요해서 TestFlight 단계에서 붙입니다.
 
 ## 구조
 

@@ -677,3 +677,22 @@ button.label-chip.pick { font: inherit; font-size: 12px; cursor: pointer; }
   .splash-sail, .splash-bob, .loader-wave, .loader-bob { animation: none; }
   .splash-word, .splash-line { opacity: .95; animation: none; }
 }
+
+/* ---------- 연결된 계정 ---------- */
+.menu .account-row { display: flex; align-items: center; gap: 12px; padding: 13px 16px 13px 13px; }
+.account-row .main { flex: 1; min-width: 0; display: grid; }
+.account-row strong { font-size: 15px; font-weight: 600; }
+.account-row small { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-row form { display: block; }
+.provider-badge { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; flex: none; font-weight: 800; font-size: 17px; }
+.provider-badge.kakao { background: #FEE500; color: #191919; }
+.provider-badge.google { background: var(--tile); color: var(--primary); }
+/* 카카오를 맨 위에 둔다 */
+.social-list { display: grid; gap: 10px; }
+.social-list [data-provider="kakao"] { order: -1; }
+
+/* ---------- 앱 안 브라우저 안내 ---------- */
+.inapp-notice { display: grid; gap: 10px; padding: 14px 16px; border-radius: 18px; background: var(--tile); font-size: 13px; }
+.inapp-notice[hidden], .inapp-notice [hidden] { display: none; }
+.inapp-notice strong { font-weight: 700; }
+.hint.center { text-align: center; }
