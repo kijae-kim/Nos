@@ -499,12 +499,17 @@
       item.li.dataset.state = state;
       item.li.querySelector(".state").textContent = label;
     }
-    function choose(fileList) {
+    // append 가 참이면 지금 목록에 덧붙인다 (드라이브에서 가져온 사진). 아니면 새로 고른 것으로 바꾼다.
+    function choose(fileList, append) {
       if (running) return;
-      items.forEach(function (item) { URL.revokeObjectURL(item.preview); });
+      if (!append) {
+        items.forEach(function (item) { URL.revokeObjectURL(item.preview); });
+        list.innerHTML = "";
+        items = [];
+      }
       var picked = Array.prototype.filter.call(fileList, function (f) { return f.type.indexOf("image/") === 0; });
-      list.innerHTML = "";
-      items = picked.slice(0, maxFiles).map(function (file) {
+      var room = maxFiles - items.length;
+      items = items.concat(picked.slice(0, Math.max(0, room)).map(function (file) {
         var li = document.createElement("li");
         var img = document.createElement("img");
         var state = document.createElement("span");
@@ -516,17 +521,20 @@
         list.append(li);
         setState(item, "wait", "대기");
         return item;
-      });
+      }));
       list.hidden = !items.length;
       if (captionField) captionField.hidden = items.length > 1; // 한마디는 한 장일 때만. 여러 장이면 올린 뒤 사진마다
       hint.innerHTML = items.length
-        ? items.length + "장을 골랐어요<br><small>" + (picked.length > maxFiles ? maxFiles + "장까지만 골랐어요" : "다시 고르면 바뀌어요") + "</small>"
+        ? items.length + "장을 골랐어요<br><small>" + (picked.length > room ? maxFiles + "장까지만 골랐어요" : "다시 고르면 바뀌어요") + "</small>"
         : hintHtml;
       errorBox.hidden = true;
       progress.hidden = true;
       submit.textContent = "올리기";
     }
     input.addEventListener("change", function () { choose(input.files); });
+    form._batchAdd = function (files) { choose(files, true); };
+    form._batchRoom = function () { return running ? 0 : maxFiles - items.length; };
+    form._batchHint = function (text) { hint.innerHTML = text; };
     zone.addEventListener("dragover", function () { zone.classList.add("dragging"); });
     zone.addEventListener("dragleave", function () { zone.classList.remove("dragging"); });
     zone.addEventListener("drop", function () { zone.classList.remove("dragging"); });
@@ -611,6 +619,141 @@
         submit.textContent = stopped ? "올리기" : "못 올린 사진 다시 올리기";
       }
     }
+  });
+
+  // ---------- 드라이브에서 골라 가져오기 ----------
+  // Google Picker 로 고른 사진을 브라우저가 직접 내려받아 위의 여러 장 목록에 덧붙인다.
+  // 권한은 'drive.file'(고른 파일만)이고, 토큰은 이 페이지 안에서만 쓴다. 서버에는 보내지 않는다.
+  var loadScript = function (src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = src;
+      s.async = true;
+      s.onload = resolve;
+      s.onerror = function () { reject(new Error("load " + src)); };
+      document.head.appendChild(s);
+    });
+  };
+  var googleReady = null;
+  function loadGoogle() {
+    if (!googleReady) {
+      googleReady = Promise.all([
+        loadScript("https://accounts.google.com/gsi/client"),
+        loadScript("https://apis.google.com/js/api.js").then(function () {
+          return new Promise(function (resolve) { gapi.load("client:picker", resolve); });
+        })
+      ]);
+      googleReady.catch(function () { googleReady = null; }); // 실패하면 다음에 다시 시도
+    }
+    return googleReady;
+  }
+  var DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+  var driveToken = null;
+  function getDriveToken(clientId) {
+    if (driveToken && driveToken.expires > Date.now() + 60000) return Promise.resolve(driveToken.value);
+    return new Promise(function (resolve, reject) {
+      var client = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: DRIVE_SCOPE,
+        callback: function (res) {
+          if (res.error || !res.access_token) return reject(new Error(res.error || "no token"));
+          driveToken = { value: res.access_token, expires: Date.now() + (res.expires_in || 3600) * 1000 };
+          resolve(res.access_token);
+        },
+        error_callback: function (err) { reject(new Error((err && err.type) || "popup")); }
+      });
+      client.requestAccessToken({ prompt: driveToken ? "" : undefined });
+    });
+  }
+  function openPicker(button, token, maxItems) {
+    return new Promise(function (resolve) {
+      var view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+        .setMimeTypes("image/jpeg,image/jpg,image/png,image/webp,image/gif,image/heic,image/heif")
+        .setIncludeFolders(true)
+        .setSelectFolderEnabled(false);
+      new google.picker.PickerBuilder()
+        .setAppId(button.dataset.appId)
+        .setDeveloperKey(button.dataset.apiKey)
+        .setOAuthToken(token)
+        .setLocale("ko")
+        .addView(view)
+        .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+        .setMaxItems(maxItems)
+        .setCallback(function (data) {
+          var action = data[google.picker.Response.ACTION];
+          if (action === google.picker.Action.PICKED) resolve(data[google.picker.Response.DOCUMENTS] || []);
+          else if (action === google.picker.Action.CANCEL) resolve([]);
+        })
+        .build()
+        .setVisible(true);
+    });
+  }
+  // 파일 내용을 받는다. 먼저 fetch 로, 안 되면(CORS 등) Google 클라이언트 라이브러리로 받는다.
+  function downloadDriveFile(doc, token) {
+    var id = doc[google.picker.Document.ID];
+    var name = doc[google.picker.Document.NAME] || "drive.jpg";
+    var type = doc[google.picker.Document.MIME_TYPE] || "image/jpeg";
+    var asFile = function (blob) { return new File([blob], name, { type: type }); };
+    return fetch("https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(id) + "?alt=media", {
+      headers: { Authorization: "Bearer " + token }
+    }).then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.blob();
+    }).then(asFile, function () {
+      gapi.client.setToken({ access_token: token });
+      return gapi.client.request({ path: "/drive/v3/files/" + encodeURIComponent(id), params: { alt: "media" } }).then(function (res) {
+        var text = res.body, bytes = new Uint8Array(text.length);
+        for (var i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i) & 0xff;
+        return asFile(new Blob([bytes], { type: type }));
+      });
+    });
+  }
+  var googleLoaded = function () {
+    return !!(window.google && google.accounts && google.accounts.oauth2 && google.picker && window.gapi && gapi.client);
+  };
+  $$("[data-drive-picker]").forEach(function (button) {
+    var form = button.closest("form");
+    // 브라우저는 탭 직후에 바로 연 창만 허락한다 (특히 아이폰 Safari).
+    // 그래서 Google 라이브러리는 화면을 열 때 미리 불러 두고, 탭에서는 곧바로 권한 창을 연다.
+    // 앱 안 브라우저 검사(아래)가 버튼을 숨긴 뒤에 판단하도록 한 박자 늦춘다
+    setTimeout(function () { if (!button.hidden) loadGoogle().catch(function () {}); }, 0);
+    button.addEventListener("click", function () {
+      if (!form || !form._batchAdd) return;
+      var room = form._batchRoom();
+      if (room <= 0) { form._batchHint("한 번에 30장까지예요. 먼저 올린 뒤 더 가져와 주세요."); return; }
+      if (!googleLoaded()) {
+        form._batchHint("Google 드라이브를 준비하고 있어요. 잠시 뒤 다시 눌러 주세요.");
+        loadGoogle().catch(function () { form._batchHint("Google 드라이브에 연결하지 못했어요. 인터넷 연결을 확인해 주세요."); });
+        return;
+      }
+      button.disabled = true;
+      var token;
+      getDriveToken(button.dataset.clientId).then(function (t) {
+        token = t;
+        return openPicker(button, token, room);
+      }).then(function (docs) {
+        if (!docs.length) return;
+        var got = [], n = 0;
+        form._batchHint("드라이브에서 받는 중… 0 / " + docs.length + "장");
+        // 한 장씩 차례로 받는다 (휴대폰 메모리를 아끼려고)
+        return docs.reduce(function (chain, doc) {
+          return chain.then(function () {
+            return downloadDriveFile(doc, token).then(function (file) { got.push(file); }, function () {}).then(function () {
+              n++;
+              form._batchHint("드라이브에서 받는 중… " + n + " / " + docs.length + "장");
+            });
+          });
+        }, Promise.resolve()).then(function () {
+          if (got.length) form._batchAdd(got);
+          if (got.length < docs.length) form._batchHint(got.length + "장을 가져왔어요<br><small>" + (docs.length - got.length) + "장은 받지 못했어요</small>");
+        });
+      }).catch(function (err) {
+        var msg = String(err && err.message || "");
+        form._batchHint(/popup|closed/.test(msg)
+          ? "Google 창이 닫혔어요. 다시 눌러 주세요."
+          : "Google 드라이브에 연결하지 못했어요. 잠시 뒤 다시 해 주세요.");
+      }).then(function () { button.disabled = false; });
+    });
   });
 
   // ---------- 앱 안 브라우저 ----------

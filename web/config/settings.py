@@ -137,6 +137,17 @@ if os.getenv("GOOGLE_CLIENT_ID"):
         "SCOPE": ["profile", "email"],
     }
 
+# 드라이브에서 골라 가져오기 (Google Picker). 셋 다 있으면 사진 올리기 화면에 버튼이 나타난다.
+# 같은 Google Cloud 프로젝트의 OAuth 클라이언트 ID(로그인과 같은 것), API 키, 프로젝트 번호.
+# 브라우저가 'drive.file'(고른 파일만) 권한을 그때그때 받아 직접 내려받는다. 토큰은 서버로 오지 않는다.
+DRIVE_PICKER = None
+if os.getenv("GOOGLE_CLIENT_ID") and os.getenv("GOOGLE_PICKER_API_KEY") and os.getenv("GOOGLE_PROJECT_NUMBER"):
+    DRIVE_PICKER = {
+        "client_id": os.environ["GOOGLE_CLIENT_ID"],
+        "api_key": os.environ["GOOGLE_PICKER_API_KEY"],
+        "app_id": os.environ["GOOGLE_PROJECT_NUMBER"],
+    }
+
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 LANGUAGE_CODE = "ko-kr"

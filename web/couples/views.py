@@ -2,6 +2,7 @@ import calendar as month_calendar
 from collections import defaultdict
 from datetime import date
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -418,7 +419,14 @@ def photo_create(request):
     return render(
         request,
         "couples/photo_form.html",
-        {"form": form, "photo": None, "albums": couple.albums.all(), "room": quota.room_for(couple), "max_bytes": MAX_IMAGE_BYTES},
+        {
+            "form": form,
+            "photo": None,
+            "albums": couple.albums.all(),
+            "room": quota.room_for(couple),
+            "max_bytes": MAX_IMAGE_BYTES,
+            "drive_picker": settings.DRIVE_PICKER,
+        },
     )
 
 
