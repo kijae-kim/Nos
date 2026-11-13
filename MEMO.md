@@ -116,7 +116,9 @@
 - [x] 취향 링크 미리보기 (2026-11-13, `couples/linkpreview.py`): 유튜브·스포티파이는 oEmbed, 나머지는 og 태그. 쓰는 화면에서 붙여 넣으면 제목·분류를 채우고, 자세히 화면에서 유튜브·스포티파이는 바로 재생. 저장할 때 한 번 가져와 `Taste.preview_*` 에 둔다. 공개 인터넷 주소만 읽는다(내부망 차단). 마이그레이션 `couples.0008_taste_link_preview` → 맥 migrate 확인 숫자 44.
   - 폰에서 확인: 유튜브·스포티파이 재생 (이 PC 브라우저 창에서는 재생 화면을 눈으로 확인 못 함), 네이버 지도·인스타그램 링크가 어떻게 보이는지 (사이트가 막으면 링크만 남는다)
   - 함께 고침: 취향 분류에 "---------" 칸과 영어 "Category" 이름이 보이던 것
-- [ ] 기념일 알림 (웹 푸시). 서버가 하루 한 번 보낼 기념일을 찾는 예약 작업이 필요하다. Vercel 무료 플랜의 예약 작업 제한은 그때 확인한다.
+- [x] 기념일 알림 (웹 푸시) (2026-11-13, `notifications` 앱): 당일은 항상, 하루 전·일주일 전은 사람마다 "우리 › 알림"에서 켠다(기본 꺼짐). Vercel Cron 이 매일 UTC 00시(한국 9시대) `/cron/anniversaries/` 를 부른다. 설계 `docs/superpowers/specs/2026-11-13-anniversary-push-design.md`. 마이그레이션 `accounts.0003_notify`, `notifications.0001_initial` → 맥 migrate 확인 숫자 46.
+  - 남은 일 (내가): 운영용 열쇠 만들기 → Vercel 환경 변수 `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET` → 재배포 → 폰에서 알림 받기·시험 알림 (README "기념일 알림 설정")
+  - 확인 못 한 것: 실제 기기에서 구독·알림 표시·알림 누르면 기념일 화면 열기 (개발용 브라우저 창은 알림 권한이 막혀 있었음). Vercel Hobby 가 Cron 을 받아 주는지 배포 뒤 Vercel 대시보드 Cron 탭에서 확인.
 - [ ] ~~캘린더 주·일 보기~~ 보류 (2026-11-13): 시간 흐름을 보는 용도였지만 지금은 필요 없을 것 같다. 시안에는 버튼만 있고 화면은 없다.
 - 추가 화면 바텀시트: 하지 않기로 함 (2026-11-13). 지금처럼 + 메뉴에서 각 추가 페이지로 넘어간다.
 - [ ] 구글 포토에서 골라 가져오기 (필요하면)
@@ -153,7 +155,7 @@
 
 ## 참고
 
-- Vercel 환경 변수 (모두 Production 에만): `DATABASE_URL`(Neon **풀링** 주소), `DJANGO_DEBUG=0`, `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=nos-rho-jade.vercel.app`, `DJANGO_CSRF_TRUSTED_ORIGINS=https://nos-rho-jade.vercel.app`, `MEDIA_BUCKET_NAME`, `MEDIA_ENDPOINT_URL`, `MEDIA_REGION=auto`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`. 앞으로 더할 것: `KAKAO_CLIENT_ID`, (`KAKAO_CLIENT_SECRET`), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_PICKER_API_KEY`, `GOOGLE_PROJECT_NUMBER`.
+- Vercel 환경 변수 (모두 Production 에만): `DATABASE_URL`(Neon **풀링** 주소), `DJANGO_DEBUG=0`, `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=nos-rho-jade.vercel.app`, `DJANGO_CSRF_TRUSTED_ORIGINS=https://nos-rho-jade.vercel.app`, `MEDIA_BUCKET_NAME`, `MEDIA_ENDPOINT_URL`, `MEDIA_REGION=auto`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`. 앞으로 더할 것: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET`, `KAKAO_CLIENT_ID`, (`KAKAO_CLIENT_SECRET`), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_PICKER_API_KEY`, `GOOGLE_PROJECT_NUMBER`.
 - Vercel 에 넣은 값은 학원 PC 와 집 맥의 `.env.vercel` 에 정리돼 있다 (git 에 없음).
 - 작업 브랜치(`feat/*`, `fix/*`, `docs/*`)는 Vercel 미리보기 배포를 하지 않는다 (`web/vercel.json`).
 - 로고 시안(`design/logo.html`)은 참고용으로 남겨 둔다. 앱에는 쓰지 않는다.

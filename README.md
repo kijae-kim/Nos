@@ -171,6 +171,20 @@ Redirect URI 는 주소마다 따로 등록합니다. 끝의 `/` 까지 정확�
 - **카카오톡 안에서 연 링크**: Google 이 앱 안의 브라우저에서 로그인을 막아서, 그때는 Google 버튼을 숨기고 다른 브라우저로 열라는 안내를 보입니다. 카카오 로그인은 그대로 됩니다.
 - **애플 로그인**: Apple Developer Program 가입이 필요해서 TestFlight 단계에서 붙입니다.
 
+## 기념일 알림 설정
+
+기념일 당일에는 항상, 하루 전·일주일 전에는 켠 사람에게만 웹 푸시 알림을 보냅니다. Vercel Cron 이 하루 한 번 `/cron/anniversaries/` 를 부릅니다 (`vercel.json`, `0 0 * * *` = UTC 00시 = 한국 오전 9시대. 무료 플랜이라 그 시간 안 아무 때나 실행됩니다).
+
+1. **열쇠 만들기**: `python web/manage.py make_vapid_keys` → 출력된 세 줄을 메모장에 옮기고 `VAPID_SUBJECT` 를 내 이메일(`mailto:…`)로 바꿉니다. 출력은 메신저·채팅으로 보내지 않습니다. 개발용(`.env`)과 운영용은 따로 만듭니다.
+2. **Cron 비밀 값**: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
+3. **Vercel 환경 변수 (Production)**: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET` → 재배포. Vercel 은 Cron 을 부를 때 `Authorization: Bearer <CRON_SECRET>` 을 붙입니다.
+4. **폰에서 켜기**: 우리 › 알림 › 이 기기에서 알림 받기 → 허용 → 시험 알림 보내기.
+
+- VAPID 세 값 중 하나라도 없으면 알림 메뉴가 숨겨지고 알림 주소는 404 입니다 (개발 서버는 그대로 뜹니다).
+- 아이폰은 iOS 16.4 이상, **홈 화면에 추가한 앱**에서만 받을 수 있습니다.
+- 열쇠를 바꾸면 이미 켠 기기는 다시 켜야 합니다.
+- 같은 날 Cron 이 두 번 불려도 보낸 기록(`PushLog`, 60일 보관)으로 다시 보내지 않습니다. 푸시 발송은 무료입니다.
+
 ## 구조
 
 ```
