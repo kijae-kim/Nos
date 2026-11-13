@@ -267,6 +267,58 @@
     input.addEventListener("focus", function () { input.select(); });
   });
 
+  // 외부 썸네일이 깨지면 숨긴다 (사이트가 그림을 지웠거나 막았을 때)
+  $$("img[data-hide-broken]").forEach(function (img) {
+    var hide = function () { img.hidden = true; };
+    if (img.complete && !img.naturalWidth) hide();
+    img.addEventListener("error", hide);
+  });
+
+  // ---------- 취향 링크 미리보기 ----------
+  // 링크를 붙여 넣으면 제목·썸네일을 보여 주고, 비어 있는 제목과 분류를 채운다. 이미 적은 것은 건드리지 않는다.
+  $$("input[data-link-preview]").forEach(function (input) {
+    var form = input.form;
+    var card = form.querySelector("[data-link-card]");
+    var title = form.querySelector("[name=title]");
+    var timer = null, last = "", seq = 0;
+    var esc = function (s) {
+      var d = document.createElement("div");
+      d.textContent = s || "";
+      return d.innerHTML;
+    };
+    function show(data) {
+      if (!data || !data.ok) { card.hidden = true; card.innerHTML = ""; return; }
+      card.innerHTML =
+        (data.image ? '<img src="' + esc(data.image) + '" alt="" referrerpolicy="no-referrer">' : "") +
+        '<span class="text"><strong>' + esc(data.title) + "</strong><small>" + esc(data.site) + "</small></span>";
+      var img = card.querySelector("img");
+      if (img) img.addEventListener("error", function () { img.hidden = true; });
+      card.hidden = false;
+      if (title && !title.value.trim() && data.title) title.value = data.title;
+      var picked = form.querySelector("[name=category]:checked");
+      if (data.category && !(picked && picked.value)) {
+        var radio = form.querySelector('[name=category][value="' + data.category + '"]');
+        if (radio) { radio.checked = true; radio.dispatchEvent(new Event("change", { bubbles: true })); }
+      }
+    }
+    function look() {
+      var url = input.value.trim();
+      if (url === last) return;
+      last = url;
+      if (!/^https?:\/\/\S+\.\S+/i.test(url)) { show(null); return; }
+      var mine = ++seq;
+      card.hidden = false;
+      card.innerHTML = '<span class="text"><small>링크를 살펴보는 중…</small></span>';
+      fetch(input.dataset.linkPreview + "?url=" + encodeURIComponent(url), { credentials: "same-origin", headers: { Accept: "application/json" } })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .catch(function () { return null; })
+        .then(function (data) { if (mine === seq) show(data); }); // 늦게 온 옛 답은 버린다
+    }
+    input.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(look, 500); });
+    input.addEventListener("paste", function () { clearTimeout(timer); timer = setTimeout(look, 50); });
+    if (input.value.trim()) look(); // 고치는 화면이나 뒤로 가기로 돌아와 이미 링크가 있으면 바로 보여 준다
+  });
+
   // 초대 코드 복사
   $$("[data-copy]").forEach(function (button) {
     button.addEventListener("click", function () {

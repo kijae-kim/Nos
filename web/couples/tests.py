@@ -168,7 +168,8 @@ class ScreenTests(TestCase):
         self.assertEqual(response.context["first"].month, timezone.localdate().month)
         self.assertEqual(response.context["selected"], timezone.localdate())
 
-    def test_taste_create_detail_edit_delete(self):
+    @patch("couples.linkpreview.fetch", side_effect=OSError("테스트에서는 인터넷에 나가지 않는다"))
+    def test_taste_create_detail_edit_delete(self, _fetch):
         response = self.client.post(reverse("taste_create"), {"category": "영화", "title": "헤어질 결심", "link": "https://example.com/film", "comment": "바다 장면"})
         taste = Taste.objects.get()
         self.assertRedirects(response, reverse("taste_detail", args=[taste.pk]))
@@ -797,3 +798,140 @@ class CalendarFeedTests(TestCase):
         stranger = User.objects.create_user("c", password="pw", couple=other)
         services.save_event(Event(created_by=stranger), other, {"text": "남의 일정", "date": timezone.localdate(), "start_time": None, "end_time": None, "place": "", "scope": Event.SHARED, "color": "sky"})
         self.assertNotIn("남의 일정", self.feed_text())
+
+
+@override_settings(CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "linkpreview-tests"}})
+class LinkPreviewTests(TestCase):
+    """취향 링크 미리보기. 인터넷에는 나가지 않고 fetch 를 가짜로 바꾼다."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.couple = Couple.objects.create()
+        self.a = User.objects.create_user("a", password="pw", couple=self.couple, nickname="하늘")
+        self.client.force_login(self.a)
+
+    def test_embed_urls(self):
+        from .linkpreview import embed_for
+        yt = "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"
+        for url in [
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10",
+            "https://youtu.be/dQw4w9WgXcQ?si=abc",
+            "https://m.youtube.com/shorts/dQw4w9WgXcQ",
+            "https://music.youtube.com/watch?v=dQw4w9WgXcQ",
+        ]:
+            self.assertEqual(embed_for(url), (yt, 0), url)
+        self.assertEqual(
+            embed_for("https://open.spotify.com/intl-ko/track/4uLU6hMCjMI75M1A2tKUQC?si=x"),
+            ("https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC", 152),
+        )
+        self.assertEqual(embed_for("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")[1], 352)
+        for url in ["https://www.youtube.com/watch?v=bad", "https://evil.com/watch?v=dQw4w9WgXcQ",
+                    "https://open.spotify.com/user/x", "", "javascript:alert(1)"]:
+            self.assertEqual(embed_for(url), ("", 0), url)
+
+    def test_guess_category(self):
+        from .linkpreview import guess_category
+        self.assertEqual(guess_category("https://open.spotify.com/track/x"), "음악")
+        self.assertEqual(guess_category("https://music.youtube.com/watch?v=x"), "음악")
+        self.assertEqual(guess_category("https://youtu.be/x"), "영상")
+        self.assertEqual(guess_category("https://www.netflix.com/title/1"), "영화")
+        self.assertEqual(guess_category("https://naver.me/abc"), "장소")
+        self.assertEqual(guess_category("https://example.com"), "")
+
+    def test_blocks_private_addresses(self):
+        from .linkpreview import UnsafeURL, check_public
+        for url in ["http://127.0.0.1/", "http://localhost/", "http://10.0.0.5/", "http://169.254.169.254/latest/meta-data/",
+                    "http://[::1]/", "ftp://example.com/", "http://user:pw@example.com/", "http://example.com:8080/"]:
+            with self.assertRaises(UnsafeURL, msg=url):
+                check_public(url)
+
+    def test_redirect_to_private_address_is_blocked(self):
+        from urllib.error import HTTPError
+        from . import linkpreview
+
+        calls = []
+
+        def fake_check(url):
+            if "127.0.0.1" in url:
+                raise linkpreview.UnsafeURL("내부 주소")
+
+        def fake_open(request, timeout):
+            calls.append(request.full_url)
+            raise HTTPError(request.full_url, 302, "Found", {"Location": "http://127.0.0.1/admin"}, None)
+
+        with patch.object(linkpreview, "check_public", side_effect=fake_check), \
+                patch.object(linkpreview._opener, "open", side_effect=fake_open):
+            self.assertTrue(linkpreview.get_preview("https://short.example/x").empty)
+        self.assertEqual(calls, ["https://short.example/x"])  # 넘겨준 내부 주소로는 요청하지 않았다
+
+    def test_open_graph_page(self):
+        html = (
+            '<html><head><meta charset="utf-8"><title>예비 제목</title>'
+            '<meta property="og:title" content="성수 카페 &amp; 서점">'
+            '<meta property="og:image" content="/img/cover.jpg">'
+            '<meta property="og:site_name" content="네이버 지도"></head><body></body></html>'
+        ).encode("utf-8")
+        with patch("couples.linkpreview.fetch", return_value=("https://map.naver.com/p/1", "text/html; charset=utf-8", html)):
+            p = self.client.get(reverse("taste_link_preview"), {"url": "https://map.naver.com/p/1"}).json()
+        self.assertEqual(
+            (p["ok"], p["title"], p["image"], p["site"], p["category"]),
+            (True, "성수 카페 & 서점", "https://map.naver.com/img/cover.jpg", "네이버 지도", "장소"),
+        )
+
+    def test_title_fallback_and_http_image_dropped(self):
+        from .linkpreview import get_preview
+        html = "<html><head><title>  그냥   제목 </title><meta property='og:image' content='http://plain.example/a.jpg'></head></html>".encode("euc-kr")
+        with patch("couples.linkpreview.fetch", return_value=("https://www.example.co.kr/a", "text/html; charset=euc-kr", html)):
+            p = get_preview("https://www.example.co.kr/a")
+        self.assertEqual((p.title, p.image, p.site), ("그냥 제목", "", "example.co.kr"))
+
+    def test_youtube_uses_oembed(self):
+        body = b'{"title": "Hype Boy", "author_name": "HYBE LABELS", "thumbnail_url": "https://i.ytimg.com/vi/x/hqdefault.jpg"}'
+        with patch("couples.linkpreview.fetch", return_value=("", "application/json", body)) as fetch:
+            p = self.client.get(reverse("taste_link_preview"), {"url": "https://youtu.be/dQw4w9WgXcQ"}).json()
+        self.assertIn("https://www.youtube.com/oembed?url=", fetch.call_args[0][0])
+        self.assertEqual(
+            (p["title"], p["site"], p["category"], p["embed"]),
+            ("Hype Boy · HYBE LABELS", "YouTube", "영상", "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"),
+        )
+
+    def test_failure_returns_empty_and_saves_taste(self):
+        with patch("couples.linkpreview.fetch", side_effect=OSError("down")):
+            p = self.client.get(reverse("taste_link_preview"), {"url": "https://example.com/x"}).json()
+            self.assertFalse(p["ok"])
+            response = self.client.post(reverse("taste_create"), {"category": "영화", "title": "직접 쓴 제목", "link": "https://example.com/x", "comment": ""})
+        taste = Taste.objects.get()
+        self.assertRedirects(response, reverse("taste_detail", args=[taste.pk]))
+        self.assertEqual((taste.title, taste.preview_title), ("직접 쓴 제목", ""))
+
+    def test_saving_stores_preview_once(self):
+        html = b'<html><head><meta property="og:title" content="Film"><meta property="og:image" content="https://cdn.example/p.jpg"></head></html>'
+        with patch("couples.linkpreview.fetch", return_value=("https://example.com/f", "text/html", html)) as fetch:
+            self.client.post(reverse("taste_create"), {"category": "영화", "title": "헤어질 결심", "link": "https://example.com/f", "comment": ""})
+            taste = Taste.objects.get()
+            self.assertEqual((taste.preview_title, taste.preview_image), ("Film", "https://cdn.example/p.jpg"))
+            # 링크를 안 바꾸고 고치면 다시 가져오지 않는다
+            self.client.post(reverse("taste_update", args=[taste.pk]), {"category": "영화", "title": "헤어질 결심", "link": "https://example.com/f", "comment": "좋았어"})
+            self.assertEqual(fetch.call_count, 1)
+            # 링크를 지우면 미리보기도 지운다
+            self.client.post(reverse("taste_update", args=[taste.pk]), {"category": "영화", "title": "헤어질 결심", "link": "", "comment": ""})
+        taste.refresh_from_db()
+        self.assertEqual((taste.preview_title, taste.preview_image), ("", ""))
+
+    def test_feed_and_detail_show_preview(self):
+        taste = Taste.objects.create(
+            couple=self.couple, author=self.a, category="음악", title="밤편지",
+            link="https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+            preview_title="밤편지 · 아이유", preview_image="https://i.scdn.co/image/x", preview_site="Spotify",
+        )
+        feed = self.client.get(reverse("tastes"))
+        self.assertContains(feed, 'src="https://i.scdn.co/image/x"')
+        self.assertContains(feed, 'referrerpolicy="no-referrer"')
+        detail = self.client.get(reverse("taste_detail", args=[taste.pk]))
+        self.assertContains(detail, 'src="https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC"')
+        self.assertContains(detail, "밤편지 · 아이유")
+
+    def test_preview_needs_login(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("taste_link_preview"), {"url": "https://example.com"}).status_code, 302)

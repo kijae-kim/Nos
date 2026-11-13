@@ -14,7 +14,23 @@
   <h2>{{ taste.title }}</h2>
   {% if taste.comment %}<p class="comment">{{ taste.comment|linebreaksbr }}</p>{% else %}<p class="muted">한마디는 없어요.</p>{% endif %}
   {% if taste.link %}
-    <a class="link-row" href="{{ taste.link }}" target="_blank" rel="noopener noreferrer">{{ taste.link }}</a>
+    {% if taste.embed_url %}
+      {# 유튜브·스포티파이는 화면 안에서 바로 재생 #}
+      <div class="player{% if not taste.embed_height %} video{% endif %}"{% if taste.embed_height %} style="height:{{ taste.embed_height }}px"{% endif %}>
+        <iframe src="{{ taste.embed_url }}" title="{{ taste.preview_title|default:taste.title }}" loading="lazy"
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen
+                referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      </div>
+      <a class="open-link" href="{{ taste.link }}" target="_blank" rel="noopener noreferrer"><svg class="i" aria-hidden="true"><use href="#i-link"/></svg>{{ taste.preview_site|default:"원래 사이트" }}에서 열기</a>
+    {% else %}
+      <a class="link-card" href="{{ taste.link }}" target="_blank" rel="noopener noreferrer">
+        {% if taste.preview_image %}<img src="{{ taste.preview_image }}" alt="" loading="lazy" referrerpolicy="no-referrer" data-hide-broken>{% endif %}
+        <span class="text">
+          <strong>{{ taste.preview_title|default:taste.link }}</strong>
+          <small><svg class="i" aria-hidden="true"><use href="#i-link"/></svg>{{ taste.preview_site|default:"링크 열기" }}</small>
+        </span>
+      </a>
+    {% endif %}
   {% endif %}
   <p class="muted">{{ taste.author.display_name }} · {{ taste.created_at|date:"Y. n. j." }}{% if taste.updated_at > taste.created_at %} · 고침{% endif %}</p>
   <form class="like-form" method="post" action="{% url 'taste_like' taste.pk %}" data-like>

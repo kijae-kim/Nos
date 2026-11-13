@@ -130,6 +130,10 @@ class Taste(models.Model):
     image = models.ImageField("사진", upload_to=taste_upload_to, blank=True, null=True)
     # 저장 공간 한도 계산용 (couples/quota.py). 이미지가 없으면 0
     image_size = models.PositiveIntegerField(default=0, editable=False)
+    # 링크 미리보기 (couples/linkpreview.py). 저장할 때 한 번 가져와 둔다. 썸네일은 원래 사이트의 주소다
+    preview_title = models.CharField(max_length=200, blank=True, editable=False)
+    preview_image = models.URLField(max_length=500, blank=True, editable=False)
+    preview_site = models.CharField(max_length=60, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -142,6 +146,29 @@ class Taste(models.Model):
     @property
     def color(self):
         return self.CATEGORY_COLORS.get(self.category, "lav")
+
+    @property
+    def embed(self):
+        """(재생 주소, 높이). 유튜브·스포티파이 링크면 화면에서 바로 재생한다."""
+        from .linkpreview import embed_for
+
+        return embed_for(self.link)
+
+    @property
+    def embed_url(self):
+        return self.embed[0]
+
+    @property
+    def embed_height(self):
+        return self.embed[1]
+
+    def refresh_preview(self):
+        from .linkpreview import get_preview
+
+        p = get_preview(self.link) if self.link else None
+        self.preview_title = p.title if p else ""
+        self.preview_image = p.image if p else ""
+        self.preview_site = p.site if p else ""
 
 
 class TasteLike(models.Model):
