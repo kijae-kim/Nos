@@ -10,6 +10,9 @@ class User(AbstractUser):
     # 테마와 화면 모드. 계정에 두어 휴대폰을 바꾸거나 새로 설치해도 그대로 따라온다 (static/js/theme.js)
     palette = models.CharField("테마", max_length=10, choices=PALETTE_CHOICES, default="boat")
     mode = models.CharField("화면 모드", max_length=10, choices=MODE_CHOICES, default="system")
+    # 기념일 알림. 당일 알림은 항상 보내고, 하루 전·일주일 전은 사람마다 고른다 (notifications 앱)
+    notify_day_before = models.BooleanField("하루 전 알림", default=False)
+    notify_week_before = models.BooleanField("일주일 전 알림", default=False)
     couple = models.ForeignKey(
         "couples.Couple",
         null=True,

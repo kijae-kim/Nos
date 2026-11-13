@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "accounts",
     "couples",
     "anniversaries",
+    "notifications",
 ]
 
 MIDDLEWARE = [
