@@ -172,6 +172,30 @@ class TasteComment(models.Model):
         return self.text[:30]
 
 
+def new_feed_token():
+    return secrets.token_urlsafe(32)
+
+
+class CalendarFeed(models.Model):
+    """캘린더 앱 구독 주소. 사람마다 하나.
+
+    캘린더 앱은 로그인을 못 하므로 주소 자체가 열쇠다. 길고 추측할 수 없는 값을 쓰고,
+    새로 만들면 예전 주소는 바로 막힌다. 개인 일정은 각자 켰을 때만 넣는다.
+    """
+
+    user = models.OneToOneField("accounts.User", on_delete=models.CASCADE, related_name="calendar_feed")
+    token = models.CharField(max_length=64, unique=True, default=new_feed_token, editable=False)
+    include_personal = models.BooleanField("내 개인 일정도 넣기", default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user} 구독"
+
+    def reset_token(self):
+        self.token = new_feed_token()
+        self.save(update_fields=["token"])
+
+
 class Album(models.Model):
     couple = models.ForeignKey(Couple, on_delete=models.CASCADE, related_name="albums")
     title = models.CharField("앨범 이름", max_length=50)

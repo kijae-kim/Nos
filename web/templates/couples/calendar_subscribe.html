@@ -1,0 +1,46 @@
+{% extends "layout_app.html" %}
+{% block head_title %}캘린더 앱에서 보기 · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'us' %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">캘린더 앱에서 보기</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<p class="muted">한 번 추가해 두면 쓰던 캘린더 앱에 우리 일정과 기념일이 함께 보여요. 캘린더 앱에서는 볼 수만 있고, 고치는 건 NÓS 에서 해요.</p>
+
+<section class="subscribe card">
+  <a class="btn primary" href="{{ webcal_url }}"><svg class="i" aria-hidden="true"><use href="#i-cal"/></svg>아이폰 캘린더에 추가</a>
+  <a class="btn" href="{{ google_url }}" target="_blank" rel="noopener noreferrer"><span class="g" aria-hidden="true">G</span>구글 캘린더에 추가</a>
+  <div class="feed-url">
+    <input type="text" value="{{ feed_url }}" readonly aria-label="구독 주소" data-select-all>
+    <button type="button" class="btn" data-copy="{{ feed_url }}">주소 복사</button>
+  </div>
+  <small class="muted">다른 캘린더 앱(네이버 캘린더 등)은 "URL로 구독"에 이 주소를 붙여 넣어 주세요.</small>
+</section>
+
+<h2 class="group">넣을 일정</h2>
+<form method="post" class="card subscribe-option" data-autosubmit>
+  {% csrf_token %}
+  <input type="hidden" name="action" value="personal">
+  <label class="check">
+    <span><strong>내 개인 일정도 넣기</strong><small>꺼 두면 공통 일정과 기념일만 들어가요. 상대의 개인 일정은 어느 쪽이든 들어가지 않아요.</small></span>
+    <input type="checkbox" name="include_personal"{% if feed.include_personal %} checked{% endif %}>
+  </label>
+  <noscript><button type="submit" class="btn">저장</button></noscript>
+</form>
+
+<h2 class="group">알아 두세요</h2>
+<ul class="notes card">
+  <li>캘린더 앱이 몇 시간마다 다시 읽어 가서, 바뀐 일정은 조금 늦게 보일 수 있어요. 아이폰은 설정 › 캘린더 › 계정 › 구독한 캘린더에서 새로 고침 간격을 고를 수 있어요.</li>
+  <li>이 주소를 아는 사람은 누구나 일정을 볼 수 있어요. 다른 사람에게 보내지 마세요.</li>
+  <li>주소가 새어 나간 것 같으면 새로 만들어 주세요. 예전 주소는 바로 막혀요.</li>
+</ul>
+
+<form method="post" class="danger-form" data-confirm="새 주소를 만들까요? 예전 주소로 구독한 캘린더는 더 이상 새로 고쳐지지 않아요." data-confirm-ok="새로 만들기">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="reset">
+  <button type="submit" class="btn danger">주소 새로 만들기</button>
+</form>
+{% endblock %}

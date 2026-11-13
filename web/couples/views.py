@@ -7,7 +7,9 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef
-from django.http import JsonResponse
+from urllib.parse import urlencode
+
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -15,10 +17,10 @@ from django.views.decorators.http import require_POST
 
 from anniversaries import services as anniversary_services
 
-from . import quota, services
+from . import ics, quota, services
 from .storage import MAX_IMAGE_BYTES, delete_file
 from .forms import AlbumForm, CreateForm, EventForm, JoinForm, PhotoForm, ProfileForm, TasteCommentForm, TasteForm
-from .models import Album, Couple, Event, Photo, Taste, TasteComment, TasteLike
+from .models import Album, CalendarFeed, Couple, Event, Photo, Taste, TasteComment, TasteLike
 
 
 def _render_connect(request, create_form=None, join_form=None):
@@ -222,6 +224,45 @@ def calendar(request):
             "month_param": f"{first:%Y-%m}",
         },
     )
+
+
+@login_required
+def calendar_subscribe(request):
+    """캘린더 앱에서 보기: 구독 주소를 보여 주고, 개인 일정 넣기와 주소 새로 만들기를 한다."""
+    feed, _ = CalendarFeed.objects.get_or_create(user=request.user)
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "personal":
+            feed.include_personal = request.POST.get("include_personal") == "on"
+            feed.save(update_fields=["include_personal"])
+            messages.success(request, "개인 일정도 넣어요." if feed.include_personal else "공통 일정만 넣어요.")
+        elif action == "reset":
+            feed.reset_token()
+            messages.success(request, "새 주소를 만들었어요. 캘린더 앱에서 예전 구독을 지우고 다시 추가해 주세요.")
+        return redirect("calendar_subscribe")
+
+    url = request.build_absolute_uri(reverse("calendar_feed", args=[feed.token]))
+    webcal = "webcal://" + url.split("://", 1)[1]
+    return render(
+        request,
+        "couples/calendar_subscribe.html",
+        {
+            "feed": feed,
+            "feed_url": url,
+            "webcal_url": webcal,
+            "google_url": "https://calendar.google.com/calendar/render?" + urlencode({"cid": webcal}),
+        },
+    )
+
+
+def calendar_feed(request, token):
+    """캘린더 앱이 읽어 가는 ICS. 로그인 없이 주소(열쇠)로만 연다."""
+    feed = get_object_or_404(CalendarFeed.objects.select_related("user__couple"), token=token)
+    response = HttpResponse(ics.build_calendar(feed), content_type="text/calendar; charset=utf-8")
+    response["Content-Disposition"] = 'inline; filename="nos.ics"'
+    response["Cache-Control"] = "private, max-age=900"
+    response["X-Robots-Tag"] = "noindex, nofollow"
+    return response
 
 
 def _event_for_user(request, pk):

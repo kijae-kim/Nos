@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from . import services
-from .models import Album, Couple, Event, Label, Photo, Taste, TasteComment, TasteLike
+from .models import Album, CalendarFeed, Couple, Event, Label, Photo, Taste, TasteComment, TasteLike
 
 User = get_user_model()
 
@@ -675,3 +675,125 @@ class TasteLikeCommentTests(TestCase):
         TasteComment.objects.create(taste=self.taste, author=self.a, text="지워질 댓글")
         self.client.post(reverse("taste_delete", args=[self.taste.pk]))
         self.assertFalse(TasteLike.objects.exists() or TasteComment.objects.exists())
+
+
+class CalendarFeedTests(TestCase):
+    """캘린더 앱 구독(ICS)."""
+
+    def setUp(self):
+        from datetime import time
+        self.time = time
+        self.couple = Couple.objects.create(start_date=timezone.localdate() - timedelta(days=150))
+        self.a = User.objects.create_user("a", password="pw", couple=self.couple, nickname="하늘")
+        self.b = User.objects.create_user("b", password="pw", couple=self.couple, nickname="바다")
+        self.client.force_login(self.a)
+
+    def add(self, user, text, days=1, scope=Event.SHARED, start=None, end=None, place=""):
+        return services.save_event(
+            Event(created_by=user),
+            self.couple,
+            {"text": text, "date": timezone.localdate() + timedelta(days=days), "start_time": start, "end_time": end, "place": place, "scope": scope, "color": "sky"},
+        )
+
+    def feed_text(self, user=None):
+        feed, _ = CalendarFeed.objects.get_or_create(user=user or self.a)
+        self.client.logout()  # 캘린더 앱은 로그인하지 않는다
+        response = self.client.get(reverse("calendar_feed", args=[feed.token]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/calendar; charset=utf-8")
+        return response.content.decode("utf-8")
+
+    def test_page_creates_feed_and_links(self):
+        response = self.client.get(reverse("calendar_subscribe"))
+        feed = CalendarFeed.objects.get(user=self.a)
+        self.assertGreaterEqual(len(feed.token), 40)
+        self.assertContains(response, f"webcal://testserver/calendar/feed/{feed.token}.ics")
+        self.assertContains(response, "calendar.google.com/calendar/render?cid=webcal")
+        self.assertFalse(feed.include_personal)
+        self.assertContains(self.client.get(reverse("us")), reverse("calendar_subscribe"))
+
+    def test_shared_only_by_default(self):
+        self.add(self.a, "같이 저녁 @데이트", place="성수, 2층")
+        self.add(self.a, "내 운동", scope=Event.PERSONAL)
+        self.add(self.b, "바다 개인 약속", scope=Event.PERSONAL)
+        text = self.feed_text()
+        self.assertIn("SUMMARY:같이 저녁", text)
+        self.assertIn("LOCATION:성수\, 2층", text)
+        self.assertIn("@데이트", text)
+        self.assertNotIn("내 운동", text)
+        self.assertNotIn("바다 개인 약속", text)
+
+    def test_include_personal_adds_only_my_personal(self):
+        self.client.post(reverse("calendar_subscribe"), {"action": "personal", "include_personal": "on"})
+        self.assertTrue(CalendarFeed.objects.get(user=self.a).include_personal)
+        self.add(self.a, "내 운동", scope=Event.PERSONAL)
+        self.add(self.b, "바다 개인 약속", scope=Event.PERSONAL)
+        text = self.feed_text()
+        self.assertIn("SUMMARY:내 운동 (개인)", text)
+        self.assertIn("CLASS:PRIVATE", text)
+        self.assertNotIn("바다 개인 약속", text)
+        # 끄면 다시 공통만
+        self.client.force_login(self.a)
+        self.client.post(reverse("calendar_subscribe"), {"action": "personal"})
+        self.assertNotIn("내 운동", self.feed_text())
+
+    def test_times_all_day_and_overnight(self):
+        t = self.time
+        self.add(self.a, "하루 종일 일정", days=3)
+        self.add(self.a, "저녁", days=3, start=t(19, 0), end=t(21, 30))
+        self.add(self.a, "밤샘", days=3, start=t(22, 0), end=t(1, 0))
+        self.add(self.a, "끝 없음", days=3, start=t(9, 0))
+        d = timezone.localdate() + timedelta(days=3)
+        nxt = d + timedelta(days=1)
+        text = self.feed_text()
+        self.assertIn(f"DTSTART;VALUE=DATE:{d:%Y%m%d}\r\nDTEND;VALUE=DATE:{nxt:%Y%m%d}", text)
+        self.assertIn(f"DTSTART:{d:%Y%m%d}T100000Z\r\nDTEND:{d:%Y%m%d}T123000Z", text)  # 서울 19시 = UTC 10시
+        self.assertIn(f"DTSTART:{d:%Y%m%d}T130000Z\r\nDTEND:{d:%Y%m%d}T160000Z", text)  # 22시 ~ 다음 날 1시
+        self.assertIn(f"DTSTART:{d:%Y%m%d}T000000Z\r\nDTEND:{d:%Y%m%d}T010000Z", text)  # 끝이 없으면 1시간
+
+    def test_anniversaries_included(self):
+        from anniversaries.models import Anniversary
+        Anniversary.objects.create(couple=self.couple, title="바다 생일", date=timezone.localdate() - timedelta(days=3000), repeat_yearly=True)
+        text = self.feed_text()
+        self.assertIn("SUMMARY:바다 생일\r\nTRANSP:TRANSPARENT\r\nRRULE:FREQ=YEARLY", text)
+        self.assertIn("SUMMARY:우리 200일", text)
+
+    def test_format_crlf_and_folding(self):
+        self.add(self.a, "아주 긴 제목 " * 12)
+        text = self.feed_text()
+        self.assertTrue(text.startswith("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"))
+        self.assertTrue(text.endswith("END:VCALENDAR\r\n"))
+        self.assertNotIn("\n", text.replace("\r\n", ""))
+        for line in text.split("\r\n"):
+            self.assertLessEqual(len(line.encode("utf-8")), 75)
+        unfolded = text.replace("\r\n ", "")
+        self.assertIn("SUMMARY:" + ("아주 긴 제목 " * 12).strip(), unfolded)
+
+    def test_reset_token_blocks_old_url(self):
+        feed = CalendarFeed.objects.create(user=self.a)
+        old = feed.token
+        self.client.post(reverse("calendar_subscribe"), {"action": "reset"})
+        feed.refresh_from_db()
+        self.assertNotEqual(feed.token, old)
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("calendar_feed", args=[old])).status_code, 404)
+        self.assertEqual(self.client.get(reverse("calendar_feed", args=[feed.token])).status_code, 200)
+
+    def test_unknown_token_is_404(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("calendar_feed", args=["nope"])).status_code, 404)
+
+    def test_after_leaving_couple_feed_is_empty(self):
+        self.add(self.a, "같이 저녁")
+        feed = CalendarFeed.objects.create(user=self.a)
+        self.a.couple = None
+        self.a.save()
+        self.client.logout()
+        text = self.client.get(reverse("calendar_feed", args=[feed.token])).content.decode()
+        self.assertNotIn("BEGIN:VEVENT", text)
+
+    def test_other_couples_events_never_in_feed(self):
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("c", password="pw", couple=other)
+        services.save_event(Event(created_by=stranger), other, {"text": "남의 일정", "date": timezone.localdate(), "start_time": None, "end_time": None, "place": "", "scope": Event.SHARED, "color": "sky"})
+        self.assertNotIn("남의 일정", self.feed_text())
