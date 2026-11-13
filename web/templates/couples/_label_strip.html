@@ -1,0 +1,12 @@
+{# 이름표 줄: 누르면 같은 이름표의 일정만 모아 본다. 다시 누르면 풀린다. #}
+{% if labels %}
+  <nav class="label-strip" aria-label="이름표로 모아 보기">
+    {% for l in labels %}
+      {% if label and label.pk == l.pk %}
+        <a class="label-chip on" style="--c: var(--{{ l.color }})" href="?month={{ month_param }}" aria-current="true">{{ l.token }}<svg class="i" aria-hidden="true"><use href="#i-close"/></svg></a>
+      {% else %}
+        <a class="label-chip" style="--c: var(--{{ l.color }})" href="?label={{ l.pk }}">{{ l.token }}</a>
+      {% endif %}
+    {% endfor %}
+  </nav>
+{% endif %}

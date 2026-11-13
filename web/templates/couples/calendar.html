@@ -25,32 +25,43 @@
     </div>
   </section>
 
-  <div class="list-head row-between">
-    <h2>{{ list_title }}</h2>
-    <a class="add-link" href="{{ new_event_url }}"><svg class="i"><use href="#i-plus"/></svg>일정 추가</a>
-  </div>
-  <ul class="events">
-    {% for e in day_events %}
-      {% include "couples/_event_item.html" with event=e %}
-    {% empty %}
-      <li class="empty-line">이 날은 일정이 없어요</li>
-    {% endfor %}
-  </ul>
+  {% include "couples/_label_strip.html" %}
+
+  {% if label %}
+    {% include "couples/_label_events.html" %}
+  {% else %}
+    <div class="list-head row-between">
+      <h2>{{ list_title }}</h2>
+      <a class="add-link" href="{{ new_event_url }}"><svg class="i"><use href="#i-plus"/></svg>일정 추가</a>
+    </div>
+    <ul class="events">
+      {% for e in day_events %}
+        {% include "couples/_event_item.html" with event=e %}
+      {% empty %}
+        <li class="empty-line">이 날은 일정이 없어요</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
 </div>
 
 {# 넓은 화면: 왼쪽에 다가오는 일정, 오른쪽에 큰 달력 #}
 <div class="desktop-only">
   <aside class="panel">
     <div>
-      <h2>다가오는 일정</h2>
-      <p class="sub">놓치면 안 되는 날들</p>
-      <ul class="events">
-        {% for e in upcoming %}
-          {% include "couples/_event_item.html" with event=e %}
-        {% empty %}
-          <li class="empty-line">다가오는 일정이 없어요</li>
-        {% endfor %}
-      </ul>
+      {% include "couples/_label_strip.html" %}
+      {% if label %}
+        {% include "couples/_label_events.html" %}
+      {% else %}
+        <h2>다가오는 일정</h2>
+        <p class="sub">놓치면 안 되는 날들</p>
+        <ul class="events">
+          {% for e in upcoming %}
+            {% include "couples/_event_item.html" with event=e %}
+          {% empty %}
+            <li class="empty-line">다가오는 일정이 없어요</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
     </div>
     {% if days %}
       <article class="dday small sailing">
