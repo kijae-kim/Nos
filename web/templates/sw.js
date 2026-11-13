@@ -30,7 +30,11 @@ self.addEventListener("notificationclick", (event) => {
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
       for (const win of windows) {
         if (new URL(win.url).origin === self.location.origin && "focus" in win) {
-          return win.focus().then((w) => (w && "navigate" in w ? w.navigate(url) : w));
+          // 이 서비스 워커가 다루지 않는 창이면 navigate 가 실패한다. 그때는 새 창으로 연다.
+          return win
+            .focus()
+            .then((w) => (w && "navigate" in w ? w.navigate(url) : Promise.reject()))
+            .catch(() => self.clients.openWindow(url));
         }
       }
       return self.clients.openWindow(url);

@@ -318,3 +318,31 @@ class PushRobustnessTests(TestCase):
         sub = make_sub(user)
         self.assertFalse(push.send(sub, {"title": "t"}))
         self.assertTrue(PushSubscription.objects.filter(pk=sub.pk).exists())
+
+
+@override_settings(CRON_SECRET="s3cret", WEBPUSH_ENABLED=True)
+@mock.patch("notifications.views.timezone.localdate", return_value=TODAY)
+class CronConcurrencyTests(TestCase):
+    """Vercel Cron 이 같은 요청을 거의 동시에 두 번 보내도 같은 알림은 한 번만 간다."""
+
+    def setUp(self):
+        couple = Couple.objects.create(start_date=TODAY - timedelta(days=499))
+        User.objects.create_user("solo", password="pw", couple=couple)
+        self.url = reverse("cron_anniversaries")
+
+    def call(self):
+        return self.client.get(self.url, HTTP_AUTHORIZATION="Bearer s3cret")
+
+    def test_overlapping_call_does_not_resend(self, _):
+        calls = []
+
+        def send(user, payload):
+            calls.append(payload["tag"])
+            if len(calls) == 1:
+                self.call()  # 첫 요청이 보내는 도중에 두 번째 요청이 들어온다
+            return 1
+
+        with mock.patch("notifications.views.send_to_user", side_effect=send):
+            self.call()
+        self.assertEqual(calls, ["auto:500일:2026-12-01:0"])
+        self.assertEqual(Log.objects.count(), 1)

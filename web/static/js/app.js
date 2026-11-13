@@ -993,13 +993,25 @@
       if (Notification.permission === "denied") return show("denied");
       return registration()
         .then(function (reg) { return reg.pushManager.getSubscription(); })
-        .then(function (sub) { show(sub ? "on" : "off"); })
+        .then(function (sub) {
+          if (!sub) return show("off");
+          // 브라우저에 구독이 있어도 서버에서 지워졌을 수 있다 (구독 교체, 저장 실패 등). 열 때마다 다시 맞춘다.
+          return postJSON("/me/notifications/subscribe/", sub.toJSON())
+            .then(function () { show("on"); })
+            .catch(function () { show("off"); });
+        })
         .catch(function () { show("unsupported"); });
     };
 
     pushBox.querySelector("[data-push-on]").addEventListener("click", function () {
       say("");
-      registration()
+      // 아이폰은 누른 직후에 허용을 물어야 해서, 다른 기다림보다 먼저 묻는다
+      var asked = Notification.permission === "granted" ? Promise.resolve("granted") : Notification.requestPermission();
+      Promise.resolve(asked)
+        .then(function (permission) {
+          if (permission !== "granted") throw new Error("permission " + permission);
+          return registration();
+        })
         .then(function (reg) {
           return reg.pushManager.subscribe({
             userVisibleOnly: true,

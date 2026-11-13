@@ -6,6 +6,7 @@ from functools import wraps
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError, transaction
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -41,15 +42,23 @@ def cron_anniversaries(request):
     couples = Couple.objects.filter(members__isnull=False).distinct().prefetch_related("members", "anniversaries")
     for couple in couples:
         for due in due_for_couple(couple, today):
-            if PushLog.objects.filter(user=due.user, key=due.key).exists():
+            # 보내기 전에 기록 자리를 먼저 잡는다. Cron 이 거의 동시에 두 번 와도 한쪽만 보낸다 (unique 제약).
+            try:
+                with transaction.atomic():
+                    log, created = PushLog.objects.get_or_create(
+                        user=due.user, key=due.key, defaults={"sent_on": today}
+                    )
+            except IntegrityError:
+                created = False
+            if not created:
                 skipped += 1
                 continue
             payload = {"title": due.title, "body": due.body, "url": due.url, "tag": due.key}
-            # 보내기에 성공한 것만 기록한다
             if send_to_user(due.user, payload):
-                PushLog.objects.get_or_create(user=due.user, key=due.key, defaults={"sent_on": today})
                 sent += 1
             else:
+                # 보내기에 실패하면 기록을 지운다. 성공한 것만 남긴다.
+                log.delete()
                 failed += 1
 
     PushLog.objects.filter(sent_on__lt=today - timedelta(days=LOG_DAYS)).delete()
