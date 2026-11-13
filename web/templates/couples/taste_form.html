@@ -13,6 +13,7 @@
   {% include "_choices.html" with field=form.category %}
   {% include "_field.html" with field=form.title %}
   {% include "_field.html" with field=form.link %}
+  <div class="link-card form-preview" data-link-card hidden aria-live="polite"></div>
   {% include "_dropzone.html" with field=form.image current=taste.image %}
   {% if taste.image %}<label class="check">{{ form.clear_image }} <span>{{ form.clear_image.label }}</span></label>{% endif %}
   <div class="field">

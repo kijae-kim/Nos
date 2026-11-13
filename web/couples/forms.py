@@ -87,13 +87,18 @@ class TasteForm(forms.ModelForm):
         widgets = {
             "category": forms.RadioSelect,
             "title": forms.TextInput(attrs={"placeholder": "곡 제목, 영화 제목, 장소 이름"}),
-            "link": forms.URLInput(attrs={"placeholder": "https://", "inputmode": "url"}),
+            "link": forms.URLInput(attrs={"placeholder": "유튜브·스포티파이·지도 링크를 붙여 넣어 보세요", "inputmode": "url", "data-link-preview": "/tastes/preview/"}),
             "comment": forms.Textarea(attrs={"rows": 3, "placeholder": "왜 좋았는지 한마디 남겨 보세요"}),
         }
 
     def __init__(self, *args, couple=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.couple = couple
+        # 분류는 다섯 중 하나. 빈 선택지("---------")는 빼고, 이름도 한국어로
+        category = self.fields["category"]
+        category.label = "분류"
+        category.choices = [(c, c) for c in Taste.CATEGORIES]
+        category.error_messages["required"] = "분류를 골라 주세요."
         # 검사하면서 새 사진이 인스턴스에 들어가므로, 바꾸기 전 이름과 크기를 미리 적어 둔다
         self.old_image_name = self.instance.image.name if self.instance.pk else None
         self.old_image_size = self.instance.image_size if self.instance.pk else 0
@@ -119,6 +124,9 @@ class TasteForm(forms.ModelForm):
             taste.image_size = self.cleaned_data["image"].size
         elif not taste.image:
             taste.image_size = 0
+        # 링크가 바뀌었거나 아직 미리보기가 없으면 가져온다 (실패해도 저장은 된다)
+        if "link" in self.changed_data or (taste.link and not (taste.preview_title or taste.preview_image)):
+            taste.refresh_preview()
         taste.save()
         if old_name and old_name != taste.image.name:
             delete_file(old_name)

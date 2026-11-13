@@ -17,7 +17,7 @@ from django.views.decorators.http import require_POST
 
 from anniversaries import services as anniversary_services
 
-from . import ics, quota, services
+from . import ics, linkpreview, quota, services
 from .storage import MAX_IMAGE_BYTES, delete_file
 from .forms import AlbumForm, CreateForm, EventForm, JoinForm, PhotoForm, ProfileForm, TasteCommentForm, TasteForm
 from .models import Album, CalendarFeed, Couple, Event, Photo, Taste, TasteComment, TasteLike
@@ -364,6 +364,13 @@ def taste_create(request):
         messages.success(request, "취향을 공유했어요.")
         return redirect("taste_detail", pk=taste.pk)
     return render(request, "couples/taste_form.html", {"form": form, "taste": None})
+
+
+@login_required
+def taste_link_preview(request):
+    """쓰는 화면에서 링크를 붙여 넣으면 제목·썸네일을 미리 보여 주고 빈 칸을 채운다."""
+    preview = linkpreview.get_preview(request.GET.get("url", "")[:1000])
+    return JsonResponse({"ok": not preview.empty, **preview.as_dict()})
 
 
 @login_required
