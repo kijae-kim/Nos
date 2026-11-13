@@ -947,4 +947,95 @@
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch(function () {});
   }
+
+  // ---------- 기념일 알림 ----------
+  // 우리 › 알림 화면. 이 기기의 상태를 보여 주고, 알림 받기·끄기·시험을 한다. 보내기는 서버(Cron)가 한다.
+  var pushBox = document.querySelector("[data-push]");
+  if (pushBox) {
+    var pushMsg = pushBox.querySelector("[data-push-msg]");
+    var supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    var isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    var standalone = navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+
+    var say = function (text) {
+      if (!pushMsg) return;
+      pushMsg.textContent = text || "";
+      pushMsg.hidden = !text;
+    };
+    var show = function (state) {
+      $$("[data-push-state]", pushBox).forEach(function (p) { p.hidden = p.dataset.pushState !== state; });
+      pushBox.querySelector("[data-push-on]").hidden = state !== "off";
+      pushBox.querySelector("[data-push-off]").hidden = state !== "on";
+      pushBox.querySelector("[data-push-test]").hidden = state !== "on";
+    };
+    // 서버의 공개 키(base64url)를 브라우저가 받는 바이트 배열로
+    var keyBytes = function (base64url) {
+      var b64 = (base64url + "===".slice((base64url.length + 3) % 4)).replace(/-/g, "+").replace(/_/g, "/");
+      var raw = atob(b64);
+      var out = new Uint8Array(raw.length);
+      for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+      return out;
+    };
+    var postJSON = function (url, data) {
+      return fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
+        credentials: "same-origin",
+        body: JSON.stringify(data || {}),
+      }).then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      });
+    };
+    var registration = function () { return navigator.serviceWorker.ready; };
+    var refresh = function () {
+      if (!supported) return show(isIOS && !standalone ? "ios-install" : "unsupported");
+      if (Notification.permission === "denied") return show("denied");
+      return registration()
+        .then(function (reg) { return reg.pushManager.getSubscription(); })
+        .then(function (sub) { show(sub ? "on" : "off"); })
+        .catch(function () { show("unsupported"); });
+    };
+
+    pushBox.querySelector("[data-push-on]").addEventListener("click", function () {
+      say("");
+      registration()
+        .then(function (reg) {
+          return reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: keyBytes(pushBox.dataset.publicKey),
+          });
+        })
+        .then(function (sub) { return postJSON("/me/notifications/subscribe/", sub.toJSON()); })
+        .then(refresh)
+        .catch(function () {
+          if (Notification.permission === "denied") return show("denied");
+          say("알림을 켜지 못했어요. 잠시 뒤 다시 해 볼까요?");
+          refresh();
+        });
+    });
+
+    pushBox.querySelector("[data-push-off]").addEventListener("click", function () {
+      say("");
+      registration()
+        .then(function (reg) { return reg.pushManager.getSubscription(); })
+        .then(function (sub) {
+          if (!sub) return null;
+          return postJSON("/me/notifications/unsubscribe/", { endpoint: sub.endpoint })
+            .catch(function () {})
+            .then(function () { return sub.unsubscribe(); });
+        })
+        .then(refresh)
+        .catch(refresh);
+    });
+
+    pushBox.querySelector("[data-push-test]").addEventListener("click", function () {
+      say("");
+      postJSON("/me/notifications/test/")
+        .then(function (data) { say(data.sent ? "시험 알림을 보냈어요." : "보내지 못했어요. 잠시 뒤 다시 해 볼까요?"); })
+        .catch(function () { say("보내지 못했어요. 잠시 뒤 다시 해 볼까요?"); });
+    });
+
+    refresh();
+  }
 })();

@@ -813,6 +813,14 @@ a.label-chip:active { transform: scale(.94); }
 .comment-form .btn { width: auto; flex: none; padding: 0 16px; height: 40px; margin: 0; border-radius: 18px; font-size: 14px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+/* ---------- 알림 (우리 › 알림) ---------- */
+.push { display: grid; gap: 10px; padding: 18px; }
+.push p { display: grid; gap: 4px; }
+.push p small { font-size: 13px; color: var(--muted); }
+.push .btn { margin: 0; }
+.push .btn svg.i { width: 20px; height: 20px; }
+.push [hidden] { display: none; }
+
 /* ---------- 캘린더 앱에서 보기 (구독) ---------- */
 .subscribe { display: grid; gap: 10px; padding: 18px; }
 .subscribe .btn { margin: 0; }

@@ -309,3 +309,12 @@ class SettingsViewTests(TestCase):
     def test_login_required(self):
         self.client.logout()
         self.assertEqual(self.client.get(reverse("notifications")).status_code, 302)
+
+
+class PushRobustnessTests(TestCase):
+    @mock.patch("notifications.push.webpush", side_effect=ValueError("bad key"))
+    def test_unexpected_error_returns_false(self, webpush):
+        user = User.objects.create_user("r", password="pw")
+        sub = make_sub(user)
+        self.assertFalse(push.send(sub, {"title": "t"}))
+        self.assertTrue(PushSubscription.objects.filter(pk=sub.pk).exists())

@@ -37,6 +37,9 @@ def send(subscription, payload: dict) -> bool:
     except requests.exceptions.RequestException:
         logger.warning("푸시 보내기 실패 (네트워크)")
         return False
+    except Exception:  # 구독 정보가 망가진 경우 등. 한 기기 때문에 다른 사람 알림이 멈추면 안 된다.
+        logger.exception("푸시 보내기 실패 (예상 못 한 오류)")
+        return False
 
 
 def send_to_user(user, payload: dict) -> int:
