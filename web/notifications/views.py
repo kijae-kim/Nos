@@ -1,14 +1,19 @@
 import hmac
+import json
 from datetime import timedelta
+from functools import wraps
 
 from django.conf import settings
-from django.http import JsonResponse
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.http import Http404, JsonResponse
+from django.shortcuts import redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from couples.models import Couple
 
-from .models import PushLog
+from .models import PushLog, PushSubscription
 from .push import send_to_user
 from .schedule import due_for_couple
 
@@ -49,3 +54,88 @@ def cron_anniversaries(request):
 
     PushLog.objects.filter(sent_on__lt=today - timedelta(days=LOG_DAYS)).delete()
     return JsonResponse({"ok": True, "sent": sent, "skipped": skipped, "failed": failed})
+
+
+# ---------- 우리 › 알림 ----------
+
+TEST_PAYLOAD = {
+    "title": "알림이 잘 와요",
+    "body": "기념일이 다가오면 이렇게 알려 드릴게요",
+    "url": "/anniversaries/",
+    "tag": "test",
+}
+
+
+def webpush_required(view):
+    """열쇠(VAPID)가 없는 서버에서는 알림 화면과 주소를 없는 것처럼 둔다."""
+
+    @wraps(view)
+    def wrapped(request, *args, **kwargs):
+        if not settings.WEBPUSH_ENABLED:
+            raise Http404
+        return view(request, *args, **kwargs)
+
+    return wrapped
+
+
+def _json_body(request):
+    try:
+        data = json.loads(request.body or b"{}")
+    except (ValueError, UnicodeDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+@webpush_required
+@login_required
+def notification_settings(request):
+    user = request.user
+    if request.method == "POST":
+        user.notify_day_before = request.POST.get("notify_day_before") == "on"
+        user.notify_week_before = request.POST.get("notify_week_before") == "on"
+        user.save(update_fields=["notify_day_before", "notify_week_before"])
+        messages.success(request, "알림 설정을 저장했어요.")
+        return redirect("notifications")
+    return render(request, "notifications/settings.html", {"VAPID_PUBLIC_KEY": settings.VAPID_PUBLIC_KEY})
+
+
+@webpush_required
+@login_required
+@require_POST
+def push_subscribe(request):
+    """이 기기의 구독 정보를 저장한다. 같은 기기를 다른 사람이 쓰면 주인을 바꾼다."""
+    data = _json_body(request) or {}
+    endpoint = data.get("endpoint")
+    keys = data.get("keys") if isinstance(data.get("keys"), dict) else {}
+    p256dh, auth = keys.get("p256dh"), keys.get("auth")
+    valid = (
+        isinstance(endpoint, str)
+        and endpoint.startswith("https://")
+        and len(endpoint) <= 500
+        and isinstance(p256dh, str) and 0 < len(p256dh) <= 200
+        and isinstance(auth, str) and 0 < len(auth) <= 100
+    )
+    if not valid:
+        return JsonResponse({"ok": False}, status=400)
+    PushSubscription.objects.update_or_create(
+        endpoint=endpoint, defaults={"user": request.user, "p256dh": p256dh, "auth": auth}
+    )
+    return JsonResponse({"ok": True})
+
+
+@webpush_required
+@login_required
+@require_POST
+def push_unsubscribe(request):
+    data = _json_body(request) or {}
+    endpoint = data.get("endpoint")
+    if isinstance(endpoint, str):
+        request.user.push_subscriptions.filter(endpoint=endpoint).delete()
+    return JsonResponse({"ok": True})
+
+
+@webpush_required
+@login_required
+@require_POST
+def push_test(request):
+    return JsonResponse({"ok": True, "sent": send_to_user(request.user, TEST_PAYLOAD)})

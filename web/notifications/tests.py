@@ -220,3 +220,92 @@ class CronTests(TestCase):
         Log.objects.create(user=u, key="recent", sent_on=TODAY - timedelta(days=59))
         self.call()
         self.assertEqual(set(Log.objects.filter(key__in=["old", "recent"]).values_list("key", flat=True)), {"recent"})
+
+
+import json as _json  # noqa: E402
+
+VAPID_ON = dict(WEBPUSH_ENABLED=True, VAPID_PUBLIC_KEY="pub")
+
+
+class SettingsViewTests(TestCase):
+    def setUp(self):
+        self.couple = Couple.objects.create()
+        self.me = User.objects.create_user("me", password="pw", couple=self.couple)
+        self.partner = User.objects.create_user("you", password="pw", couple=self.couple)
+        self.client.force_login(self.me)
+
+    def post_json(self, name, data):
+        return self.client.post(reverse(name), _json.dumps(data), content_type="application/json")
+
+    def sub_data(self, endpoint="https://push.example.com/abc"):
+        return {"endpoint": endpoint, "keys": {"p256dh": "p", "auth": "a"}}
+
+    @override_settings(WEBPUSH_ENABLED=False)
+    def test_menu_hidden_without_vapid(self):
+        self.assertNotContains(self.client.get(reverse("us")), reverse("notifications"))
+
+    @override_settings(**VAPID_ON)
+    def test_menu_shown_with_vapid(self):
+        self.assertContains(self.client.get(reverse("us")), reverse("notifications"))
+
+    @override_settings(WEBPUSH_ENABLED=False)
+    def test_pages_404_without_vapid(self):
+        self.assertEqual(self.client.get(reverse("notifications")).status_code, 404)
+        for name in ("push_subscribe", "push_unsubscribe", "push_test"):
+            self.assertEqual(self.post_json(name, {}).status_code, 404, name)
+
+    @override_settings(**VAPID_ON)
+    def test_page_shows_public_key_and_states(self):
+        res = self.client.get(reverse("notifications"))
+        self.assertContains(res, 'data-public-key="pub"')
+        self.assertContains(res, "기념일 당일에는 항상 알려 드려요")
+        for state in ("on", "off", "unsupported", "ios-install", "denied"):
+            self.assertContains(res, f'data-push-state="{state}"')
+
+    @override_settings(**VAPID_ON)
+    def test_save_toggles(self):
+        res = self.client.post(reverse("notifications"), {"notify_week_before": "on"})
+        self.assertRedirects(res, reverse("notifications"))
+        self.me.refresh_from_db()
+        self.assertEqual((self.me.notify_day_before, self.me.notify_week_before), (False, True))
+
+    @override_settings(**VAPID_ON)
+    def test_subscribe_creates_and_moves_owner(self):
+        self.assertEqual(self.post_json("push_subscribe", self.sub_data()).json(), {"ok": True})
+        self.client.force_login(self.partner)
+        self.post_json("push_subscribe", self.sub_data())
+        self.assertEqual(PushSubscription.objects.get().user, self.partner)
+
+    @override_settings(**VAPID_ON)
+    def test_subscribe_rejects_bad_payload(self):
+        bad = [
+            self.sub_data("http://push.example.com/abc"),
+            {"endpoint": "https://push.example.com/abc"},
+            self.sub_data("https://push.example.com/" + "x" * 500),
+        ]
+        for data in bad:
+            self.assertEqual(self.post_json("push_subscribe", data).status_code, 400)
+        res = self.client.post(reverse("push_subscribe"), "not json", content_type="application/json")
+        self.assertEqual(res.status_code, 400)
+        self.assertFalse(PushSubscription.objects.exists())
+
+    @override_settings(**VAPID_ON)
+    def test_unsubscribe_only_mine(self):
+        theirs = make_sub(self.partner)
+        mine = make_sub(self.me)
+        self.post_json("push_unsubscribe", {"endpoint": theirs.endpoint})
+        self.post_json("push_unsubscribe", {"endpoint": mine.endpoint})
+        self.assertEqual(list(PushSubscription.objects.all()), [theirs])
+
+    @override_settings(**VAPID_ON)
+    @mock.patch("notifications.views.send_to_user", return_value=2)
+    def test_push_test_calls_send(self, send):
+        self.assertEqual(self.post_json("push_test", {}).json(), {"ok": True, "sent": 2})
+        user, payload = send.call_args.args
+        self.assertEqual(user, self.me)
+        self.assertEqual(payload["title"], "알림이 잘 와요")
+
+    @override_settings(**VAPID_ON)
+    def test_login_required(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("notifications")).status_code, 302)
