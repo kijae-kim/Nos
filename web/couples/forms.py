@@ -1,7 +1,7 @@
 from django import forms
 from django.utils import timezone
 
-from .models import CODE_LENGTH, COLOR_CHOICES, Album, Photo, Taste
+from .models import CODE_LENGTH, COLOR_CHOICES, Album, Photo, Taste, TasteComment
 from . import quota
 from .storage import ImageUploadField, delete_file
 
@@ -130,6 +130,21 @@ class AlbumForm(forms.ModelForm):
         model = Album
         fields = ["title"]
         widgets = {"title": forms.TextInput(attrs={"placeholder": "예: 성수동 산책"})}
+
+
+class TasteCommentForm(forms.Form):
+    text = forms.CharField(
+        label="댓글",
+        max_length=TasteComment.MAX_LENGTH,
+        widget=forms.Textarea(attrs={"rows": 1, "placeholder": "한마디 남기기", "maxlength": TasteComment.MAX_LENGTH}),
+        error_messages={"required": "댓글을 적어 주세요.", "max_length": f"{TasteComment.MAX_LENGTH}자까지 적을 수 있어요."},
+    )
+
+    def clean_text(self):
+        text = self.cleaned_data["text"].strip()
+        if not text:
+            raise forms.ValidationError("댓글을 적어 주세요.")
+        return text
 
 
 class PhotoForm(forms.ModelForm):

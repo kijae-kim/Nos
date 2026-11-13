@@ -30,7 +30,15 @@
       <span class="chip">{{ t.category }}</span>
       <h3>{{ t.title }}</h3>
       {% if t.comment %}<p>{{ t.comment|truncatechars:70 }}</p>{% endif %}
-      <small>{{ t.author.display_name }} · {{ t.created_at|date:"n월 j일" }}</small>
+      <span class="taste-foot">
+        <small>{{ t.author.display_name }} · {{ t.created_at|date:"n월 j일" }}</small>
+        {% if t.like_count or t.comment_count %}
+          <span class="taste-counts">
+            {% if t.like_count %}<span class="{% if t.liked %}on{% endif %}" aria-label="좋아요 {{ t.like_count }}"><svg class="i" aria-hidden="true"><use href="#i-heart"/></svg>{{ t.like_count }}</span>{% endif %}
+            {% if t.comment_count %}<span aria-label="댓글 {{ t.comment_count }}"><svg class="i" aria-hidden="true"><use href="#i-chat"/></svg>{{ t.comment_count }}</span>{% endif %}
+          </span>
+        {% endif %}
+      </span>
     </a>
   {% empty %}
     <p class="empty">아직 공유한 취향이 없어요. 음악, 영화, 장소를 하나 남겨 보세요.</p>

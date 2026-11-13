@@ -17,6 +17,7 @@ urlpatterns = [
         TemplateView.as_view(template_name="sw.js", content_type="application/javascript"),
         name="service_worker",
     ),
+    path("me/", include("accounts.urls")),
     path("anniversaries/", include("anniversaries.urls")),
     path("", include("couples.urls")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

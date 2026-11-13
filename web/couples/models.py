@@ -144,6 +144,34 @@ class Taste(models.Model):
         return self.CATEGORY_COLORS.get(self.category, "lav")
 
 
+class TasteLike(models.Model):
+    """취향 좋아요. 한 사람이 한 취향에 한 번."""
+
+    taste = models.ForeignKey(Taste, on_delete=models.CASCADE, related_name="likes")
+    user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="taste_likes")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["taste", "user"], name="unique_taste_like")]
+
+
+class TasteComment(models.Model):
+    """취향 댓글. 지우기는 쓴 사람만 할 수 있다."""
+
+    MAX_LENGTH = 300
+
+    taste = models.ForeignKey(Taste, on_delete=models.CASCADE, related_name="comments")
+    author = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="taste_comments")
+    text = models.TextField("댓글", max_length=MAX_LENGTH)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+
+    def __str__(self):
+        return self.text[:30]
+
+
 class Album(models.Model):
     couple = models.ForeignKey(Couple, on_delete=models.CASCADE, related_name="albums")
     title = models.CharField("앨범 이름", max_length=50)

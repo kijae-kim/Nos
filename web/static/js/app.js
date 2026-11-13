@@ -10,6 +10,25 @@
       else localStorage.setItem(key, value);
     } catch (e) {}
   };
+  var csrfToken = function () {
+    var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : "";
+  };
+  // 테마·화면 모드를 계정에도 저장한다 (로그인했을 때만). 실패해도 이 기기에는 이미 적용돼 있다.
+  function saveAppearance(data) {
+    if (!root.dataset.accountPalette) return;
+    var body = new URLSearchParams(data);
+    fetch("/me/appearance/", {
+      method: "POST",
+      body: body,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken(), Accept: "application/json" }
+    }).then(function (res) {
+      if (!res.ok) return;
+      if (data.palette) root.dataset.accountPalette = data.palette;
+      if (data.mode) root.dataset.accountMode = data.mode;
+    }).catch(function () {});
+  }
   var reduceMotion = function () {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   };
@@ -25,6 +44,7 @@
       root.dataset.theme = b.dataset.paletteChoice;
       store("palette", b.dataset.paletteChoice);
       markPalette();
+      saveAppearance({ palette: b.dataset.paletteChoice });
     });
   });
   markPalette();
@@ -45,7 +65,10 @@
     try { return localStorage.getItem("mode") || "system"; } catch (e) { return "system"; }
   })();
   $$("[data-mode-choice]").forEach(function (b) {
-    b.addEventListener("click", function () { applyMode(b.dataset.modeChoice); });
+    b.addEventListener("click", function () {
+      applyMode(b.dataset.modeChoice);
+      saveAppearance({ mode: b.dataset.modeChoice });
+    });
   });
   applyMode(savedMode);
 
@@ -281,6 +304,48 @@
         else { showLoaderSoon(); form.submit(); }
       });
     });
+  });
+
+  // ---------- 취향 좋아요 ----------
+  // 화면을 다시 읽지 않고 하트만 바꾼다. 스크립트가 없으면 보통 폼으로 보내진다.
+  $$("form[data-like]").forEach(function (form) {
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      var button = form.querySelector("button");
+      if (button.disabled) return;
+      button.disabled = true;
+      fetch(form.action, {
+        method: "POST",
+        body: new FormData(form),
+        credentials: "same-origin",
+        headers: { Accept: "application/json" }
+      }).then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      }).then(function (data) {
+        button.classList.toggle("on", data.liked);
+        button.setAttribute("aria-pressed", String(data.liked));
+        form.querySelector("[data-like-text]").textContent = data.text;
+        if (data.liked && !reduceMotion()) {
+          button.classList.remove("pop");
+          void button.offsetWidth; // 애니메이션 다시 시작
+          button.classList.add("pop");
+        }
+      }).catch(function () {
+        form.querySelector("[data-like-text]").textContent = "다시 눌러 주세요";
+      }).then(function () { button.disabled = false; });
+    });
+  });
+
+  // 댓글 칸: 적는 만큼 늘어나고, Enter 는 줄바꿈 (보내기는 버튼으로)
+  $$("textarea[data-grow]").forEach(function (area) {
+    var grow = function () {
+      area.style.height = "auto";
+      area.style.height = Math.min(area.scrollHeight, 160) + "px";
+    };
+    area.addEventListener("input", grow);
+    grow();
   });
 
   // 안내 문구("로그인 되었습니다" 등)는 몇 초 뒤 접히며 사라진다. 누르면 바로 닫힌다.
