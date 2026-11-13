@@ -26,5 +26,11 @@
         }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/cron/anniversaries/",
+      "schedule": "0 0 * * *"
+    }
   ]
 }

@@ -151,3 +151,72 @@ class VapidKeyCommandTests(TestCase):
         public = base64.urlsafe_b64decode(lines["VAPID_PUBLIC_KEY"] + "==")
         self.assertEqual(len(public), 65)
         self.assertTrue(lines["VAPID_SUBJECT"].startswith("mailto:"))
+
+
+from django.test import override_settings  # noqa: E402
+from django.urls import reverse  # noqa: E402
+
+from .models import PushLog as Log  # noqa: E402
+
+
+@override_settings(CRON_SECRET="s3cret", WEBPUSH_ENABLED=True)
+@mock.patch("notifications.views.timezone.localdate", return_value=TODAY)
+class CronTests(TestCase):
+    def setUp(self):
+        self.couple = Couple.objects.create(start_date=TODAY - timedelta(days=499))
+        self.users = [User.objects.create_user(f"c{i}", password="pw", couple=self.couple) for i in range(2)]
+        self.url = reverse("cron_anniversaries")
+
+    def call(self, secret="s3cret"):
+        headers = {"HTTP_AUTHORIZATION": f"Bearer {secret}"} if secret is not None else {}
+        return self.client.get(self.url, **headers)
+
+    @mock.patch("notifications.views.send_to_user")
+    def test_rejects_without_secret(self, send, _):
+        self.assertEqual(self.call(secret=None).status_code, 401)
+        send.assert_not_called()
+
+    @mock.patch("notifications.views.send_to_user")
+    def test_rejects_wrong_secret(self, send, _):
+        self.assertEqual(self.call(secret="nope").status_code, 401)
+        send.assert_not_called()
+
+    @mock.patch("notifications.views.send_to_user")
+    def test_rejects_when_secret_unset(self, send, _):
+        with override_settings(CRON_SECRET=""):
+            self.assertEqual(self.call(secret="").status_code, 401)
+        send.assert_not_called()
+
+    def test_503_without_vapid(self, _):
+        with override_settings(WEBPUSH_ENABLED=False):
+            self.assertEqual(self.call().status_code, 503)
+
+    @mock.patch("notifications.views.send_to_user", return_value=1)
+    def test_sends_and_logs(self, send, _):
+        data = self.call().json()
+        self.assertEqual((data["sent"], data["skipped"], data["failed"]), (2, 0, 0))
+        self.assertEqual(Log.objects.count(), 2)
+        payload = send.call_args.args[1]
+        self.assertEqual(payload["title"], "오늘은 500일이에요")
+        self.assertEqual(payload["url"], "/anniversaries/")
+
+    @mock.patch("notifications.views.send_to_user", return_value=1)
+    def test_second_call_same_day_sends_nothing(self, send, _):
+        self.call()
+        data = self.call().json()
+        self.assertEqual((data["sent"], data["skipped"]), (0, 2))
+        self.assertEqual(send.call_count, 2)
+
+    @mock.patch("notifications.views.send_to_user", return_value=0)
+    def test_failed_send_not_logged(self, send, _):
+        data = self.call().json()
+        self.assertEqual(data["failed"], 2)
+        self.assertFalse(Log.objects.exists())
+
+    @mock.patch("notifications.views.send_to_user", return_value=1)
+    def test_old_logs_pruned(self, send, _):
+        u = self.users[0]
+        Log.objects.create(user=u, key="old", sent_on=TODAY - timedelta(days=61))
+        Log.objects.create(user=u, key="recent", sent_on=TODAY - timedelta(days=59))
+        self.call()
+        self.assertEqual(set(Log.objects.filter(key__in=["old", "recent"]).values_list("key", flat=True)), {"recent"})
