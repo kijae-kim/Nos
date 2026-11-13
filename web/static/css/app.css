@@ -713,3 +713,8 @@ button.label-chip.pick { font: inherit; font-size: 12px; cursor: pointer; }
 .batch-progress[hidden], [data-batch-only][hidden], [data-single-only][hidden] { display: none; }
 .batch-progress i { display: block; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
 .batch-progress b { display: block; height: 100%; width: 0; background: var(--primary); transition: width .3s; }
+
+/* ---------- 드라이브에서 가져오기 ---------- */
+.drive-btn { margin-top: 10px; background: var(--surface); }
+.drive-btn[hidden] { display: none; }
+.drive-btn svg.i { width: 20px; height: 20px; color: var(--primary); }

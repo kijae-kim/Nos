@@ -486,3 +486,30 @@ class BatchUploadAndQuotaTests(TestCase):
         self.assertContains(page, "multiple")
         self.assertContains(page, "data-batch-upload")
         self.assertContains(self.client.get(reverse("albums") + "?uploaded=3"), "사진 3장을 올렸어요")
+
+
+class DrivePickerButtonTests(TestCase):
+    """드라이브에서 가져오기 버튼은 Google 설정이 모두 있을 때만 보인다."""
+
+    def setUp(self):
+        self.couple = Couple.objects.create()
+        self.client.force_login(User.objects.create_user("a", password="pw", couple=self.couple))
+
+    def test_hidden_without_settings(self):
+        with override_settings(DRIVE_PICKER=None):
+            self.assertNotContains(self.client.get(reverse("photo_create")), "data-drive-picker")
+
+    def test_shown_with_settings_and_hidden_in_app_browsers(self):
+        config = {"client_id": "cid.apps.googleusercontent.com", "api_key": "test-key", "app_id": "123456"}
+        with override_settings(DRIVE_PICKER=config):
+            page = self.client.get(reverse("photo_create"))
+        self.assertContains(page, "Google 드라이브에서 가져오기")
+        self.assertContains(page, 'data-client-id="cid.apps.googleusercontent.com"')
+        self.assertContains(page, 'data-app-id="123456"')
+        self.assertContains(page, "data-drive-picker data-needs-browser")
+
+    def test_not_on_edit_page(self):
+        config = {"client_id": "c", "api_key": "k", "app_id": "1"}
+        photo = Photo.objects.create(couple=self.couple, uploaded_by=self.couple.members.first(), image="x.png")
+        with override_settings(DRIVE_PICKER=config):
+            self.assertNotContains(self.client.get(reverse("photo_update", args=[photo.pk])), "data-drive-picker")
