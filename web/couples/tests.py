@@ -1062,3 +1062,43 @@ class PhotoLocationTests(TestCase):
         photo.refresh_from_db()
         self.assertEqual(photo.caption, "한마디만")
         self.assertAlmostEqual(photo.latitude, 37.5445, places=4)
+
+
+class FillLocationsCommandTests(TestCase):
+    """이미 올린 사진의 위치 채우기 (fill_photo_locations)."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def make(self, image, **fields):
+        return Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=image, **fields)
+
+    def run_command(self, *args):
+        import io
+
+        from django.core.management import call_command
+
+        out = io.StringIO()
+        call_command("fill_photo_locations", *args, stdout=out)
+        return out.getvalue().strip().splitlines()[-1]
+
+    def test_dry_run_and_fill(self):
+        gps = self.make(gps_jpeg())
+        plain = self.make(self.png())
+        known = self.make(gps_jpeg(name="known.jpg"), latitude=35.0, longitude=129.0)
+
+        self.assertEqual(self.run_command("--dry-run"), "(시험) 위치를 찾은 사진 1장 / 살펴본 사진 2장")
+        gps.refresh_from_db()
+        self.assertIsNone(gps.latitude)
+
+        self.assertEqual(self.run_command(), "위치를 찾은 사진 1장 / 살펴본 사진 2장")
+        gps.refresh_from_db(); plain.refresh_from_db(); known.refresh_from_db()
+        self.assertAlmostEqual(gps.latitude, 37.5445, places=4)
+        self.assertIsNone(plain.latitude)
+        self.assertEqual((known.latitude, known.longitude), (35.0, 129.0))
+
+    def test_missing_file_is_skipped(self):
+        photo = self.make(gps_jpeg())
+        photo.image.storage.delete(photo.image.name)
+        self.assertEqual(self.run_command(), "위치를 찾은 사진 0장 / 살펴본 사진 1장")
