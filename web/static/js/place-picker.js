@@ -89,6 +89,10 @@
   input.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); search(); } // 한글 입력 중 엔터는 글자 확정
   });
+  // 안드로이드 키보드의 "검색" 키는 엔터 이벤트 없이 폼을 보내기도 한다 → 검색 칸에 있을 때는 보내지 않고 검색한다
+  form.addEventListener("submit", function (e) {
+    if (document.activeElement === input) { e.preventDefault(); search(); }
+  });
 
   // ---------- 지도에서 찍기 ----------
   $("[data-pick-map]").addEventListener("click", function () {

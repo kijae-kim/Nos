@@ -1528,3 +1528,38 @@ class PlaceSearchSettingsTests(TestCase):
 
         with mock.patch.object(placesearch, "_http_json", return_value=[]):
             self.assertEqual(placesearch.search("성수"), [])
+
+
+class MemoriesReviewFixTests(TestCase):
+    """최종 검토에서 나온 것: 긴 해외 주소, 지운 장소의 직접 연결 사진."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def test_long_osm_address_is_trimmed(self):
+        from . import placesearch
+
+        long_name = "가" * 150
+        osm = [{"name": long_name, "display_name": "아주 긴 주소, " * 40, "lat": "48.1", "lon": "11.5"}]
+        with override_settings(KAKAO_CLIENT_ID=""), mock.patch.object(placesearch, "_http_json", return_value=osm):
+            from django.core.cache import cache
+
+            cache.clear()
+            r = placesearch.search("뮌헨 시골")[0]
+        self.assertLessEqual(len(r["address"]), 200)
+        self.assertLessEqual(len(r["name"]), 100)
+
+    def test_too_long_hidden_address_still_saves(self):
+        res = self.client.post(reverse("taste_create") + "?kind=place", {"title": "곳", "latitude": "48.1", "longitude": "11.5", "address": "가" * 250})
+        place = Taste.objects.get()
+        self.assertRedirects(res, reverse("taste_detail", args=[place.pk]))
+        self.assertEqual(len(place.address), 200)
+
+    def test_deleted_place_photos_go_back_to_auto(self):
+        a = Taste.objects.create(couple=self.couple, author=self.user, category="장소", title="A", latitude=37.5445, longitude=127.056)
+        b = Taste.objects.create(couple=self.couple, author=self.user, category="장소", title="B", latitude=37.5449, longitude=127.056)
+        photo = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png(), latitude=37.5445, longitude=127.056, place=a, place_manual=True)
+        self.client.post(reverse("taste_delete", args=[a.pk]))
+        photo.refresh_from_db()
+        self.assertEqual((photo.place, photo.place_manual), (b, False))

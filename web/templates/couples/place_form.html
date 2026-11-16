@@ -14,6 +14,9 @@
 <form method="post" enctype="multipart/form-data" class="card form-card">
   {% csrf_token %}
   {{ form.latitude }}{{ form.longitude }}{{ form.address }}{{ form.place_url }}{{ form.from_photo }}
+  {# 숨은 칸이나 폼 전체 오류는 따로 보이게 (보이지 않으면 저장이 왜 안 되는지 알 수 없다) #}
+  {% for e in form.non_field_errors %}<p class="error">{{ e }}</p>{% endfor %}
+  {% for f in form.hidden_fields %}{% for e in f.errors %}<p class="error">위치 정보를 저장하지 못했어요. 위치를 다시 골라 주세요.</p>{% endfor %}{% endfor %}
 
   {# 위치 고르기: 이름 검색(기본), 지도에서 찍기, 사진에서 (static/js/place-picker.js) #}
   <section class="field place-picker" data-place-picker

@@ -196,6 +196,22 @@ Redirect URI 는 주소마다 따로 등록합니다. 끝의 `/` 까지 정확�
 - **사진 위치**: 사진을 올릴 때 브라우저가 줄이기 전에 촬영 위치(EXIF GPS)를 읽어 함께 보냅니다(exifr, JPEG·HEIC). 이미 올린 원본 사진은 `ENV_FILE=.env.neon python web/manage.py fill_photo_locations [--dry-run]` 로 채웁니다(R2 GET, 목록 조회 없음). 채우면 가까운 장소에도 저절로 붙습니다.
 - **데이터 출처** (`web/static/geo/`, 국내/해외 판정에만 씀): 한국 시·군·구 — 통계청(KOSTAT) 2018 센서스용 행정구역경계([southkorea/southkorea-maps](https://github.com/southkorea/southkorea-maps)), 세계 나라 — [world-atlas](https://github.com/topojson/world-atlas) 2.0.2 `countries-50m`(ISC, 원본 Natural Earth 퍼블릭 도메인), 지도 타일·해외 검색 — © OpenStreetMap 기여자.
 
+## 구조
+
+```
+web/
+  config/     설정, URL
+  accounts/   사용자 모델 (닉네임, 커플 연결)
+  couples/    커플 공간, 초대 코드, 홈·우리 화면, 캘린더·추억(순간·기록)·앨범
+  anniversaries/  기념일 (직접 등록 + 100일·주년 자동 계산)
+  notifications/  기념일 알림 (웹 푸시)
+  templates/  화면
+  static/     CSS, JS, 아이콘, 지도 경계 데이터(geo/)
+tools/
+  make_icons.py  앱 아이콘 만들기 (로고를 바꾸면 다시 실행)
+design/       화면·로고 시안 (앱과 따로 여는 HTML)
+```
+
 ## 개발 단계
 
 1. [x] 프로젝트 세팅, 로그인, 초대 코드로 커플 연결

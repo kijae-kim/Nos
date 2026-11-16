@@ -520,6 +520,9 @@ def taste_delete(request, pk):
     if taste.image:
         taste.image.delete(save=False)
     was_place = taste.is_place
+    if was_place:
+        # 지운 장소에 직접 붙였던 사진도 다시 자동 연결로 (근처 다른 장소가 있으면 거기로)
+        taste.place_photos.update(place_manual=False)
     taste.delete()
     if was_place:
         places.relink(request.user.couple)  # 그 장소에 붙어 있던 자동 사진을 다른 가까운 장소로

@@ -33,7 +33,8 @@ def _result(name, address, lat, lng, url, source):
     coords = clean_coords(lat, lng)
     if not coords or not name:
         return None
-    return {"name": name, "address": address, "lat": coords[0], "lng": coords[1], "url": url, "source": source}
+    # 장소 글의 칸 길이에 맞춘다 (이름 100자, 주소 200자). 해외 주소는 길게 오곤 한다
+    return {"name": name[:100], "address": (address or "")[:200], "lat": coords[0], "lng": coords[1], "url": url, "source": source}
 
 
 def _kakao(query):

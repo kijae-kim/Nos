@@ -153,7 +153,8 @@ class PlaceForm(TasteForm):
 
     latitude = forms.CharField(required=False, widget=forms.HiddenInput)
     longitude = forms.CharField(required=False, widget=forms.HiddenInput)
-    address = forms.CharField(required=False, max_length=200, widget=forms.HiddenInput)
+    # 숨은 칸이라 길이 오류를 보여 줄 수 없으니 막지 않고 저장할 때 자른다
+    address = forms.CharField(required=False, widget=forms.HiddenInput)
     place_url = forms.URLField(required=False, widget=forms.HiddenInput)
     from_photo = forms.IntegerField(required=False, widget=forms.HiddenInput)
 
@@ -180,7 +181,7 @@ class PlaceForm(TasteForm):
         self.instance.category = Taste.PLACE
         coords = clean_coords(self.cleaned_data.get("latitude"), self.cleaned_data.get("longitude"))
         self.instance.latitude, self.instance.longitude = coords or (None, None)
-        self.instance.address = self.cleaned_data.get("address", "") if coords else ""
+        self.instance.address = (self.cleaned_data.get("address", "") or "")[:200] if coords else ""
         self.instance.place_url = self.cleaned_data.get("place_url", "")
         place = super().save_for(couple, user)
         # "사진에서" 위치를 가져왔으면 그 사진은 이 장소에 직접 잇는다 (내 커플 사진만)
