@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 
 from couples.geo import gps_from_image
 from couples.models import Photo
+from couples.places import link_photo
 
 
 class Command(BaseCommand):
@@ -28,5 +29,6 @@ class Command(BaseCommand):
             if not dry_run:
                 photo.latitude, photo.longitude = coords
                 photo.save(update_fields=["latitude", "longitude"])
+                link_photo(photo)  # 위치가 생겼으니 가까운 장소에 잇는다
         prefix = "(시험) " if dry_run else ""
         self.stdout.write(f"{prefix}위치를 찾은 사진 {found}장 / 살펴본 사진 {checked}장")

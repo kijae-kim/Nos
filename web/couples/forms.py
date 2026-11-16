@@ -5,6 +5,7 @@ from config.fields import TypedDateField
 
 from . import quota
 from .geo import clean_coords, gps_from_image
+from .places import link_photo
 from .models import CODE_LENGTH, COLOR_CHOICES, Album, Photo, Taste, TasteComment
 from .storage import ImageUploadField, delete_file
 
@@ -94,7 +95,7 @@ class TasteForm(forms.ModelForm):
         fields = ["category", "title", "link", "comment", "image"]
         widgets = {
             "category": forms.RadioSelect,
-            "title": forms.TextInput(attrs={"placeholder": "곡 제목, 영화 제목, 장소 이름"}),
+            "title": forms.TextInput(attrs={"placeholder": "영화 제목, 곡 제목, 책 이름"}),
             "link": forms.URLInput(attrs={"placeholder": "유튜브·스포티파이·지도 링크를 붙여 넣어 보세요", "inputmode": "url", "data-link-preview": "/tastes/preview/"}),
             "comment": forms.Textarea(attrs={"rows": 3, "placeholder": "왜 좋았는지 한마디 남겨 보세요"}),
         }
@@ -102,11 +103,13 @@ class TasteForm(forms.ModelForm):
     def __init__(self, *args, couple=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.couple = couple
-        # 분류는 다섯 중 하나. 빈 선택지("---------")는 빼고, 이름도 한국어로
-        category = self.fields["category"]
-        category.label = "분류"
-        category.choices = [(c, c) for c in Taste.CATEGORIES]
-        category.error_messages["required"] = "분류를 골라 주세요."
+        # 순간의 태그는 넷 중 하나 (장소는 기록에서 따로 쓴다). 빈 선택지("---------")는 빼고, 이름도 한국어로
+        if "category" in self.fields:
+            category = self.fields["category"]
+            category.label = "태그"
+            category.choices = [(c, c) for c in Taste.MOMENT_TAGS]
+            category.error_messages["required"] = "태그를 하나 골라 주세요."
+            category.error_messages["invalid_choice"] = "태그를 하나 골라 주세요."
         # 검사하면서 새 사진이 인스턴스에 들어가므로, 바꾸기 전 이름과 크기를 미리 적어 둔다
         self.old_image_name = self.instance.image.name if self.instance.pk else None
         self.old_image_size = self.instance.image_size if self.instance.pk else 0
@@ -141,6 +144,54 @@ class TasteForm(forms.ModelForm):
         return taste
 
 
+# 순간(영화·음악·영상·책) 쓰기. 예전 이름도 남겨 둔다
+MomentForm = TasteForm
+
+
+class PlaceForm(TasteForm):
+    """기록 › 장소 기록하기. 위치는 화면의 장소 고르기(place-picker.js)가 숨은 칸에 넣는다."""
+
+    latitude = forms.CharField(required=False, widget=forms.HiddenInput)
+    longitude = forms.CharField(required=False, widget=forms.HiddenInput)
+    # 숨은 칸이라 길이 오류를 보여 줄 수 없으니 막지 않고 저장할 때 자른다
+    address = forms.CharField(required=False, widget=forms.HiddenInput)
+    place_url = forms.URLField(required=False, widget=forms.HiddenInput)
+    from_photo = forms.IntegerField(required=False, widget=forms.HiddenInput)
+
+    class Meta(TasteForm.Meta):
+        fields = ["title", "link", "comment", "image"]
+        widgets = {
+            **TasteForm.Meta.widgets,
+            "title": forms.TextInput(attrs={"placeholder": "장소 이름"}),
+            "comment": forms.Textarea(attrs={"rows": 3, "placeholder": "어땠는지 한마디 남겨 보세요"}),
+        }
+        labels = {"title": "이름"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.initial.setdefault("latitude", "" if self.instance.latitude is None else self.instance.latitude)
+            self.initial.setdefault("longitude", "" if self.instance.longitude is None else self.instance.longitude)
+            self.initial.setdefault("address", self.instance.address)
+            self.initial.setdefault("place_url", self.instance.place_url)
+
+    def save_for(self, couple, user):
+        from .places import relink
+
+        self.instance.category = Taste.PLACE
+        coords = clean_coords(self.cleaned_data.get("latitude"), self.cleaned_data.get("longitude"))
+        self.instance.latitude, self.instance.longitude = coords or (None, None)
+        self.instance.address = (self.cleaned_data.get("address", "") or "")[:200] if coords else ""
+        self.instance.place_url = self.cleaned_data.get("place_url", "")
+        place = super().save_for(couple, user)
+        # "사진에서" 위치를 가져왔으면 그 사진은 이 장소에 직접 잇는다 (내 커플 사진만)
+        photo_id = self.cleaned_data.get("from_photo")
+        if photo_id:
+            Photo.objects.filter(pk=photo_id, couple=couple).update(place=place, place_manual=True)
+        relink(couple)
+        return place
+
+
 class AlbumForm(forms.ModelForm):
     class Meta:
         model = Album
@@ -171,6 +222,8 @@ class PhotoForm(forms.ModelForm):
     # 브라우저가 줄이기 전에 읽은 촬영 위치 (app.js). 없으면 서버가 사진에서 읽는다.
     latitude = forms.CharField(required=False, widget=forms.HiddenInput)
     longitude = forms.CharField(required=False, widget=forms.HiddenInput)
+    # 사진 고치기에서만: 이 사진을 찍은 장소 (자동으로 / 없음 / 장소 하나)
+    place_choice = forms.ChoiceField(label="장소", required=False, widget=forms.RadioSelect)
 
     class Meta:
         model = Photo
@@ -189,8 +242,15 @@ class PhotoForm(forms.ModelForm):
         self.old_image_name = self.instance.image.name if self.instance.pk else None
         if self.instance.pk is None:
             self.fields["image"].required = True
+            del self.fields["place_choice"]
         else:
             self.fields["image"].required = False
+            places = Taste.objects.filter(couple=couple, category=Taste.PLACE).order_by("title") if couple else Taste.objects.none()
+            self.fields["place_choice"].choices = [("auto", "자동으로 (찍은 곳 근처)"), ("none", "없음")] + [(str(p.pk), p.title) for p in places]
+            if not self.instance.place_manual:
+                self.initial["place_choice"] = "auto"
+            else:
+                self.initial["place_choice"] = str(self.instance.place_id) if self.instance.place_id else "none"
 
     def clean(self):
         cleaned = super().clean()
@@ -218,7 +278,20 @@ class PhotoForm(forms.ModelForm):
             # 새 사진이 들어올 때만 위치를 정한다. 사진 정보만 고치면 위치는 그대로.
             coords = clean_coords(self.cleaned_data.get("latitude"), self.cleaned_data.get("longitude")) or gps_from_image(new_file)
             photo.latitude, photo.longitude = coords or (None, None)
+            relink_needed = True
+        else:
+            relink_needed = False
+        choice = self.cleaned_data.get("place_choice") if "place_choice" in self.fields else None
+        if choice == "none":
+            photo.place, photo.place_manual = None, True
+        elif choice and choice != "auto":
+            photo.place, photo.place_manual = Taste.objects.get(pk=int(choice), couple=couple, category=Taste.PLACE), True
+        elif choice == "auto":
+            photo.place_manual = False
+            relink_needed = True
         photo.save()
+        if relink_needed:
+            link_photo(photo)
         if old_name and old_name != photo.image.name:
             delete_file(old_name)
         return photo

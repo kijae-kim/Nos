@@ -120,6 +120,8 @@ class Event(models.Model):
 
 class Taste(models.Model):
     CATEGORIES = ["음악", "영화", "영상", "책", "장소"]
+    PLACE = "장소"  # 기록(지도)에 보이는 장소 글. 나머지는 순간
+    MOMENT_TAGS = ["영화", "음악", "영상", "책"]  # 순간 태그 (화면 순서)
     CATEGORY_COLORS = {"음악": "rose", "영화": "sky", "영상": "sand", "책": "sage", "장소": "peach"}
 
     couple = models.ForeignKey(Couple, on_delete=models.CASCADE, related_name="tastes")
@@ -135,6 +137,11 @@ class Taste(models.Model):
     preview_title = models.CharField(max_length=200, blank=True, editable=False)
     preview_image = models.URLField(max_length=500, blank=True, editable=False)
     preview_site = models.CharField(max_length=60, blank=True, editable=False)
+    # 장소 글의 위치 (기록 지도, couples/places.py). 장소 글이 아니면 비어 있다
+    latitude = models.FloatField("위도", null=True, blank=True)
+    longitude = models.FloatField("경도", null=True, blank=True)
+    address = models.CharField("주소", max_length=200, blank=True)
+    place_url = models.URLField("장소 페이지", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -147,6 +154,14 @@ class Taste(models.Model):
     @property
     def color(self):
         return self.CATEGORY_COLORS.get(self.category, "lav")
+
+    @property
+    def is_place(self):
+        return self.category == self.PLACE
+
+    @property
+    def has_location(self):
+        return self.latitude is not None and self.longitude is not None
 
     @property
     def embed(self):
@@ -249,6 +264,12 @@ class Photo(models.Model):
     # 촬영 위치 (couples/geo.py). 커플 두 사람만 본다. 둘 다 있거나 둘 다 없다.
     latitude = models.FloatField("위도", null=True, blank=True)
     longitude = models.FloatField("경도", null=True, blank=True)
+    # 이 사진을 찍은 장소 (couples/places.py). 자동이면 찍은 위치 200m 안 가장 가까운 장소
+    place = models.ForeignKey(
+        "Taste", on_delete=models.SET_NULL, null=True, blank=True, related_name="place_photos", limit_choices_to={"category": "장소"}
+    )
+    # 사용자가 장소를 직접 정했으면 True: 자동 연결이 다시 바꾸지 않는다
+    place_manual = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

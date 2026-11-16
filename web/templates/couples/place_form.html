@@ -1,0 +1,60 @@
+{% extends "layout_app.html" %}
+{% load static %}
+{% block head_title %}{% if taste %}장소 고치기{% else %}장소 기록하기{% endif %} · {{ APP_NAME }}{% endblock %}
+{# 장소 고르기 지도(카카오·OpenStreetMap)가 등록 도메인을 확인할 수 있게 출처만 보낸다 #}
+{% block extra_head %}<meta name="referrer" content="strict-origin-when-cross-origin">{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% if taste %}{% url 'taste_detail' taste.pk %}{% else %}{% url 'tastes' %}?tab=record{% endif %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">{% if taste %}장소 고치기{% else %}장소 기록하기{% endif %}</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="card form-card">
+  {% csrf_token %}
+  {{ form.latitude }}{{ form.longitude }}{{ form.address }}{{ form.place_url }}{{ form.from_photo }}
+  {# 숨은 칸이나 폼 전체 오류는 따로 보이게 (보이지 않으면 저장이 왜 안 되는지 알 수 없다) #}
+  {% for e in form.non_field_errors %}<p class="error">{{ e }}</p>{% endfor %}
+  {% for f in form.hidden_fields %}{% for e in f.errors %}<p class="error">위치 정보를 저장하지 못했어요. 위치를 다시 골라 주세요.</p>{% endfor %}{% endfor %}
+
+  {# 위치 고르기: 이름 검색(기본), 지도에서 찍기, 사진에서 (static/js/place-picker.js) #}
+  <section class="field place-picker" data-place-picker
+    data-search-url="{% url 'place_search' %}" data-photos-url="{% url 'place_photo_choices' %}" data-kakao-key="{{ kakao_js_key }}"
+    data-geo-kr="{% static 'geo/kr-municipalities-2018.topo.json' %}" data-geo-world="{% static 'geo/world-countries-50m.topo.json' %}">
+    <span class="field-label">위치</span>
+    <p class="picked" data-picked{% if not form.initial.latitude and not form.latitude.value %} hidden{% endif %}>
+      <svg class="i" aria-hidden="true"><use href="#i-pin"/></svg>
+      <span data-picked-text>{% if form.address.value %}{{ form.address.value }}{% else %}고른 위치{% endif %}</span>
+      <button type="button" class="link-btn" data-pick-reset>바꾸기</button>
+    </p>
+    <div class="pick-search" data-pick-search>
+      <input type="search" placeholder="장소 이름이나 주소로 찾기" aria-label="장소 검색" data-search-input enterkeyhint="search">
+      <button type="button" class="btn" data-search-go>찾기</button>
+    </div>
+    <div class="chips pick-ways">
+      <button type="button" class="chip-btn" data-pick-map>지도에서 찍기</button>
+      <button type="button" class="chip-btn" data-pick-photo>사진에서</button>
+    </div>
+    <p class="hint" data-pick-msg hidden role="status" aria-live="polite"></p>
+    <ul class="pick-results" data-search-results hidden></ul>
+    <div class="pick-photos" data-pick-photos hidden></div>
+    <div class="mini-map pick-map" data-pick-mapbox hidden></div>
+    <button type="button" class="btn primary" data-pick-here hidden>여기로</button>
+  </section>
+
+  {% include "_field.html" with field=form.title %}
+  {% include "_field.html" with field=form.link %}
+  <div class="link-card form-preview" data-link-card hidden aria-live="polite"></div>
+  {% include "_dropzone.html" with field=form.image current=taste.image %}
+  {% if taste.image %}<label class="check">{{ form.clear_image }} <span>{{ form.clear_image.label }}</span></label>{% endif %}
+  <div class="field">
+    <label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>
+    {{ form.comment }}
+    {% for e in form.comment.errors %}<p class="error">{{ e }}</p>{% endfor %}
+  </div>
+  <button type="submit" class="btn primary">{% if taste %}저장{% else %}기록하기{% endif %}</button>
+</form>
+<script src="{% static 'js/map.js' %}" defer></script>
+<script src="{% static 'js/place-picker.js' %}" defer></script>
+{% endblock %}

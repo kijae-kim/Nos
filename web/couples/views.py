@@ -6,7 +6,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Count, Exists, OuterRef
+from django.db.models import Count, Exists, F, OuterRef
 from urllib.parse import urlencode
 
 from django.http import HttpResponse, JsonResponse
@@ -17,9 +17,9 @@ from django.views.decorators.http import require_POST
 
 from anniversaries import services as anniversary_services
 
-from . import ics, linkpreview, quota, services
+from . import ics, linkpreview, places, placesearch, quota, services
 from .storage import MAX_IMAGE_BYTES, delete_file
-from .forms import AlbumForm, CreateForm, EventForm, JoinForm, PhotoForm, ProfileForm, TasteCommentForm, TasteForm
+from .forms import AlbumForm, CreateForm, EventForm, JoinForm, MomentForm, PhotoForm, PlaceForm, ProfileForm, TasteCommentForm
 from .models import Album, CalendarFeed, Couple, Event, Photo, Taste, TasteComment, TasteLike
 
 
@@ -326,12 +326,24 @@ def _event_initial(event):
 
 @login_required
 def taste(request):
+    """추억. 순간(영화·음악·영상·책)과 기록(장소 지도·목록)."""
     couple, user = request.user.couple, request.user
+    tab = "record" if request.GET.get("tab") == "record" else "moment"
+    common = {"tab_name": tab, "kakao_js_key": settings.KAKAO_JS_KEY}
+    if tab == "record":
+        places = (
+            Taste.objects.filter(couple=couple, category=Taste.PLACE)
+            .annotate(photo_count=Count("place_photos", distinct=True))
+            .order_by(F("latitude").asc(nulls_last=True), "-created_at", "-pk")
+        )
+        return render(request, "couples/taste.html", {**common, "places": places})
+
     partner = user.partner
     category = request.GET.get("cat", "전체")
+    if category not in Taste.MOMENT_TAGS:
+        category = "전체"
     who = request.GET.get("who", "all")
-
-    tastes = Taste.objects.filter(couple=couple).select_related("author").annotate(
+    tastes = Taste.objects.filter(couple=couple).exclude(category=Taste.PLACE).select_related("author").annotate(
         like_count=Count("likes", distinct=True),
         comment_count=Count("comments", distinct=True),
         liked=Exists(TasteLike.objects.filter(taste=OuterRef("pk"), user=user)),
@@ -340,7 +352,6 @@ def taste(request):
         tastes = tastes.filter(category=category)
     if who.isdigit():
         tastes = tastes.filter(author_id=int(who))
-
     who_options = [("all", "둘 다"), (str(user.pk), user.display_name)]
     if partner:
         who_options.append((str(partner.pk), partner.display_name))
@@ -348,8 +359,9 @@ def taste(request):
         request,
         "couples/taste.html",
         {
+            **common,
             "tastes": tastes,
-            "categories": ["전체", *Taste.CATEGORIES],
+            "categories": ["전체", *Taste.MOMENT_TAGS],
             "category": category,
             "who_options": who_options,
             "who": who,
@@ -358,13 +370,46 @@ def taste(request):
 
 
 @login_required
+def place_map_data(request):
+    """기록 지도에 찍을 장소들. 내 커플의 위치 있는 장소만."""
+    places = (
+        Taste.objects.filter(couple=request.user.couple, category=Taste.PLACE, latitude__isnull=False, longitude__isnull=False)
+        .annotate(photo_count=Count("place_photos", distinct=True))
+        .order_by("-created_at", "-pk")
+    )
+    return JsonResponse(
+        {
+            "places": [
+                {"id": p.pk, "name": p.title, "lat": p.latitude, "lng": p.longitude, "photos": p.photo_count,
+                 "url": reverse("taste_detail", args=[p.pk]), "address": p.address}
+                for p in places
+            ]
+        }
+    )
+
+@login_required
+def place_search(request):
+    """장소 기록하기의 검색. 카카오 장소 검색, 모자라면 OpenStreetMap (couples/placesearch.py)."""
+    return JsonResponse({"results": placesearch.search(request.GET.get("q", ""))})
+
+
+def _taste_form_page(request, form, taste):
+    """순간이면 순간 쓰기, 장소면 장소 기록하기 화면."""
+    if isinstance(form, PlaceForm):
+        return render(request, "couples/place_form.html", {"form": form, "taste": taste, "kakao_js_key": settings.KAKAO_JS_KEY})
+    return render(request, "couples/taste_form.html", {"form": form, "taste": taste})
+
+
+@login_required
 def taste_create(request):
-    form = TasteForm(request.POST or None, request.FILES or None, couple=request.user.couple)
+    is_place = request.GET.get("kind") == "place"
+    form_class = PlaceForm if is_place else MomentForm
+    form = form_class(request.POST or None, request.FILES or None, couple=request.user.couple)
     if request.method == "POST" and form.is_valid():
         taste = form.save_for(request.user.couple, request.user)
-        messages.success(request, "취향을 공유했어요.")
+        messages.success(request, "장소를 기록했어요." if is_place else "순간을 남겼어요.")
         return redirect("taste_detail", pk=taste.pk)
-    return render(request, "couples/taste_form.html", {"form": form, "taste": None})
+    return _taste_form_page(request, form, None)
 
 
 @login_required
@@ -388,7 +433,26 @@ def _taste_detail_context(request, taste, comment_form=None):
         "liked": request.user in likers,
         "comments": taste.comments.select_related("author"),
         "comment_form": comment_form or TasteCommentForm(),
+        "place_photos": taste.place_photos.order_by("taken_on", "created_at", "pk") if taste.is_place else None,
+        "kakao_js_key": settings.KAKAO_JS_KEY,
     }
+
+
+@login_required
+def place_photos_edit(request, pk):
+    """장소 화면 › 사진 고르기. 고른 사진은 이 장소에 직접 잇고, 뺀 사진은 장소를 뗀다 (둘 다 직접 정한 것)."""
+    couple = request.user.couple
+    place = get_object_or_404(Taste, pk=pk, couple=couple, category=Taste.PLACE)
+    photos = couple.photos.order_by("-taken_on", "-created_at", "-pk")
+    if request.method == "POST":
+        chosen = {int(v) for v in request.POST.getlist("photos") if v.isdigit()}
+        mine = set(photos.values_list("pk", flat=True))
+        chosen &= mine
+        photos.filter(pk__in=chosen).update(place=place, place_manual=True)
+        photos.filter(place=place).exclude(pk__in=chosen).update(place=None, place_manual=True)
+        messages.success(request, "사진을 골랐어요.")
+        return redirect("taste_detail", pk=place.pk)
+    return render(request, "couples/place_photos.html", {"place": place, "photos": photos})
 
 
 def _like_text(likers, user):
@@ -440,12 +504,13 @@ def taste_comment_delete(request, pk):
 @login_required
 def taste_update(request, pk):
     taste = get_object_or_404(Taste, pk=pk, couple=request.user.couple)
-    form = TasteForm(request.POST or None, request.FILES or None, instance=taste, couple=request.user.couple)
+    form_class = PlaceForm if taste.is_place else MomentForm
+    form = form_class(request.POST or None, request.FILES or None, instance=taste, couple=request.user.couple)
     if request.method == "POST" and form.is_valid():
         form.save_for(request.user.couple, request.user)
-        messages.success(request, "취향을 고쳤어요.")
+        messages.success(request, "고쳤어요.")
         return redirect("taste_detail", pk=taste.pk)
-    return render(request, "couples/taste_form.html", {"form": form, "taste": taste})
+    return _taste_form_page(request, form, taste)
 
 
 @login_required
@@ -454,9 +519,24 @@ def taste_delete(request, pk):
     taste = get_object_or_404(Taste, pk=pk, couple=request.user.couple)
     if taste.image:
         taste.image.delete(save=False)
+    was_place = taste.is_place
+    if was_place:
+        # 지운 장소에 직접 붙였던 사진도 다시 자동 연결로 (근처 다른 장소가 있으면 거기로)
+        taste.place_photos.update(place_manual=False)
     taste.delete()
-    messages.success(request, "취향을 지웠어요.")
-    return redirect("tastes")
+    if was_place:
+        places.relink(request.user.couple)  # 그 장소에 붙어 있던 자동 사진을 다른 가까운 장소로
+    messages.success(request, "지웠어요.")
+    return redirect(f"{reverse('tastes')}?tab=record" if was_place else "tastes")
+
+
+@login_required
+def place_photo_choices(request):
+    """장소 고르기의 "사진에서": 위치 있는 내 커플 사진 최근 60장."""
+    photos = request.user.couple.photos.filter(latitude__isnull=False, longitude__isnull=False).order_by("-created_at", "-pk")[:60]
+    return JsonResponse(
+        {"photos": [{"id": p.pk, "src": p.image.url, "lat": p.latitude, "lng": p.longitude, "taken": p.shot_date.isoformat()} for p in photos]}
+    )
 
 
 # ---------- 앨범 ----------
@@ -480,6 +560,9 @@ def _uploaded_notice(request):
 
 @login_required
 def album(request):
+    if request.GET.get("view") == "map":  # 예전 앨범 지도 주소 → 추억 › 기록 지도
+        focus = request.GET.get("focus")
+        return redirect(f"{reverse('tastes')}?tab=record" + (f"&focus={focus}" if focus else ""))
     couple = request.user.couple
     _uploaded_notice(request)
     today = timezone.localdate()
@@ -496,33 +579,7 @@ def album(request):
             "memory": _memory(couple, today),
             "photo_groups": [{"month": m, "photos": ps} for m, ps in by_month.items()],
             "has_photos": bool(photos),
-            "map_view": request.GET.get("view") == "map",
-            "kakao_js_key": settings.KAKAO_JS_KEY,
         },
-    )
-
-
-@login_required
-def album_map_data(request):
-    """지도에 찍을 사진들. 내 커플의 위치 있는 사진만, 찍은 날 순. 사진 주소는 서명 주소다."""
-    photos = (
-        request.user.couple.photos.filter(latitude__isnull=False, longitude__isnull=False)
-        .order_by("taken_on", "created_at", "pk")
-    )
-    return JsonResponse(
-        {
-            "photos": [
-                {
-                    "id": p.pk,
-                    "lat": p.latitude,
-                    "lng": p.longitude,
-                    "src": p.image.url,
-                    "taken": p.shot_date.isoformat(),
-                    "url": reverse("photo_detail", args=[p.pk]),
-                }
-                for p in photos
-            ]
-        }
     )
 
 

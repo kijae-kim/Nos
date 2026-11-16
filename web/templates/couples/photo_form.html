@@ -41,6 +41,7 @@
   {% if albums %}{% include "_choices.html" with field=form.album %}{% endif %}
   {% include "_field.html" with field=form.new_album %}
   {% include "_field.html" with field=form.taken_on %}
+  {% if photo %}{% include "_choices.html" with field=form.place_choice %}{% endif %}
   {% if not photo %}<p class="hint" data-batch-only>비워 두면 사진에 적힌 찍은 날을 써요.</p>{% endif %}
   <div class="field" data-single-only>
     <label for="{{ form.caption.id_for_label }}">{{ form.caption.label }}</label>
