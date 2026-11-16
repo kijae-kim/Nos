@@ -1225,3 +1225,95 @@ class PlaceLinkTests(TestCase):
         seongsu = self.place(37.5445, 127.056, title="성수")
         self.client.post(reverse("photo_create"), {"image": gps_jpeg()})
         self.assertEqual(Photo.objects.latest("pk").place, seongsu)
+
+
+from unittest import mock  # noqa: E402
+
+
+@override_settings(KAKAO_CLIENT_ID="rest-key", CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "place-search-tests"}})
+class PlaceSearchTests(TestCase):
+    """장소 검색: 카카오 먼저, 3개 미만이면 OpenStreetMap(Nominatim) 을 뒤에."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        self.couple = Couple.objects.create()
+        self.user = User.objects.create_user("s", password="pw", couple=self.couple)
+        self.client.force_login(self.user)
+
+    def kakao(self, n):
+        docs = [{"place_name": f"카페{i}", "road_address_name": f"서울 성동구 {i}", "address_name": "", "y": "37.5", "x": "127.0", "place_url": f"https://place.map.kakao.com/{i}"} for i in range(n)]
+        return {"documents": docs}
+
+    OSM = [{"name": "Tour Eiffel", "display_name": "Tour Eiffel, Paris, France", "lat": "48.858", "lon": "2.294"}]
+
+    def fake(self, kakao_n=0, kakao_error=False, osm_error=False):
+        calls = []
+
+        def http_json(url, headers=None):
+            calls.append(url)
+            if "dapi.kakao.com" in url:
+                if kakao_error:
+                    raise OSError("down")
+                self.assertEqual(headers.get("Authorization"), "KakaoAK rest-key")
+                return self.kakao(kakao_n)
+            if osm_error:
+                raise OSError("down")
+            return self.OSM
+
+        return calls, http_json
+
+    def search(self, q, **kw):
+        from . import placesearch
+
+        calls, fake = self.fake(**kw)
+        with mock.patch.object(placesearch, "_http_json", side_effect=fake):
+            return placesearch.search(q), calls
+
+    def test_enough_kakao_results_only(self):
+        results, calls = self.search("성수 카페", kakao_n=4)
+        self.assertEqual([r["source"] for r in results], ["kakao"] * 4)
+        self.assertEqual(results[0], {"name": "카페0", "address": "서울 성동구 0", "lat": 37.5, "lng": 127.0, "url": "https://place.map.kakao.com/0", "source": "kakao"})
+        self.assertEqual(len(calls), 1)
+
+    def test_few_kakao_then_osm(self):
+        results, _ = self.search("에펠탑", kakao_n=1)
+        self.assertEqual([r["source"] for r in results], ["kakao", "osm"])
+        self.assertEqual(results[1]["name"], "Tour Eiffel")
+        self.assertEqual((results[1]["lat"], results[1]["lng"]), (48.858, 2.294))
+
+    def test_errors_give_empty(self):
+        results, _ = self.search("에펠탑", kakao_error=True)
+        self.assertEqual([r["source"] for r in results], ["osm"])
+        from django.core.cache import cache
+
+        cache.clear()
+        results, _ = self.search("아무곳", kakao_error=True, osm_error=True)
+        self.assertEqual(results, [])
+
+    def test_no_kakao_key_skips_kakao(self):
+        with override_settings(KAKAO_CLIENT_ID=""):
+            results, calls = self.search("에펠탑")
+        self.assertTrue(all("dapi.kakao.com" not in c for c in calls))
+        self.assertEqual(len(results), 1)
+
+    def test_osm_cached(self):
+        _, first = self.search("에펠탑", kakao_n=0)
+        _, second = self.search("에펠탑", kakao_n=0)
+        self.assertEqual(sum("nominatim" in c for c in first), 1)
+        self.assertEqual(sum("nominatim" in c for c in second), 0)
+
+    def test_bad_query(self):
+        self.assertEqual(self.search("가" * 61)[0], [])
+        self.assertEqual(self.search("   ")[0], [])
+
+    def test_endpoint(self):
+        from . import placesearch
+
+        with mock.patch.object(placesearch, "search", return_value=[{"name": "x"}]) as s:
+            res = self.client.get(reverse("place_search"), {"q": " 성수 "})
+        self.assertEqual(res.json(), {"results": [{"name": "x"}]})
+        s.assert_called_once_with(" 성수 ")
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("place_search"), {"q": "a"}).status_code, 302)

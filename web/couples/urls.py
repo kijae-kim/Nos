@@ -20,6 +20,7 @@ urlpatterns = [
     path("tastes/", views.taste, name="tastes"),
     path("tastes/new/", views.taste_create, name="taste_create"),
     path("tastes/preview/", views.taste_link_preview, name="taste_link_preview"),
+    path("tastes/places/search/", views.place_search, name="place_search"),
     path("tastes/<int:pk>/", views.taste_detail, name="taste_detail"),
     path("tastes/<int:pk>/edit/", views.taste_update, name="taste_update"),
     path("tastes/<int:pk>/delete/", views.taste_delete, name="taste_delete"),

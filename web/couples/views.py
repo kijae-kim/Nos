@@ -17,7 +17,7 @@ from django.views.decorators.http import require_POST
 
 from anniversaries import services as anniversary_services
 
-from . import ics, linkpreview, quota, services
+from . import ics, linkpreview, places, placesearch, quota, services
 from .storage import MAX_IMAGE_BYTES, delete_file
 from .forms import AlbumForm, CreateForm, EventForm, JoinForm, PhotoForm, ProfileForm, TasteCommentForm, TasteForm
 from .models import Album, CalendarFeed, Couple, Event, Photo, Taste, TasteComment, TasteLike
@@ -355,6 +355,12 @@ def taste(request):
             "who": who,
         },
     )
+
+
+@login_required
+def place_search(request):
+    """장소 기록하기의 검색. 카카오 장소 검색, 모자라면 OpenStreetMap (couples/placesearch.py)."""
+    return JsonResponse({"results": placesearch.search(request.GET.get("q", ""))})
 
 
 @login_required
