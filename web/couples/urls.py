@@ -25,6 +25,7 @@ urlpatterns = [
     path("tastes/places/photo-choices/", views.place_photo_choices, name="place_photo_choices"),
     path("tastes/<int:pk>/", views.taste_detail, name="taste_detail"),
     path("tastes/<int:pk>/edit/", views.taste_update, name="taste_update"),
+    path("tastes/<int:pk>/photos/", views.place_photos_edit, name="place_photos_edit"),
     path("tastes/<int:pk>/delete/", views.taste_delete, name="taste_delete"),
     path("tastes/<int:pk>/like/", views.taste_like, name="taste_like"),
     path("tastes/<int:pk>/comments/", views.taste_comment_create, name="taste_comment_create"),

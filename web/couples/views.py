@@ -433,7 +433,26 @@ def _taste_detail_context(request, taste, comment_form=None):
         "liked": request.user in likers,
         "comments": taste.comments.select_related("author"),
         "comment_form": comment_form or TasteCommentForm(),
+        "place_photos": taste.place_photos.order_by("taken_on", "created_at", "pk") if taste.is_place else None,
+        "kakao_js_key": settings.KAKAO_JS_KEY,
     }
+
+
+@login_required
+def place_photos_edit(request, pk):
+    """장소 화면 › 사진 고르기. 고른 사진은 이 장소에 직접 잇고, 뺀 사진은 장소를 뗀다 (둘 다 직접 정한 것)."""
+    couple = request.user.couple
+    place = get_object_or_404(Taste, pk=pk, couple=couple, category=Taste.PLACE)
+    photos = couple.photos.order_by("-taken_on", "-created_at", "-pk")
+    if request.method == "POST":
+        chosen = {int(v) for v in request.POST.getlist("photos") if v.isdigit()}
+        mine = set(photos.values_list("pk", flat=True))
+        chosen &= mine
+        photos.filter(pk__in=chosen).update(place=place, place_manual=True)
+        photos.filter(place=place).exclude(pk__in=chosen).update(place=None, place_manual=True)
+        messages.success(request, "사진을 골랐어요.")
+        return redirect("taste_detail", pk=place.pk)
+    return render(request, "couples/place_photos.html", {"place": place, "photos": photos})
 
 
 def _like_text(likers, user):

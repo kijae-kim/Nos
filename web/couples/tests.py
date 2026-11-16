@@ -1415,3 +1415,106 @@ class MemoriesScreenTests(TestCase):
         self.assertContains(self.client.get(reverse("photo_detail", args=[linked.pk])), reverse("taste_detail", args=[place.pk]))
         self.assertContains(self.client.get(reverse("photo_detail", args=[located.pk])), "tab=record&amp;focus=35.1,129.0")
         self.assertContains(self.client.get(reverse("photo_detail", args=[plain.pk])), "위치 없음")
+
+
+class PlacePhotoTests(TestCase):
+    """장소 화면의 사진 모음·고르기, 사진 고치기의 장소 칸, 사진에서 위치 가져오기 목록."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def place(self, title="대림창고", **fields):
+        return Taste.objects.create(couple=self.couple, author=self.user, category="장소", title=title, latitude=37.5418, longitude=127.0565, **fields)
+
+    def photo(self, couple=None, user=None, **fields):
+        return Photo.objects.create(couple=couple or self.couple, uploaded_by=user or self.user, image=self.png(), **fields)
+
+    def stranger_photo(self):
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("z", password="pw", couple=other)
+        return self.photo(couple=other, user=stranger, latitude=37.5, longitude=127.0)
+
+    def test_place_detail_shows_linked_photos(self):
+        place = self.place()
+        linked = self.photo(place=place)
+        self.photo()
+        html = self.client.get(reverse("taste_detail", args=[place.pk])).content.decode()
+        self.assertIn("이곳에서 찍은 사진", html)
+        self.assertIn(reverse("photo_detail", args=[linked.pk]), html)
+        self.assertEqual(html.count('class="tile"'), 1)
+        self.assertIn("data-mini-map", html)
+        self.assertIn(reverse("place_photos_edit", args=[place.pk]), html)
+
+    def test_pick_photos_attach_and_detach(self):
+        place = self.place()
+        keep = self.photo(place=place)
+        drop = self.photo(place=place)
+        add = self.photo()
+        theirs = self.stranger_photo()
+        res = self.client.post(reverse("place_photos_edit", args=[place.pk]), {"photos": [keep.pk, add.pk, theirs.pk]})
+        self.assertRedirects(res, reverse("taste_detail", args=[place.pk]))
+        for p in (keep, drop, add, theirs):
+            p.refresh_from_db()
+        self.assertEqual((keep.place, add.place, drop.place, theirs.place), (place, place, None, None))
+        self.assertTrue(keep.place_manual and add.place_manual and drop.place_manual)
+        self.assertFalse(theirs.place_manual)
+
+    def test_pick_photos_page_lists_my_photos(self):
+        place = self.place()
+        mine = self.photo(place=place)
+        self.stranger_photo()
+        html = self.client.get(reverse("place_photos_edit", args=[place.pk])).content.decode()
+        self.assertIn(f'value="{mine.pk}" checked', html)
+        self.assertEqual(html.count('name="photos"'), 1)
+
+    def test_moment_has_no_photo_picker(self):
+        song = Taste.objects.create(couple=self.couple, author=self.user, category="음악", title="노래")
+        self.assertEqual(self.client.get(reverse("place_photos_edit", args=[song.pk])).status_code, 404)
+
+    def edit(self, photo, choice):
+        return self.client.post(reverse("photo_update", args=[photo.pk]), {"caption": "", "place_choice": choice})
+
+    def test_photo_place_choice(self):
+        place = self.place()
+        photo = self.photo(latitude=37.5419, longitude=127.0566)
+        self.edit(photo, "none")
+        photo.refresh_from_db()
+        self.assertEqual((photo.place, photo.place_manual), (None, True))
+        self.edit(photo, str(place.pk))
+        photo.refresh_from_db()
+        self.assertEqual((photo.place, photo.place_manual), (place, True))
+        self.edit(photo, "auto")
+        photo.refresh_from_db()
+        self.assertEqual((photo.place, photo.place_manual), (place, False))  # 200m 안이라 자동으로 다시 붙음
+
+    def test_photo_place_choice_rejects_other_couple(self):
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("y", password="pw", couple=other)
+        theirs = Taste.objects.create(couple=other, author=stranger, category="장소", title="남의 곳")
+        photo = self.photo()
+        res = self.edit(photo, str(theirs.pk))
+        self.assertEqual(res.status_code, 200)  # 폼 오류로 다시 보임
+        photo.refresh_from_db()
+        self.assertIsNone(photo.place)
+
+    def test_photo_edit_initial_choice(self):
+        place = self.place()
+        auto = self.photo(place=place)
+        manual = self.photo(place=place, place_manual=True)
+        import re
+
+        def checked(photo):
+            html = self.client.get(reverse("photo_update", args=[photo.pk])).content.decode()
+            return re.findall(r'name="place_choice" value="([^"]+)"[^>]*checked', html)
+
+        self.assertEqual(checked(auto), ["auto"])
+        self.assertEqual(checked(manual), [str(place.pk)])
+
+    def test_photo_choices_for_picker(self):
+        mine = self.photo(latitude=37.5, longitude=127.0)
+        self.photo()
+        self.stranger_photo()
+        data = self.client.get(reverse("place_photo_choices")).json()["photos"]
+        self.assertEqual([p["id"] for p in data], [mine.pk])
+        self.assertEqual(set(data[0]), {"id", "src", "lat", "lng", "taken"})

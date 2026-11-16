@@ -1,0 +1,27 @@
+{% extends "layout_app.html" %}
+{% block head_title %}사진 고르기 · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'taste_detail' place.pk %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">{{ place.title }}의 사진</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<p class="muted">이곳에서 찍은 사진을 골라 주세요. 여기서 고르거나 뺀 사진은 자동 연결이 다시 바꾸지 않아요.</p>
+<form method="post" class="pick-photo-form">
+  {% csrf_token %}
+  <div class="photos pick-grid">
+    {% for p in photos %}
+      <label class="tile pick-tile">
+        <input type="checkbox" name="photos" value="{{ p.pk }}"{% if p.place_id == place.pk %} checked{% endif %}>
+        <img src="{{ p.image.url }}" loading="lazy" decoding="async" alt="{{ p.shot_date|date:'n월 j일' }} 사진">
+        <i class="pick-mark" aria-hidden="true"><svg class="i"><use href="#i-check"/></svg></i>
+      </label>
+    {% empty %}
+      <p class="empty">아직 올린 사진이 없어요.</p>
+    {% endfor %}
+  </div>
+  <button type="submit" class="btn primary">저장</button>
+</form>
+{% endblock %}

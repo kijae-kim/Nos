@@ -1,4 +1,6 @@
 {% extends "layout_app.html" %}
+{% load static %}
+{% block extra_head %}{% if taste.is_place %}<meta name="referrer" content="strict-origin-when-cross-origin">{% endif %}{% endblock %}
 {% block head_title %}{{ taste.title }} · {{ APP_NAME }}{% endblock %}
 {% block header %}
 <header class="row-between bar-head">
@@ -32,6 +34,15 @@
       </a>
     {% endif %}
   {% endif %}
+  {% if taste.is_place %}
+    {# 장소: 주소와 작은 지도 (static/js/map.js 의 작은 지도) #}
+    {% if taste.has_location %}
+      <p class="place-address"><svg class="i" aria-hidden="true"><use href="#i-pin"/></svg>{{ taste.address|default:"고른 위치" }}{% if taste.place_url %} · <a href="{{ taste.place_url }}" target="_blank" rel="noopener noreferrer">장소 정보</a>{% endif %}</p>
+      <div class="mini-map" data-mini-map data-lat="{{ taste.latitude|stringformat:'s' }}" data-lng="{{ taste.longitude|stringformat:'s' }}" data-kakao-key="{{ kakao_js_key }}"></div>
+    {% else %}
+      <p class="muted">위치가 없어요. <a href="{% url 'taste_update' taste.pk %}">위치 넣기</a></p>
+    {% endif %}
+  {% endif %}
   <p class="muted">{{ taste.author.display_name }} · {{ taste.created_at|date:"Y. n. j." }}{% if taste.updated_at > taste.created_at %} · 고침{% endif %}</p>
   <form class="like-form" method="post" action="{% url 'taste_like' taste.pk %}" data-like>
     {% csrf_token %}
@@ -41,6 +52,21 @@
     <span class="like-text" data-like-text aria-live="polite">{% if not likers %}좋아요{% elif likers|length >= 2 %}둘 다 좋아해요{% elif likers.0 == user %}내가 좋아해요{% else %}{{ likers.0.display_name }}님이 좋아해요{% endif %}</span>
   </form>
 </article>
+{% if taste.is_place %}
+<section class="section place-photos">
+  <div class="section-head">
+    <h2>이곳에서 찍은 사진</h2>
+    <a href="{% url 'place_photos_edit' taste.pk %}">사진 고르기</a>
+  </div>
+  {% if place_photos %}
+    <div class="photos">
+      {% for p in place_photos %}<a class="tile" href="{% url 'photo_detail' p.pk %}" aria-label="{{ p.shot_date|date:'n월 j일' }} 사진 보기"><img src="{{ p.image.url }}" loading="lazy" decoding="async" alt=""></a>{% endfor %}
+    </div>
+  {% else %}
+    <p class="empty">아직 연결된 사진이 없어요. 이곳 근처에서 찍은 사진은 올리면 저절로 모여요.</p>
+  {% endif %}
+</section>
+{% endif %}
 <div class="action-row">
   <a class="btn" href="{% url 'taste_update' taste.pk %}">고치기</a>
   <form method="post" action="{% url 'taste_delete' taste.pk %}" data-confirm="{% if taste.is_place %}이 장소를 지울까요? 연결된 사진은 그대로 남아요.{% else %}이 순간을 지울까요?{% endif %}">
@@ -80,4 +106,5 @@
   </form>
   {% if comment_form.text.errors %}<p class="error">{{ comment_form.text.errors.0 }}</p>{% endif %}
 </section>
+{% if taste.is_place and taste.has_location %}<script src="{% static 'js/map.js' %}" defer></script>{% endif %}
 {% endblock %}

@@ -221,6 +221,8 @@ class PhotoForm(forms.ModelForm):
     # 브라우저가 줄이기 전에 읽은 촬영 위치 (app.js). 없으면 서버가 사진에서 읽는다.
     latitude = forms.CharField(required=False, widget=forms.HiddenInput)
     longitude = forms.CharField(required=False, widget=forms.HiddenInput)
+    # 사진 고치기에서만: 이 사진을 찍은 장소 (자동으로 / 없음 / 장소 하나)
+    place_choice = forms.ChoiceField(label="장소", required=False, widget=forms.RadioSelect)
 
     class Meta:
         model = Photo
@@ -239,8 +241,15 @@ class PhotoForm(forms.ModelForm):
         self.old_image_name = self.instance.image.name if self.instance.pk else None
         if self.instance.pk is None:
             self.fields["image"].required = True
+            del self.fields["place_choice"]
         else:
             self.fields["image"].required = False
+            places = Taste.objects.filter(couple=couple, category=Taste.PLACE).order_by("title") if couple else Taste.objects.none()
+            self.fields["place_choice"].choices = [("auto", "자동으로 (찍은 곳 근처)"), ("none", "없음")] + [(str(p.pk), p.title) for p in places]
+            if not self.instance.place_manual:
+                self.initial["place_choice"] = "auto"
+            else:
+                self.initial["place_choice"] = str(self.instance.place_id) if self.instance.place_id else "none"
 
     def clean(self):
         cleaned = super().clean()
@@ -271,6 +280,14 @@ class PhotoForm(forms.ModelForm):
             relink_needed = True
         else:
             relink_needed = False
+        choice = self.cleaned_data.get("place_choice") if "place_choice" in self.fields else None
+        if choice == "none":
+            photo.place, photo.place_manual = None, True
+        elif choice and choice != "auto":
+            photo.place, photo.place_manual = Taste.objects.get(pk=int(choice), couple=couple, category=Taste.PLACE), True
+        elif choice == "auto":
+            photo.place_manual = False
+            relink_needed = True
         photo.save()
         if relink_needed:
             link_photo(photo)
