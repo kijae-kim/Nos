@@ -10,6 +10,8 @@
 {% block content %}
 <form method="post" enctype="multipart/form-data" class="card form-card"{% if not photo %} data-batch-upload data-albums-url="{% url 'albums' %}"{% endif %}>
   {% csrf_token %}
+  {# 촬영 위치: app.js 가 줄이기 전에 읽어 넣는다 (사진 지도) #}
+  {{ form.latitude }}{{ form.longitude }}
   {% if photo %}
     <img class="photo-preview" src="{{ photo.image.url }}" alt="">
   {% endif %}
@@ -49,4 +51,8 @@
   <p class="batch-progress" data-batch-progress hidden><span data-batch-count></span><i><b data-batch-bar></b></i></p>
   <button type="submit" class="btn primary" data-batch-submit>{% if photo %}저장{% else %}올리기{% endif %}</button>
 </form>
+{% endblock %}
+{% block extra_body %}
+{# 사진 정보(EXIF)에서 촬영 위치를 읽는 라이브러리 (JPEG·HEIC) #}
+<script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/lite.umd.js" defer></script>
 {% endblock %}
