@@ -2,8 +2,8 @@
 {% block head_title %}{{ taste.title }} · {{ APP_NAME }}{% endblock %}
 {% block header %}
 <header class="row-between bar-head">
-  <a class="circle" href="{% url 'tastes' %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
-  <h1 class="bar-title">취향</h1>
+  <a class="circle" href="{% url 'tastes' %}{% if taste.is_place %}?tab=record{% endif %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">{% if taste.is_place %}장소{% else %}순간{% endif %}</h1>
   <span class="spacer"></span>
 </header>
 {% endblock %}
@@ -43,7 +43,7 @@
 </article>
 <div class="action-row">
   <a class="btn" href="{% url 'taste_update' taste.pk %}">고치기</a>
-  <form method="post" action="{% url 'taste_delete' taste.pk %}" data-confirm="이 취향을 지울까요?">
+  <form method="post" action="{% url 'taste_delete' taste.pk %}" data-confirm="{% if taste.is_place %}이 장소를 지울까요? 연결된 사진은 그대로 남아요.{% else %}이 순간을 지울까요?{% endif %}">
     {% csrf_token %}
     <button type="submit" class="btn danger">지우기</button>
   </form>

@@ -72,7 +72,7 @@
 
 <section class="section">
   <div class="section-head">
-    <h2>최근 공유한 취향</h2>
+    <h2>최근 남긴 추억</h2>
     <a href="{% url 'tastes' %}">전체 보기</a>
   </div>
   {% if tastes %}
@@ -86,7 +86,7 @@
       {% endfor %}
     </div>
   {% else %}
-    <a class="empty" href="{% url 'taste_create' %}">음악, 영화, 장소를 하나 남겨 보세요</a>
+    <a class="empty" href="{% url 'taste_create' %}">영화, 음악, 함께 간 곳을 하나 남겨 보세요</a>
   {% endif %}
 </section>
 

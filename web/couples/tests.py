@@ -577,7 +577,7 @@ class PolishTests(TestCase):
 
     def test_tabbar_has_text_and_flash_notice(self):
         response = self.client.get(reverse("home"))
-        for text in ["홈", "캘린더", "취향", "앨범"]:
+        for text in ["홈", "캘린더", "추억", "앨범"]:
             self.assertContains(response, f"<span>{text}</span>")
         from django.contrib.messages import get_messages  # noqa: F401
         response = self.client.post(reverse("event_create"), {"text": "확인용", "date": timezone.localdate().isoformat(), "scope": "shared", "color": "sky"}, follow=True)
@@ -1104,61 +1104,6 @@ class FillLocationsCommandTests(TestCase):
         self.assertEqual(self.run_command(), "위치를 찾은 사진 0장 / 살펴본 사진 1장")
 
 
-class PhotoMapTests(TestCase):
-    """앨범 지도 칸과 지도 데이터 (/albums/map/data/)."""
-
-    setUp = UploadStorageTests.setUp
-    tearDown = UploadStorageTests.tearDown
-    png = UploadStorageTests.png
-
-    def make(self, couple=None, user=None, **fields):
-        return Photo.objects.create(
-            couple=couple or self.couple, uploaded_by=user or self.user, image=self.png(), **fields
-        )
-
-    def test_map_data_only_my_located_photos(self):
-        from datetime import date
-
-        a = self.make(latitude=37.5445, longitude=127.056, taken_on=date(2026, 3, 1))
-        b = self.make(latitude=35.6812, longitude=139.7671, taken_on=date(2026, 5, 1))
-        self.make()  # 위치 없음
-        other = Couple.objects.create()
-        stranger = User.objects.create_user("z", password="pw", couple=other)
-        self.make(couple=other, user=stranger, latitude=48.8566, longitude=2.3522)
-
-        data = self.client.get(reverse("album_map_data")).json()["photos"]
-        self.assertEqual([p["id"] for p in data], [a.pk, b.pk])
-        self.assertEqual(set(data[0]), {"id", "lat", "lng", "src", "taken", "url"})
-        self.assertEqual((data[0]["lat"], data[0]["lng"], data[0]["taken"]), (37.5445, 127.056, "2026-03-01"))
-        self.assertEqual(data[0]["url"], reverse("photo_detail", args=[a.pk]))
-
-    def test_map_data_login_required(self):
-        self.client.logout()
-        self.assertEqual(self.client.get(reverse("album_map_data")).status_code, 302)
-
-    def test_album_has_map_tab(self):
-        res = self.client.get(reverse("albums"))
-        for text in ['data-target="album-map"', "data-photo-map", "js/map.js", 'class="segment three"']:
-            self.assertContains(res, text)
-
-    def test_album_view_map_opens_map(self):
-        html = self.client.get(reverse("albums") + "?view=map").content.decode()
-        self.assertIn('<section class="view on" id="album-map"', html)
-        self.assertIn('<section class="view" id="album-photos">', html)
-
-    def test_kakao_key_passed_or_empty(self):
-        with override_settings(KAKAO_JS_KEY="k"):
-            self.assertContains(self.client.get(reverse("albums")), 'data-kakao-key="k"')
-        with override_settings(KAKAO_JS_KEY=""):
-            self.assertContains(self.client.get(reverse("albums")), 'data-kakao-key=""')
-
-    def test_photo_detail_map_link(self):
-        located = self.make(latitude=37.5445, longitude=127.056)
-        plain = self.make()
-        self.assertContains(self.client.get(reverse("photo_detail", args=[located.pk])), "view=map&amp;focus=37.5445,127.056")
-        self.assertContains(self.client.get(reverse("photo_detail", args=[plain.pk])), "위치 없음")
-
-
 class PlaceLinkTests(TestCase):
     """장소 위치와 사진 자동 연결 (couples/places.py). 찍은 위치 기준 200m 안 가장 가까운 장소."""
 
@@ -1393,3 +1338,80 @@ class MomentPlaceFormTests(TestCase):
         self.client.post(reverse("taste_delete", args=[place.pk]))
         photo.refresh_from_db()
         self.assertIsNone(photo.place)
+
+
+class MemoriesScreenTests(TestCase):
+    """추억 화면(순간·기록), 이름 바꾸기, 앨범 지도 정리."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def make(self, category, title, **fields):
+        return Taste.objects.create(couple=self.couple, author=self.user, category=category, title=title, **fields)
+
+    def test_moment_tab_default_hides_places(self):
+        self.make("음악", "밤편지")
+        self.make("장소", "대림창고", latitude=37.54, longitude=127.05)
+        html = self.client.get(reverse("tastes")).content.decode()
+        self.assertIn("밤편지", html)
+        self.assertNotIn("대림창고", html)
+        for chip in ["전체", *Taste.MOMENT_TAGS]:
+            self.assertIn(f">{chip}<", html)
+        self.assertIn("순간 남기기", html)
+
+    def test_record_tab_lists_places(self):
+        self.make("음악", "밤편지")
+        place = self.make("장소", "대림창고", latitude=37.54, longitude=127.05)
+        self.make("장소", "옛날 곳")  # 위치 없음
+        Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png(), place=place)
+        html = self.client.get(reverse("tastes") + "?tab=record").content.decode()
+        self.assertIn("대림창고", html)
+        self.assertIn("옛날 곳", html)
+        self.assertIn("위치 넣기", html)
+        self.assertIn("data-record-map", html)
+        self.assertIn("사진 1장", html)
+        self.assertNotIn("밤편지", html)
+        self.assertIn(reverse("taste_create") + "?kind=place", html)
+
+    def test_place_map_data(self):
+        mine = self.make("장소", "대림창고", latitude=37.54, longitude=127.05, address="성수")
+        self.make("장소", "옛날 곳")
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("z", password="pw", couple=other)
+        Taste.objects.create(couple=other, author=stranger, category="장소", title="남의 곳", latitude=1, longitude=1)
+        data = self.client.get(reverse("place_map_data")).json()["places"]
+        self.assertEqual([p["id"] for p in data], [mine.pk])
+        self.assertEqual(set(data[0]), {"id", "name", "lat", "lng", "photos", "url", "address"})
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("place_map_data")).status_code, 302)
+
+    def test_old_album_map_redirects(self):
+        res = self.client.get(reverse("albums") + "?view=map&focus=37.5,127.0")
+        self.assertRedirects(res, reverse("tastes") + "?tab=record&focus=37.5,127.0", fetch_redirect_response=False)
+        self.assertEqual(self.client.get("/albums/map/data/").status_code, 404)
+        html = self.client.get(reverse("albums")).content.decode()
+        self.assertNotIn("album-map", html)
+        self.assertNotIn("js/map.js", html)
+
+    def test_names_and_quick_menu(self):
+        html = self.client.get(reverse("home")).content.decode()
+        self.assertIn("<span>추억</span>", html)
+        self.assertNotIn("<span>취향</span>", html)
+        self.assertIn("최근 남긴 추억", html)
+        self.assertIn(">순간</a>", html)
+        self.assertIn(">기록</a>", html)
+
+    def test_moment_likes_kept(self):
+        song = self.make("음악", "밤편지")
+        TasteLike.objects.create(taste=song, user=self.user)
+        self.assertContains(self.client.get(reverse("tastes")), 'aria-label="좋아요 1"')
+
+    def test_photo_detail_place_and_map_links(self):
+        place = self.make("장소", "대림창고", latitude=37.54, longitude=127.05)
+        linked = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png(), latitude=37.54, longitude=127.05, place=place)
+        located = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png(), latitude=35.1, longitude=129.0)
+        plain = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png())
+        self.assertContains(self.client.get(reverse("photo_detail", args=[linked.pk])), reverse("taste_detail", args=[place.pk]))
+        self.assertContains(self.client.get(reverse("photo_detail", args=[located.pk])), "tab=record&amp;focus=35.1,129.0")
+        self.assertContains(self.client.get(reverse("photo_detail", args=[plain.pk])), "위치 없음")

@@ -1,27 +1,69 @@
 {% extends "layout_app.html" %}
-{% block head_title %}취향 · {{ APP_NAME }}{% endblock %}
+{% load static %}
+{% block head_title %}추억 · {{ APP_NAME }}{% endblock %}
+{% block extra_head %}{% if tab_name == "record" %}<meta name="referrer" content="strict-origin-when-cross-origin">{% endif %}{% endblock %}
 {% block header %}
 <header class="row-between">
   <div>
-    <h1 class="page-title">취향</h1>
-    <p class="sub">서로에게 건넨 것들</p>
+    <h1 class="page-title">추억</h1>
+    <p class="sub"><span class="t-boat">함께 남긴 것들</span><span class="t-journey">길 위에서 모은 것들</span></p>
   </div>
 </header>
 {% endblock %}
 {% block content %}
-<nav class="cats" aria-label="분류">
+<nav class="segment two" aria-label="순간과 기록">
+  <i class="thumb"{% if tab_name == "record" %} style="transform: translateX(100%)"{% endif %}></i>
+  <a class="{% if tab_name == 'moment' %}on{% endif %}" href="{% url 'tastes' %}">순간</a>
+  <a class="{% if tab_name == 'record' %}on{% endif %}" href="{% url 'tastes' %}?tab=record">기록</a>
+</nav>
+
+{% if tab_name == "record" %}
+{# 기록: 지도(static/js/map.js)와 장소 목록 #}
+<section class="record-map" data-record-map
+  data-data-url="{% url 'place_map_data' %}" data-kakao-key="{{ kakao_js_key }}"
+  data-geo-kr="{% static 'geo/kr-municipalities-2018.topo.json' %}" data-geo-world="{% static 'geo/world-countries-50m.topo.json' %}">
+  <div class="segment two map-scope" role="tablist" aria-label="국내와 해외">
+    <i class="thumb"></i>
+    <button type="button" class="on" data-map-scope="kr">국내</button>
+    <button type="button" data-map-scope="world">해외</button>
+  </div>
+  <p class="map-summary muted" data-map-summary aria-live="polite">지도를 불러오고 있어요…</p>
+  <div class="map-canvas card" data-map-canvas></div>
+  <div class="map-cards" data-map-card hidden></div>
+</section>
+
+<a class="btn primary" href="{% url 'taste_create' %}?kind=place">장소 기록하기</a>
+
+<ul class="place-list">
+  {% for p in places %}
+    <li>
+      <a class="place-row card" href="{% url 'taste_detail' p.pk %}">
+        <span class="icon-tile" style="background:var(--peach)"><svg class="i"><use href="#i-pin"/></svg></span>
+        <span class="main"><strong>{{ p.title }}</strong><small>{% if p.address %}{{ p.address }}{% elif not p.has_location %}위치가 없어요{% endif %}</small></span>
+        <span class="meta">사진 {{ p.photo_count }}장</span>
+      </a>
+      {% if not p.has_location %}<a class="add-link place-fix" href="{% url 'taste_update' p.pk %}"><svg class="i"><use href="#i-pin"/></svg>위치 넣기</a>{% endif %}
+    </li>
+  {% empty %}
+    <li class="empty">아직 기록한 장소가 없어요. 함께 간 곳을 하나 기록해 볼까요?</li>
+  {% endfor %}
+</ul>
+<script src="{% static 'js/map.js' %}" defer></script>
+{% else %}
+{# 순간: 태그(영화·음악·영상·책)로 걸러 본다 #}
+<nav class="cats" aria-label="태그">
   {% for c in categories %}
     <a class="cat{% if c == category %} on{% endif %}" href="?cat={{ c|urlencode }}{% if who != 'all' %}&amp;who={{ who }}{% endif %}">{{ c }}</a>
   {% endfor %}
 </nav>
 
-<div class="segment three" aria-label="누가 공유했는지">
+<div class="segment three" aria-label="누가 남겼는지">
   {% for value, label in who_options %}
     <a class="{% if value == who %}on{% endif %}" href="?who={{ value }}{% if category != '전체' %}&amp;cat={{ category|urlencode }}{% endif %}">{{ label }}</a>
   {% endfor %}
 </div>
 
-<a class="btn primary" href="{% url 'taste_create' %}">취향 공유하기</a>
+<a class="btn primary" href="{% url 'taste_create' %}">순간 남기기</a>
 
 <div class="feed">
   {% for t in tastes %}
@@ -42,7 +84,8 @@
       </span>
     </a>
   {% empty %}
-    <p class="empty">아직 공유한 취향이 없어요. 음악, 영화, 장소를 하나 남겨 보세요.</p>
+    <p class="empty">아직 남긴 순간이 없어요. 영화, 음악, 영상, 책을 하나 남겨 보세요.</p>
   {% endfor %}
 </div>
+{% endif %}
 {% endblock %}
