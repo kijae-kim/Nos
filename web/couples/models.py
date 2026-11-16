@@ -246,6 +246,9 @@ class Photo(models.Model):
     size = models.PositiveIntegerField(default=0, editable=False)
     caption = models.TextField("한마디", blank=True)
     taken_on = models.DateField("찍은 날", null=True, blank=True)
+    # 촬영 위치 (couples/geo.py). 커플 두 사람만 본다. 둘 다 있거나 둘 다 없다.
+    latitude = models.FloatField("위도", null=True, blank=True)
+    longitude = models.FloatField("경도", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -253,6 +256,10 @@ class Photo(models.Model):
 
     def __str__(self):
         return self.caption or f"사진 {self.pk}"
+
+    @property
+    def has_location(self):
+        return self.latitude is not None and self.longitude is not None
 
     @property
     def shot_date(self):

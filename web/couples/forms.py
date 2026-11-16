@@ -4,6 +4,7 @@ from django.utils import timezone
 from config.fields import TypedDateField
 
 from . import quota
+from .geo import clean_coords, gps_from_image
 from .models import CODE_LENGTH, COLOR_CHOICES, Album, Photo, Taste, TasteComment
 from .storage import ImageUploadField, delete_file
 
@@ -167,6 +168,9 @@ class PhotoForm(forms.ModelForm):
     album = forms.ModelChoiceField(label="앨범", queryset=Album.objects.none(), required=False, empty_label="앨범 없이", widget=forms.RadioSelect)
     new_album = forms.CharField(label="새 앨범 이름", max_length=50, required=False, widget=forms.TextInput(attrs={"placeholder": "새 앨범을 만들려면 적어 주세요"}))
     taken_on = forms.DateField(label="찍은 날", required=False, widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
+    # 브라우저가 줄이기 전에 읽은 촬영 위치 (app.js). 없으면 서버가 사진에서 읽는다.
+    latitude = forms.CharField(required=False, widget=forms.HiddenInput)
+    longitude = forms.CharField(required=False, widget=forms.HiddenInput)
 
     class Meta:
         model = Photo
@@ -209,7 +213,11 @@ class PhotoForm(forms.ModelForm):
         if name:
             photo.album, _ = Album.objects.get_or_create(couple=couple, title=name)
         if "image" in self.changed_data and self.cleaned_data.get("image"):
-            photo.size = self.cleaned_data["image"].size
+            new_file = self.cleaned_data["image"]
+            photo.size = new_file.size
+            # 새 사진이 들어올 때만 위치를 정한다. 사진 정보만 고치면 위치는 그대로.
+            coords = clean_coords(self.cleaned_data.get("latitude"), self.cleaned_data.get("longitude")) or gps_from_image(new_file)
+            photo.latitude, photo.longitude = coords or (None, None)
         photo.save()
         if old_name and old_name != photo.image.name:
             delete_file(old_name)

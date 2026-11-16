@@ -983,3 +983,82 @@ class LoginRequiredTests(TestCase):
         res = self.client.get(reverse("albums"))
         self.assertEqual(res.status_code, 302)
         self.assertIn(reverse("account_login"), res["Location"])
+
+
+def gps_jpeg(name="gps.jpg", with_gps=True, size=8):
+    """성수(37°32'40.2"N, 127°03'21.6"E = 37.5445, 127.056) 촬영 위치가 든 시험용 JPEG."""
+    from io import BytesIO
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from PIL import Image
+    from PIL.TiffImagePlugin import IFDRational as R
+
+    exif = Image.Exif()
+    if with_gps:
+        exif[0x8825] = {1: "N", 2: (R(37), R(32), R(402, 10)), 3: "E", 4: (R(127), R(3), R(216, 10))}
+    buffer = BytesIO()
+    Image.new("RGB", (size, size), (200, 120, 90)).save(buffer, "JPEG", exif=exif)
+    return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/jpeg")
+
+
+class PhotoLocationTests(TestCase):
+    """사진 촬영 위치 저장 (couples/geo.py)."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def test_clean_coords(self):
+        from .geo import clean_coords
+
+        self.assertEqual(clean_coords("37.5", "127.0"), (37.5, 127.0))
+        for bad in [(91, 0), ("37.5", ""), (0, 0), ("abc", "1"), (None, None), ("37", "181")]:
+            self.assertIsNone(clean_coords(*bad), bad)
+
+    def test_gps_from_jpeg(self):
+        from .geo import gps_from_image
+
+        lat, lng = gps_from_image(gps_jpeg())
+        self.assertAlmostEqual(lat, 37.5445, places=4)
+        self.assertAlmostEqual(lng, 127.056, places=4)
+
+    def test_gps_from_broken_or_png(self):
+        from io import BytesIO
+
+        from .geo import gps_from_image
+
+        self.assertIsNone(gps_from_image(self.png()))
+        self.assertIsNone(gps_from_image(BytesIO(b"")))
+        self.assertIsNone(gps_from_image(BytesIO(b"not an image")))
+        self.assertIsNone(gps_from_image(gps_jpeg(with_gps=False)))
+
+    def upload(self, image, **extra):
+        self.client.post(reverse("photo_create"), {"image": image, **extra})
+        return Photo.objects.latest("pk")
+
+    def test_upload_uses_form_coords_first(self):
+        photo = self.upload(gps_jpeg(), latitude="35.1", longitude="129.0")
+        self.assertEqual((photo.latitude, photo.longitude), (35.1, 129.0))
+        self.assertTrue(photo.has_location)
+
+    def test_upload_falls_back_to_exif(self):
+        photo = self.upload(gps_jpeg())
+        self.assertAlmostEqual(photo.latitude, 37.5445, places=4)
+        self.assertAlmostEqual(photo.longitude, 127.056, places=4)
+
+    def test_upload_bad_form_coords_fall_back_to_exif(self):
+        photo = self.upload(gps_jpeg(), latitude="0", longitude="0")
+        self.assertAlmostEqual(photo.latitude, 37.5445, places=4)
+
+    def test_upload_without_location_succeeds(self):
+        photo = self.upload(self.png())
+        self.assertIsNone(photo.latitude)
+        self.assertIsNone(photo.longitude)
+        self.assertFalse(photo.has_location)
+
+    def test_edit_without_new_file_keeps_location(self):
+        photo = self.upload(gps_jpeg())
+        self.client.post(reverse("photo_update", args=[photo.pk]), {"caption": "한마디만", "latitude": "", "longitude": ""})
+        photo.refresh_from_db()
+        self.assertEqual(photo.caption, "한마디만")
+        self.assertAlmostEqual(photo.latitude, 37.5445, places=4)
