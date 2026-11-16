@@ -1317,3 +1317,79 @@ class PlaceSearchTests(TestCase):
         s.assert_called_once_with(" 성수 ")
         self.client.logout()
         self.assertEqual(self.client.get(reverse("place_search"), {"q": "a"}).status_code, 302)
+
+
+class MomentPlaceFormTests(TestCase):
+    """순간 쓰기(태그 하나)와 장소 기록하기(위치)."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def test_moment_form_has_tags_not_place(self):
+        html = self.client.get(reverse("taste_create")).content.decode()
+        for tag in Taste.MOMENT_TAGS:
+            self.assertIn(f'value="{tag}"', html)
+        self.assertNotIn('value="장소"', html)
+        self.assertNotIn("data-place-picker", html)
+
+    def test_moment_needs_tag(self):
+        res = self.client.post(reverse("taste_create"), {"title": "노래"})
+        self.assertContains(res, "태그를 하나 골라 주세요.")
+        res = self.client.post(reverse("taste_create"), {"title": "곳", "category": "장소"})
+        self.assertFalse(Taste.objects.exists())
+
+    def test_place_create_saves_location(self):
+        res = self.client.post(
+            reverse("taste_create") + "?kind=place",
+            {"title": "대림창고", "latitude": "37.5418", "longitude": "127.0565", "address": "서울 성동구 성수이로 78", "place_url": "https://place.map.kakao.com/1"},
+        )
+        place = Taste.objects.get()
+        self.assertRedirects(res, reverse("taste_detail", args=[place.pk]))
+        self.assertEqual((place.category, place.latitude, place.longitude, place.address), ("장소", 37.5418, 127.0565, "서울 성동구 성수이로 78"))
+
+    def test_place_zero_coords_is_no_location(self):
+        self.client.post(reverse("taste_create") + "?kind=place", {"title": "어딘가", "latitude": "0", "longitude": "0"})
+        self.assertFalse(Taste.objects.get().has_location)
+
+    def test_place_form_page_has_picker(self):
+        self.assertContains(self.client.get(reverse("taste_create") + "?kind=place"), "data-place-picker")
+
+    def test_from_photo_links_my_photo_only(self):
+        mine = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png(), latitude=37.5, longitude=127.0)
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("z", password="pw", couple=other)
+        theirs = Photo.objects.create(couple=other, uploaded_by=stranger, image=self.png(), latitude=37.5, longitude=127.0)
+        self.client.post(reverse("taste_create") + "?kind=place", {"title": "a", "latitude": "37.5", "longitude": "127.0", "from_photo": str(theirs.pk)})
+        theirs.refresh_from_db()
+        self.assertIsNone(theirs.place)
+        self.client.post(reverse("taste_create") + "?kind=place", {"title": "b", "latitude": "37.5", "longitude": "127.0", "from_photo": str(mine.pk)})
+        mine.refresh_from_db()
+        self.assertEqual(mine.place.title, "b")
+        self.assertTrue(mine.place_manual)
+
+    def test_edit_uses_matching_form(self):
+        place = Taste.objects.create(couple=self.couple, author=self.user, category="장소", title="곳")
+        moment = Taste.objects.create(couple=self.couple, author=self.user, category="음악", title="노래")
+        self.assertContains(self.client.get(reverse("taste_update", args=[place.pk])), "data-place-picker")
+        html = self.client.get(reverse("taste_update", args=[moment.pk])).content.decode()
+        self.assertIn('value="음악"', html)
+        self.assertNotIn("data-place-picker", html)
+        # 장소 글을 고쳐도 분류는 장소 그대로
+        self.client.post(reverse("taste_update", args=[place.pk]), {"title": "곳2", "category": "음악"})
+        place.refresh_from_db()
+        self.assertEqual((place.title, place.category), ("곳2", "장소"))
+
+    def test_place_save_links_nearby_photos(self):
+        photo = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png(), latitude=37.5419, longitude=127.0566)
+        self.client.post(reverse("taste_create") + "?kind=place", {"title": "대림창고", "latitude": "37.5418", "longitude": "127.0565"})
+        photo.refresh_from_db()
+        self.assertEqual(photo.place.title, "대림창고")
+        self.assertFalse(photo.place_manual)
+
+    def test_place_delete_unlinks(self):
+        place = Taste.objects.create(couple=self.couple, author=self.user, category="장소", title="곳", latitude=37.5, longitude=127.0)
+        photo = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png(), latitude=37.5, longitude=127.0, place=place)
+        self.client.post(reverse("taste_delete", args=[place.pk]))
+        photo.refresh_from_db()
+        self.assertIsNone(photo.place)

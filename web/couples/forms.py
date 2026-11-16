@@ -103,11 +103,13 @@ class TasteForm(forms.ModelForm):
     def __init__(self, *args, couple=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.couple = couple
-        # 분류는 다섯 중 하나. 빈 선택지("---------")는 빼고, 이름도 한국어로
-        category = self.fields["category"]
-        category.label = "분류"
-        category.choices = [(c, c) for c in Taste.CATEGORIES]
-        category.error_messages["required"] = "분류를 골라 주세요."
+        # 순간의 태그는 넷 중 하나 (장소는 기록에서 따로 쓴다). 빈 선택지("---------")는 빼고, 이름도 한국어로
+        if "category" in self.fields:
+            category = self.fields["category"]
+            category.label = "태그"
+            category.choices = [(c, c) for c in Taste.MOMENT_TAGS]
+            category.error_messages["required"] = "태그를 하나 골라 주세요."
+            category.error_messages["invalid_choice"] = "태그를 하나 골라 주세요."
         # 검사하면서 새 사진이 인스턴스에 들어가므로, 바꾸기 전 이름과 크기를 미리 적어 둔다
         self.old_image_name = self.instance.image.name if self.instance.pk else None
         self.old_image_size = self.instance.image_size if self.instance.pk else 0
@@ -140,6 +142,53 @@ class TasteForm(forms.ModelForm):
         if old_name and old_name != taste.image.name:
             delete_file(old_name)
         return taste
+
+
+# 순간(영화·음악·영상·책) 쓰기. 예전 이름도 남겨 둔다
+MomentForm = TasteForm
+
+
+class PlaceForm(TasteForm):
+    """기록 › 장소 기록하기. 위치는 화면의 장소 고르기(place-picker.js)가 숨은 칸에 넣는다."""
+
+    latitude = forms.CharField(required=False, widget=forms.HiddenInput)
+    longitude = forms.CharField(required=False, widget=forms.HiddenInput)
+    address = forms.CharField(required=False, max_length=200, widget=forms.HiddenInput)
+    place_url = forms.URLField(required=False, widget=forms.HiddenInput)
+    from_photo = forms.IntegerField(required=False, widget=forms.HiddenInput)
+
+    class Meta(TasteForm.Meta):
+        fields = ["title", "link", "comment", "image"]
+        widgets = {
+            **TasteForm.Meta.widgets,
+            "title": forms.TextInput(attrs={"placeholder": "장소 이름"}),
+            "comment": forms.Textarea(attrs={"rows": 3, "placeholder": "어땠는지 한마디 남겨 보세요"}),
+        }
+        labels = {"title": "이름"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.initial.setdefault("latitude", "" if self.instance.latitude is None else self.instance.latitude)
+            self.initial.setdefault("longitude", "" if self.instance.longitude is None else self.instance.longitude)
+            self.initial.setdefault("address", self.instance.address)
+            self.initial.setdefault("place_url", self.instance.place_url)
+
+    def save_for(self, couple, user):
+        from .places import relink
+
+        self.instance.category = Taste.PLACE
+        coords = clean_coords(self.cleaned_data.get("latitude"), self.cleaned_data.get("longitude"))
+        self.instance.latitude, self.instance.longitude = coords or (None, None)
+        self.instance.address = self.cleaned_data.get("address", "") if coords else ""
+        self.instance.place_url = self.cleaned_data.get("place_url", "")
+        place = super().save_for(couple, user)
+        # "사진에서" 위치를 가져왔으면 그 사진은 이 장소에 직접 잇는다 (내 커플 사진만)
+        photo_id = self.cleaned_data.get("from_photo")
+        if photo_id:
+            Photo.objects.filter(pk=photo_id, couple=couple).update(place=place, place_manual=True)
+        relink(couple)
+        return place
 
 
 class AlbumForm(forms.ModelForm):

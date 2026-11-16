@@ -19,7 +19,7 @@ from anniversaries import services as anniversary_services
 
 from . import ics, linkpreview, places, placesearch, quota, services
 from .storage import MAX_IMAGE_BYTES, delete_file
-from .forms import AlbumForm, CreateForm, EventForm, JoinForm, PhotoForm, ProfileForm, TasteCommentForm, TasteForm
+from .forms import AlbumForm, CreateForm, EventForm, JoinForm, MomentForm, PhotoForm, PlaceForm, ProfileForm, TasteCommentForm
 from .models import Album, CalendarFeed, Couple, Event, Photo, Taste, TasteComment, TasteLike
 
 
@@ -363,14 +363,23 @@ def place_search(request):
     return JsonResponse({"results": placesearch.search(request.GET.get("q", ""))})
 
 
+def _taste_form_page(request, form, taste):
+    """순간이면 순간 쓰기, 장소면 장소 기록하기 화면."""
+    if isinstance(form, PlaceForm):
+        return render(request, "couples/place_form.html", {"form": form, "taste": taste, "kakao_js_key": settings.KAKAO_JS_KEY})
+    return render(request, "couples/taste_form.html", {"form": form, "taste": taste})
+
+
 @login_required
 def taste_create(request):
-    form = TasteForm(request.POST or None, request.FILES or None, couple=request.user.couple)
+    is_place = request.GET.get("kind") == "place"
+    form_class = PlaceForm if is_place else MomentForm
+    form = form_class(request.POST or None, request.FILES or None, couple=request.user.couple)
     if request.method == "POST" and form.is_valid():
         taste = form.save_for(request.user.couple, request.user)
-        messages.success(request, "취향을 공유했어요.")
+        messages.success(request, "장소를 기록했어요." if is_place else "순간을 남겼어요.")
         return redirect("taste_detail", pk=taste.pk)
-    return render(request, "couples/taste_form.html", {"form": form, "taste": None})
+    return _taste_form_page(request, form, None)
 
 
 @login_required
@@ -446,12 +455,13 @@ def taste_comment_delete(request, pk):
 @login_required
 def taste_update(request, pk):
     taste = get_object_or_404(Taste, pk=pk, couple=request.user.couple)
-    form = TasteForm(request.POST or None, request.FILES or None, instance=taste, couple=request.user.couple)
+    form_class = PlaceForm if taste.is_place else MomentForm
+    form = form_class(request.POST or None, request.FILES or None, instance=taste, couple=request.user.couple)
     if request.method == "POST" and form.is_valid():
         form.save_for(request.user.couple, request.user)
-        messages.success(request, "취향을 고쳤어요.")
+        messages.success(request, "고쳤어요.")
         return redirect("taste_detail", pk=taste.pk)
-    return render(request, "couples/taste_form.html", {"form": form, "taste": taste})
+    return _taste_form_page(request, form, taste)
 
 
 @login_required
@@ -460,9 +470,21 @@ def taste_delete(request, pk):
     taste = get_object_or_404(Taste, pk=pk, couple=request.user.couple)
     if taste.image:
         taste.image.delete(save=False)
+    was_place = taste.is_place
     taste.delete()
-    messages.success(request, "취향을 지웠어요.")
-    return redirect("tastes")
+    if was_place:
+        places.relink(request.user.couple)  # 그 장소에 붙어 있던 자동 사진을 다른 가까운 장소로
+    messages.success(request, "지웠어요.")
+    return redirect(f"{reverse('tastes')}?tab=record" if was_place else "tastes")
+
+
+@login_required
+def place_photo_choices(request):
+    """장소 고르기의 "사진에서": 위치 있는 내 커플 사진 최근 60장."""
+    photos = request.user.couple.photos.filter(latitude__isnull=False, longitude__isnull=False).order_by("-created_at", "-pk")[:60]
+    return JsonResponse(
+        {"photos": [{"id": p.pk, "src": p.image.url, "lat": p.latitude, "lng": p.longitude, "taken": p.shot_date.isoformat()} for p in photos]}
+    )
 
 
 # ---------- 앨범 ----------
