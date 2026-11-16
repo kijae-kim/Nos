@@ -185,36 +185,16 @@ Redirect URI 는 주소마다 따로 등록합니다. 끝의 `/` 까지 정확�
 - 열쇠를 바꾸면 이미 켠 기기는 다시 켜야 합니다.
 - 같은 날 Cron 이 두 번 불려도 보낸 기록(`PushLog`, 60일 보관)으로 다시 보내지 않습니다. 푸시 발송은 무료입니다.
 
-## 사진 지도
+## 추억 · 기록 지도
 
-앨범 › 지도에서 사진의 촬영 위치로 간 곳을 보여 줍니다. 국내는 카카오맵(간 시·군·구 색칠), 해외는 Leaflet + OpenStreetMap(간 나라 색칠).
+하단 탭 "추억" 은 **순간**(영화·음악·영상·책, 글마다 태그 하나)과 **기록**(함께 간 장소)으로 나뉩니다. 장소는 분류가 "장소" 인 추억 글에 위치·주소를 더한 것입니다.
 
-- **위치 저장**: 사진을 올릴 때 브라우저가 줄이기 전에 촬영 위치(EXIF GPS)를 읽어 함께 보냅니다(exifr, JPEG·HEIC). 스크립트 없이 올린 원본 JPEG 은 서버가 읽습니다. 폰 사진 선택기가 위치를 지우고 넘기면 위치 없이 올라갑니다.
-- **카카오맵 키**: [developers.kakao.com](https://developers.kakao.com) → 앱 › 플랫폼 키 › **JavaScript 키**. 그 키의 JavaScript SDK 도메인에 `https://nos-rho-jade.vercel.app`, `http://localhost:8000` 을 넣고, Vercel 환경 변수 `KAKAO_JS_KEY` (Production) 에 넣은 뒤 재배포합니다. 키가 없거나 카카오맵을 불러오지 못하면 국내도 Leaflet 으로 그립니다.
-- **이미 올린 사진의 위치 채우기** (한 번만, 집 맥):
-  ```bash
-  ENV_FILE=.env.neon python web/manage.py fill_photo_locations --dry-run
-  ENV_FILE=.env.neon python web/manage.py fill_photo_locations
-  ```
-  위치 없는 사진의 저장 파일을 하나씩 엽니다(R2 GET, 목록 조회 없음). 줄여서 저장된 사진은 위치가 이미 지워져 있어 건너뜁니다.
-- **경계 데이터** (`web/static/geo/`, 지도 칸을 열 때만 받음):
-  - 한국 시·군·구: 통계청(KOSTAT) 2018 센서스용 행정구역경계, [southkorea/southkorea-maps](https://github.com/southkorea/southkorea-maps) 의 단순화 TopoJSON
-  - 세계 나라: [world-atlas](https://github.com/topojson/world-atlas) 2.0.2 `countries-50m` (ISC, 원본 Natural Earth 퍼블릭 도메인)
-  - 지도 타일: © OpenStreetMap 기여자 (지도에 출처 표기)
-
-
-```
-web/
-  config/     설정, URL
-  accounts/   사용자 모델 (닉네임, 커플 연결)
-  couples/    커플 공간, 초대 코드, 홈·우리 화면, 캘린더·취향·앨범
-  anniversaries/  기념일 (직접 등록 + 100일·주년 자동 계산)
-  templates/  화면
-  static/     CSS, JS, 아이콘
-tools/
-  make_icons.py  앱 아이콘 만들기 (로고를 바꾸면 다시 실행)
-design/       화면·로고 시안 (앱과 따로 여는 HTML)
-```
+- **기록 지도**: 국내는 카카오맵, 해외는 Leaflet + OpenStreetMap. 장소 핀을 누르면 장소 카드, 카드를 누르면 장소 글. 카카오 JavaScript 키(`KAKAO_JS_KEY`)가 없거나 카카오맵을 불러오지 못하면 국내도 Leaflet 으로 그립니다.
+- **장소 기록하기**: 위치는 이름 검색(기본), 지도에서 찍기, 사진에서 가져오기. 검색은 서버가 카카오 로컬 검색(로그인과 같은 REST API 키 `KAKAO_CLIENT_ID`)을 부르고, 결과가 3개보다 적으면 OpenStreetMap(Nominatim, 초당 1회·하루 캐시)을 덧붙입니다. 둘 다 무료입니다.
+- **사진 연결**: 사진의 **찍은 위치**(올린 곳이 아님)에서 200m 안의 가장 가까운 장소에 저절로 붙습니다. 장소 화면의 "사진 고르기"나 사진 고치기의 "장소" 로 직접 정하면, 그 사진은 자동 연결이 다시 바꾸지 않습니다.
+- **카카오맵 키**: [developers.kakao.com](https://developers.kakao.com) → 앱 › 플랫폼 키 › **JavaScript 키** 의 JavaScript SDK 도메인에 `https://nos-rho-jade.vercel.app`, `http://localhost:8000` 을 넣고, Vercel 환경 변수 `KAKAO_JS_KEY`(Production)에 넣은 뒤 재배포합니다. 로컬에서 시험하려면 `.env` 에도 넣습니다.
+- **사진 위치**: 사진을 올릴 때 브라우저가 줄이기 전에 촬영 위치(EXIF GPS)를 읽어 함께 보냅니다(exifr, JPEG·HEIC). 이미 올린 원본 사진은 `ENV_FILE=.env.neon python web/manage.py fill_photo_locations [--dry-run]` 로 채웁니다(R2 GET, 목록 조회 없음). 채우면 가까운 장소에도 저절로 붙습니다.
+- **데이터 출처** (`web/static/geo/`, 국내/해외 판정에만 씀): 한국 시·군·구 — 통계청(KOSTAT) 2018 센서스용 행정구역경계([southkorea/southkorea-maps](https://github.com/southkorea/southkorea-maps)), 세계 나라 — [world-atlas](https://github.com/topojson/world-atlas) 2.0.2 `countries-50m`(ISC, 원본 Natural Earth 퍼블릭 도메인), 지도 타일·해외 검색 — © OpenStreetMap 기여자.
 
 ## 개발 단계
 
