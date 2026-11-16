@@ -96,6 +96,10 @@
 - 남은 작은 것: 넓은 화면 달력 칸은 이름표로 걸러도 모든 일정을 보여 준다. 써 보고 필요하면 흐리게 처리.
 - [x] 달력 칸 크기 고정 (2026-11-13): 일정이 많은 날의 열이 넓어지던 것(휴대폰), 줄이 높아지던 것(넓은 화면)을 고쳤다. 휴대폰 막대는 3개까지, 넓은 화면은 일정 2개 + "+N".
 - [x] 달력 날짜 숫자 폭 맞추기 (2026-11-13): `tabular-nums` 로 1·11 처럼 좁은 숫자도 같은 폭.
+- [x] 사진 지도 (2026-11-16, 앨범 › 지도): 국내 카카오맵·해외 Leaflet, 간 시·군·구/나라 색칠, 핀 묶음, 누르면 사진 줄. 위치는 올릴 때 브라우저(exifr)가 줄이기 전에 읽고, 없으면 서버가 JPEG EXIF 에서. 설계 `docs/superpowers/specs/2026-11-16-photo-map-design.md`. 마이그레이션 `couples.0010_photo_location` → 맥 migrate 확인 숫자 48.
+  - 남은 일 (내가): 카카오 JavaScript 키를 Vercel `KAKAO_JS_KEY` 에 (README "사진 지도"), Neon migrate 뒤 `fill_photo_locations` 한 번
+  - 폰에서 확인: 아이폰·안드로이드에서 고른 사진에 위치가 남는지 (사진 선택기가 지울 수 있음), 카카오맵이 국내 칸에 뜨는지
+  - 알아 둘 것: 해외 나라 이름은 영어로 보인다. 독도는 울릉군으로 색칠된다.
 - [x] 일정 메모 (2026-11-15, `Event.memo`): 일정 추가·고치기에 메모 칸, 목록에 한 줄 미리 보기, 캘린더 앱 구독(ICS) 설명에도 들어간다. 마이그레이션 `couples.0009_event_memo` → 맥 migrate 확인 숫자 47. 글상자(textarea)가 한 줄 칸 높이(52px)로 묶여 있던 것도 고침.
 - [x] 앨범 첫 화면을 "전체 사진"으로 (2026-11-15). 전체 사진 아래에도 사진 올리기 버튼.
 - [x] 날짜를 숫자로 치기 (2026-11-13): 기념일 날짜와 사귀기 시작한 날은 폰 날짜 선택기 대신 숫자 칸 (`config/fields.py` `TypedDateField`). 20261113 → 2026.11.13 으로 점이 들어가고, 2026-11-13·2026/11/13·2026.1.5 도 받는다. 일정 날짜·사진 찍은 날은 가까운 날이라 달력 선택기 그대로.
@@ -163,7 +167,7 @@
 
 ## 참고
 
-- Vercel 환경 변수 (모두 Production 에만): `DATABASE_URL`(Neon **풀링** 주소), `DJANGO_DEBUG=0`, `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=nos-rho-jade.vercel.app`, `DJANGO_CSRF_TRUSTED_ORIGINS=https://nos-rho-jade.vercel.app`, `MEDIA_BUCKET_NAME`, `MEDIA_ENDPOINT_URL`, `MEDIA_REGION=auto`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET`. `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_PICKER_API_KEY`, `GOOGLE_PROJECT_NUMBER` (2026-11-13 넣음).
+- Vercel 환경 변수 (모두 Production 에만): `DATABASE_URL`(Neon **풀링** 주소), `DJANGO_DEBUG=0`, `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=nos-rho-jade.vercel.app`, `DJANGO_CSRF_TRUSTED_ORIGINS=https://nos-rho-jade.vercel.app`, `MEDIA_BUCKET_NAME`, `MEDIA_ENDPOINT_URL`, `MEDIA_REGION=auto`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET`. `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_PICKER_API_KEY`, `GOOGLE_PROJECT_NUMBER` (2026-11-13 넣음). 앞으로 더할 것: `KAKAO_JS_KEY` (사진 지도).
 - Vercel 에 넣은 값은 학원 PC 와 집 맥의 `.env.vercel` 에 정리돼 있다 (git 에 없음).
 - 작업 브랜치(`feat/*`, `fix/*`, `docs/*`)는 Vercel 미리보기 배포를 하지 않는다 (`web/vercel.json`).
 - 로고 시안(`design/logo.html`)은 참고용으로 남겨 둔다. 앱에는 쓰지 않는다.

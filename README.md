@@ -185,7 +185,23 @@ Redirect URI 는 주소마다 따로 등록합니다. 끝의 `/` 까지 정확�
 - 열쇠를 바꾸면 이미 켠 기기는 다시 켜야 합니다.
 - 같은 날 Cron 이 두 번 불려도 보낸 기록(`PushLog`, 60일 보관)으로 다시 보내지 않습니다. 푸시 발송은 무료입니다.
 
-## 구조
+## 사진 지도
+
+앨범 › 지도에서 사진의 촬영 위치로 간 곳을 보여 줍니다. 국내는 카카오맵(간 시·군·구 색칠), 해외는 Leaflet + OpenStreetMap(간 나라 색칠).
+
+- **위치 저장**: 사진을 올릴 때 브라우저가 줄이기 전에 촬영 위치(EXIF GPS)를 읽어 함께 보냅니다(exifr, JPEG·HEIC). 스크립트 없이 올린 원본 JPEG 은 서버가 읽습니다. 폰 사진 선택기가 위치를 지우고 넘기면 위치 없이 올라갑니다.
+- **카카오맵 키**: [developers.kakao.com](https://developers.kakao.com) → 앱 › 플랫폼 키 › **JavaScript 키**. 그 키의 JavaScript SDK 도메인에 `https://nos-rho-jade.vercel.app`, `http://localhost:8000` 을 넣고, Vercel 환경 변수 `KAKAO_JS_KEY` (Production) 에 넣은 뒤 재배포합니다. 키가 없거나 카카오맵을 불러오지 못하면 국내도 Leaflet 으로 그립니다.
+- **이미 올린 사진의 위치 채우기** (한 번만, 집 맥):
+  ```bash
+  ENV_FILE=.env.neon python web/manage.py fill_photo_locations --dry-run
+  ENV_FILE=.env.neon python web/manage.py fill_photo_locations
+  ```
+  위치 없는 사진의 저장 파일을 하나씩 엽니다(R2 GET, 목록 조회 없음). 줄여서 저장된 사진은 위치가 이미 지워져 있어 건너뜁니다.
+- **경계 데이터** (`web/static/geo/`, 지도 칸을 열 때만 받음):
+  - 한국 시·군·구: 통계청(KOSTAT) 2018 센서스용 행정구역경계, [southkorea/southkorea-maps](https://github.com/southkorea/southkorea-maps) 의 단순화 TopoJSON
+  - 세계 나라: [world-atlas](https://github.com/topojson/world-atlas) 2.0.2 `countries-50m` (ISC, 원본 Natural Earth 퍼블릭 도메인)
+  - 지도 타일: © OpenStreetMap 기여자 (지도에 출처 표기)
+
 
 ```
 web/
