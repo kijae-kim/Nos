@@ -1,6 +1,8 @@
 {% extends "layout_app.html" %}
 {% load static %}
 {% block head_title %}앨범 · {{ APP_NAME }}{% endblock %}
+{# 카카오맵은 등록 도메인을 Referer 로 확인한다. 이 화면만 바깥 요청에 출처(도메인)만 보낸다 — 주소·좌표는 안 보낸다 #}
+{% block extra_head %}<meta name="referrer" content="strict-origin-when-cross-origin">{% endblock %}
 {% block header %}
 <header class="row-between">
   <div>

@@ -26,12 +26,15 @@
   var scopeBox = root.querySelector(".map-scope");
   var scopeButtons = Array.prototype.slice.call(root.querySelectorAll("[data-map-scope]"));
   var started = false;
-  var state = { scope: "kr", panes: {}, drawn: {}, groups: { kr: [], world: [] }, regions: { kr: {}, world: {} } };
+  var state = { scope: "kr", panes: {}, drawn: {}, needsRefit: {}, all: [], loadedAt: 0, groups: { kr: [], world: [] }, regions: { kr: {}, world: {} } };
 
   // ---------- 불러오기 ----------
-  function loadScript(src) {
+  function loadScript(src, referrerPolicy) {
     return new Promise(function (resolve, reject) {
       var s = document.createElement("script");
+      // 사이트는 Referrer-Policy: same-origin 이라 바깥 요청에 주소를 안 보낸다.
+      // 카카오맵은 등록한 도메인을 Referer 로 확인하므로 카카오 스크립트에만 출처(도메인)를 보낸다.
+      if (referrerPolicy) s.referrerPolicy = referrerPolicy;
       s.src = src; s.async = true;
       s.onload = resolve; s.onerror = reject;
       document.head.appendChild(s);
@@ -54,12 +57,14 @@
       loadCss(LIBS.leafletCss);
       loadCss(LIBS.clusterCss);
       leafletReady = loadScript(LIBS.leaflet).then(function () { return loadScript(LIBS.cluster); });
+      // 받기에 실패했을 때만 다음에 다시 받는다 (받는 중이거나 받은 것은 그대로 쓴다)
+      leafletReady.catch(function () { leafletReady = null; });
     }
     return leafletReady;
   }
   function loadKakao(key) {
     if (!key) return Promise.reject(new Error("no key"));
-    var load = loadScript("https://dapi.kakao.com/v2/maps/sdk.js?appkey=" + encodeURIComponent(key) + "&autoload=false&libraries=clusterer")
+    var load = loadScript("https://dapi.kakao.com/v2/maps/sdk.js?appkey=" + encodeURIComponent(key) + "&autoload=false&libraries=clusterer", "strict-origin-when-cross-origin")
       .then(function () { return new Promise(function (resolve) { window.kakao.maps.load(resolve); }); });
     var timeout = new Promise(function (_, reject) { setTimeout(function () { reject(new Error("timeout")); }, 5000); });
     return Promise.race([load, timeout]);
@@ -134,7 +139,18 @@
   }
 
   // ---------- 사진 줄 ----------
+  // 사진 주소는 1시간짜리 서명 주소라, 홈 화면 앱을 오래 열어 두면 만료된다. 50분 넘었으면 새 주소를 받는다.
+  var FRESH_MS = 50 * 60 * 1000;
   function showStrip(photos) {
+    if (!photos.length || Date.now() - state.loadedAt < FRESH_MS) return renderStrip(photos);
+    getJSON(root.dataset.dataUrl).then(function (data) {
+      var fresh = {};
+      data.photos.forEach(function (p) { fresh[p.id] = p.src; });
+      state.all.forEach(function (p) { if (fresh[p.id]) p.src = fresh[p.id]; });
+      state.loadedAt = Date.now();
+    }).catch(function () {}).then(function () { renderStrip(photos); });
+  }
+  function renderStrip(photos) {
     strip.innerHTML = "";
     photos.slice().sort(function (a, b) { return a.taken < b.taken ? -1 : 1; }).forEach(function (p) {
       var a = document.createElement("a");
@@ -187,8 +203,11 @@
     });
     map.addLayer(cluster);
     var view = { setFocus: function (lat, lng) { map.setView([lat, lng], 15); }, resize: function () { map.invalidateSize(); } };
-    fit(view, scope, focus, function (bounds) { map.fitBounds(bounds, { padding: [24, 24], maxZoom: 13 }); },
-      function () { scope === "kr" ? map.setView([36.4, 127.8], 6) : map.setView([25, 10], 2); });
+    view.refit = function () {
+      fit(view, scope, focus, function (bounds) { map.fitBounds(bounds, { padding: [24, 24], maxZoom: 13 }); },
+        function () { scope === "kr" ? map.setView([36.4, 127.8], 6) : map.setView([25, 10], 2); });
+    };
+    view.refit();
     return view;
   }
 
@@ -233,12 +252,15 @@
       setFocus: function (lat, lng) { map.setLevel(3); map.setCenter(new kakao.maps.LatLng(lat, lng)); },
       resize: function () { map.relayout(); },
     };
-    fit(view, scope, focus, function (pts) {
-      var b = new kakao.maps.LatLngBounds();
-      pts.forEach(function (p) { b.extend(new kakao.maps.LatLng(p[0], p[1])); });
-      map.setBounds(b, 24, 24, 24, 24);
-      if (map.getLevel() < 5) map.setLevel(5);
-    }, function () { map.setLevel(13); });
+    view.refit = function () {
+      fit(view, scope, focus, function (pts) {
+        var b = new kakao.maps.LatLngBounds();
+        pts.forEach(function (p) { b.extend(new kakao.maps.LatLng(p[0], p[1])); });
+        map.setBounds(b, 24, 24, 24, 24);
+        if (map.getLevel() < 5) map.setLevel(5);
+      }, function () { map.setLevel(13); });
+    };
+    view.refit();
     return view;
   }
 
@@ -274,8 +296,11 @@
       } else {
         state.drawn[scope] = drawLeaflet(pane, scope, focus);
       }
+      // 불러오는 사이 다른 탭으로 옮겨 칸이 숨어 있었다면, 크기가 0 이라 맞추기가 틀린다 → 보일 때 다시
+      if (!root.offsetWidth) state.needsRefit[scope] = true;
     } else {
       state.drawn[scope].resize();
+      if (state.needsRefit[scope]) { state.needsRefit[scope] = false; state.drawn[scope].refit(); }
       if (focus && focus.scope === scope) state.drawn[scope].setFocus(focus.lat, focus.lng);
     }
   }
@@ -310,6 +335,8 @@
     ]).then(function (r) {
       state.kakao = r[5];
       var photos = r[0].photos;
+      state.all = photos;
+      state.loadedAt = Date.now();
       if (!photos.length) {
         scopeBox.hidden = true; canvas.hidden = true; summary.hidden = true;
         empty.hidden = false;
@@ -329,7 +356,11 @@
       var first = focus ? focus.scope : state.groups.kr.length ? "kr" : "world";
       show(first, focus);
     }).catch(function () {
-      summary.textContent = "지도를 불러오지 못했어요. 잠시 뒤 다시 열어 볼까요?";
+      // 처음 상태로 되돌려, 지도 칸을 다시 누르면 처음부터 다시 불러온다
+      started = false;
+      Object.keys(state.panes).forEach(function (k) { state.panes[k].remove(); });
+      state.panes = {};
+      summary.textContent = "지도를 불러오지 못했어요. 인터넷 연결을 확인하고 지도 칸을 다시 눌러 주세요.";
     });
   }
 
@@ -340,7 +371,12 @@
   if (tab) tab.addEventListener("click", function () {
     start();
     // 숨어 있던 칸이 보이게 된 뒤 지도 크기를 다시 잰다
-    setTimeout(function () { if (state.drawn[state.scope]) state.drawn[state.scope].resize(); }, 50);
+    setTimeout(function () {
+      var view = state.drawn[state.scope];
+      if (!view) return;
+      view.resize();
+      if (state.needsRefit[state.scope]) { state.needsRefit[state.scope] = false; view.refit(); }
+    }, 50);
   });
   if (root.classList.contains("on")) start();
 })();
