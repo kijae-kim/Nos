@@ -95,7 +95,7 @@ class TasteForm(forms.ModelForm):
         fields = ["category", "title", "link", "comment", "image"]
         widgets = {
             "category": forms.RadioSelect,
-            "title": forms.TextInput(attrs={"placeholder": "곡 제목, 영화 제목, 장소 이름"}),
+            "title": forms.TextInput(attrs={"placeholder": "영화 제목, 곡 제목, 책 이름"}),
             "link": forms.URLInput(attrs={"placeholder": "유튜브·스포티파이·지도 링크를 붙여 넣어 보세요", "inputmode": "url", "data-link-preview": "/tastes/preview/"}),
             "comment": forms.Textarea(attrs={"rows": 3, "placeholder": "왜 좋았는지 한마디 남겨 보세요"}),
         }
