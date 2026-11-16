@@ -201,6 +201,8 @@ VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
 VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
 VAPID_SUBJECT = os.getenv("VAPID_SUBJECT", "")
 WEBPUSH_ENABLED = bool(VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY and VAPID_SUBJECT)
+# 사진 지도의 국내 지도 (카카오맵). 카카오 앱의 JavaScript 키. 없으면 국내도 Leaflet 으로 그린다 (static/js/map.js).
+KAKAO_JS_KEY = os.getenv("KAKAO_JS_KEY", "")
 # Vercel Cron 이 /cron/anniversaries/ 를 부를 때 붙여 보내는 비밀 값. 비어 있으면 그 주소는 항상 거절한다.
 CRON_SECRET = os.getenv("CRON_SECRET", "")
 

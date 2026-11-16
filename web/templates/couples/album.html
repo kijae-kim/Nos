@@ -1,5 +1,8 @@
 {% extends "layout_app.html" %}
+{% load static %}
 {% block head_title %}앨범 · {{ APP_NAME }}{% endblock %}
+{# 카카오맵은 등록 도메인을 Referer 로 확인한다. 이 화면만 바깥 요청에 출처(도메인)만 보낸다 — 주소·좌표는 안 보낸다 #}
+{% block extra_head %}<meta name="referrer" content="strict-origin-when-cross-origin">{% endblock %}
 {% block header %}
 <header class="row-between">
   <div>
@@ -20,13 +23,14 @@
   </a>
 {% endif %}
 
-<div class="segment two" data-tabs>
-  <i class="thumb"></i>
-  <button type="button" class="on" data-target="album-photos">전체 사진</button>
+<div class="segment three" data-tabs>
+  <i class="thumb"{% if map_view %} style="transform: translateX(200%)"{% endif %}></i>
+  <button type="button"{% if not map_view %} class="on"{% endif %} data-target="album-photos">전체 사진</button>
   <button type="button" data-target="album-albums">앨범</button>
+  <button type="button"{% if map_view %} class="on"{% endif %} data-target="album-map">지도</button>
 </div>
 
-<section class="view on" id="album-photos">
+<section class="view{% if not map_view %} on{% endif %}" id="album-photos">
   {% for g in photo_groups %}
     <h3 class="month-label">{{ g.month }}</h3>
     <div class="photos">
@@ -57,4 +61,19 @@
   <a class="btn primary" href="{% url 'photo_create' %}">사진 올리기</a>
 </section>
 
+{# 사진 지도: static/js/map.js 가 이 칸을 처음 열 때 데이터·지도·경계 파일을 불러와 그린다 #}
+<section class="view{% if map_view %} on{% endif %}" id="album-map" data-photo-map
+  data-data-url="{% url 'album_map_data' %}" data-kakao-key="{{ kakao_js_key }}"
+  data-geo-kr="{% static 'geo/kr-municipalities-2018.topo.json' %}" data-geo-world="{% static 'geo/world-countries-50m.topo.json' %}">
+  <div class="segment two map-scope" role="tablist" aria-label="국내와 해외">
+    <i class="thumb"></i>
+    <button type="button" class="on" data-map-scope="kr">국내</button>
+    <button type="button" data-map-scope="world">해외</button>
+  </div>
+  <p class="map-summary muted" data-map-summary aria-live="polite">지도를 불러오고 있어요…</p>
+  <div class="map-canvas card" data-map-canvas></div>
+  <div class="map-strip" data-map-strip hidden></div>
+  <p class="empty" data-map-empty hidden>위치가 있는 사진이 아직 없어요. 사진을 올릴 때 촬영 위치가 함께 저장돼요.</p>
+</section>
+<script src="{% static 'js/map.js' %}" defer></script>
 {% endblock %}

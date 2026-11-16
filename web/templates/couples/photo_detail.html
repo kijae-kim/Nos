@@ -17,6 +17,11 @@
     {% if photo.album %}<a href="{% url 'album_detail' photo.album.pk %}">{{ photo.album.title }}</a>{% else %}앨범 없음{% endif %}
     · {{ photo.shot_date|date:"Y. n. j." }} · {{ photo.uploaded_by.display_name }}
   </p>
+  {% if photo.has_location %}
+    <a class="add-link" href="{% url 'albums' %}?view=map&amp;focus={{ photo.latitude|stringformat:'s' }},{{ photo.longitude|stringformat:'s' }}"><svg class="i"><use href="#i-pin"/></svg>지도에서 보기</a>
+  {% else %}
+    <small class="muted">위치 없음</small>
+  {% endif %}
 </article>
 <div class="action-row">
   <a class="btn" href="{% url 'photo_update' photo.pk %}">고치기</a>

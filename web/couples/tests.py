@@ -983,3 +983,177 @@ class LoginRequiredTests(TestCase):
         res = self.client.get(reverse("albums"))
         self.assertEqual(res.status_code, 302)
         self.assertIn(reverse("account_login"), res["Location"])
+
+
+def gps_jpeg(name="gps.jpg", with_gps=True, size=8):
+    """성수(37°32'40.2"N, 127°03'21.6"E = 37.5445, 127.056) 촬영 위치가 든 시험용 JPEG."""
+    from io import BytesIO
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from PIL import Image
+    from PIL.TiffImagePlugin import IFDRational as R
+
+    exif = Image.Exif()
+    if with_gps:
+        exif[0x8825] = {1: "N", 2: (R(37), R(32), R(402, 10)), 3: "E", 4: (R(127), R(3), R(216, 10))}
+    buffer = BytesIO()
+    Image.new("RGB", (size, size), (200, 120, 90)).save(buffer, "JPEG", exif=exif)
+    return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/jpeg")
+
+
+class PhotoLocationTests(TestCase):
+    """사진 촬영 위치 저장 (couples/geo.py)."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def test_clean_coords(self):
+        from .geo import clean_coords
+
+        self.assertEqual(clean_coords("37.5", "127.0"), (37.5, 127.0))
+        for bad in [(91, 0), ("37.5", ""), (0, 0), ("abc", "1"), (None, None), ("37", "181")]:
+            self.assertIsNone(clean_coords(*bad), bad)
+
+    def test_gps_from_jpeg(self):
+        from .geo import gps_from_image
+
+        lat, lng = gps_from_image(gps_jpeg())
+        self.assertAlmostEqual(lat, 37.5445, places=4)
+        self.assertAlmostEqual(lng, 127.056, places=4)
+
+    def test_gps_from_broken_or_png(self):
+        from io import BytesIO
+
+        from .geo import gps_from_image
+
+        self.assertIsNone(gps_from_image(self.png()))
+        self.assertIsNone(gps_from_image(BytesIO(b"")))
+        self.assertIsNone(gps_from_image(BytesIO(b"not an image")))
+        self.assertIsNone(gps_from_image(gps_jpeg(with_gps=False)))
+
+    def upload(self, image, **extra):
+        self.client.post(reverse("photo_create"), {"image": image, **extra})
+        return Photo.objects.latest("pk")
+
+    def test_upload_uses_form_coords_first(self):
+        photo = self.upload(gps_jpeg(), latitude="35.1", longitude="129.0")
+        self.assertEqual((photo.latitude, photo.longitude), (35.1, 129.0))
+        self.assertTrue(photo.has_location)
+
+    def test_upload_falls_back_to_exif(self):
+        photo = self.upload(gps_jpeg())
+        self.assertAlmostEqual(photo.latitude, 37.5445, places=4)
+        self.assertAlmostEqual(photo.longitude, 127.056, places=4)
+
+    def test_upload_bad_form_coords_fall_back_to_exif(self):
+        photo = self.upload(gps_jpeg(), latitude="0", longitude="0")
+        self.assertAlmostEqual(photo.latitude, 37.5445, places=4)
+
+    def test_upload_without_location_succeeds(self):
+        photo = self.upload(self.png())
+        self.assertIsNone(photo.latitude)
+        self.assertIsNone(photo.longitude)
+        self.assertFalse(photo.has_location)
+
+    def test_edit_without_new_file_keeps_location(self):
+        photo = self.upload(gps_jpeg())
+        self.client.post(reverse("photo_update", args=[photo.pk]), {"caption": "한마디만", "latitude": "", "longitude": ""})
+        photo.refresh_from_db()
+        self.assertEqual(photo.caption, "한마디만")
+        self.assertAlmostEqual(photo.latitude, 37.5445, places=4)
+
+
+class FillLocationsCommandTests(TestCase):
+    """이미 올린 사진의 위치 채우기 (fill_photo_locations)."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def make(self, image, **fields):
+        return Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=image, **fields)
+
+    def run_command(self, *args):
+        import io
+
+        from django.core.management import call_command
+
+        out = io.StringIO()
+        call_command("fill_photo_locations", *args, stdout=out)
+        return out.getvalue().strip().splitlines()[-1]
+
+    def test_dry_run_and_fill(self):
+        gps = self.make(gps_jpeg())
+        plain = self.make(self.png())
+        known = self.make(gps_jpeg(name="known.jpg"), latitude=35.0, longitude=129.0)
+
+        self.assertEqual(self.run_command("--dry-run"), "(시험) 위치를 찾은 사진 1장 / 살펴본 사진 2장")
+        gps.refresh_from_db()
+        self.assertIsNone(gps.latitude)
+
+        self.assertEqual(self.run_command(), "위치를 찾은 사진 1장 / 살펴본 사진 2장")
+        gps.refresh_from_db(); plain.refresh_from_db(); known.refresh_from_db()
+        self.assertAlmostEqual(gps.latitude, 37.5445, places=4)
+        self.assertIsNone(plain.latitude)
+        self.assertEqual((known.latitude, known.longitude), (35.0, 129.0))
+
+    def test_missing_file_is_skipped(self):
+        photo = self.make(gps_jpeg())
+        photo.image.storage.delete(photo.image.name)
+        self.assertEqual(self.run_command(), "위치를 찾은 사진 0장 / 살펴본 사진 1장")
+
+
+class PhotoMapTests(TestCase):
+    """앨범 지도 칸과 지도 데이터 (/albums/map/data/)."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def make(self, couple=None, user=None, **fields):
+        return Photo.objects.create(
+            couple=couple or self.couple, uploaded_by=user or self.user, image=self.png(), **fields
+        )
+
+    def test_map_data_only_my_located_photos(self):
+        from datetime import date
+
+        a = self.make(latitude=37.5445, longitude=127.056, taken_on=date(2026, 3, 1))
+        b = self.make(latitude=35.6812, longitude=139.7671, taken_on=date(2026, 5, 1))
+        self.make()  # 위치 없음
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("z", password="pw", couple=other)
+        self.make(couple=other, user=stranger, latitude=48.8566, longitude=2.3522)
+
+        data = self.client.get(reverse("album_map_data")).json()["photos"]
+        self.assertEqual([p["id"] for p in data], [a.pk, b.pk])
+        self.assertEqual(set(data[0]), {"id", "lat", "lng", "src", "taken", "url"})
+        self.assertEqual((data[0]["lat"], data[0]["lng"], data[0]["taken"]), (37.5445, 127.056, "2026-03-01"))
+        self.assertEqual(data[0]["url"], reverse("photo_detail", args=[a.pk]))
+
+    def test_map_data_login_required(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("album_map_data")).status_code, 302)
+
+    def test_album_has_map_tab(self):
+        res = self.client.get(reverse("albums"))
+        for text in ['data-target="album-map"', "data-photo-map", "js/map.js", 'class="segment three"']:
+            self.assertContains(res, text)
+
+    def test_album_view_map_opens_map(self):
+        html = self.client.get(reverse("albums") + "?view=map").content.decode()
+        self.assertIn('<section class="view on" id="album-map"', html)
+        self.assertIn('<section class="view" id="album-photos">', html)
+
+    def test_kakao_key_passed_or_empty(self):
+        with override_settings(KAKAO_JS_KEY="k"):
+            self.assertContains(self.client.get(reverse("albums")), 'data-kakao-key="k"')
+        with override_settings(KAKAO_JS_KEY=""):
+            self.assertContains(self.client.get(reverse("albums")), 'data-kakao-key=""')
+
+    def test_photo_detail_map_link(self):
+        located = self.make(latitude=37.5445, longitude=127.056)
+        plain = self.make()
+        self.assertContains(self.client.get(reverse("photo_detail", args=[located.pk])), "view=map&amp;focus=37.5445,127.056")
+        self.assertContains(self.client.get(reverse("photo_detail", args=[plain.pk])), "위치 없음")

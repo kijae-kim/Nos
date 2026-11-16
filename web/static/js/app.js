@@ -170,6 +170,26 @@
   }
   var sizeText = function (bytes) { return (bytes / 1024 / 1024).toFixed(1) + "MB"; };
 
+  // 촬영 위치 (사진 지도). 줄이면 사진 정보가 지워지므로 줄이기 전에 읽는다.
+  // exifr 은 사진 올리기 화면에만 실린다 (JPEG·HEIC). 못 읽거나 3초 넘게 걸리면 위치 없이 올린다.
+  function readLocation(file) {
+    if (!window.exifr || !file) return Promise.resolve(null);
+    var timeout = new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 3000); });
+    var read = window.exifr.gps(file).then(function (gps) {
+      if (!gps || typeof gps.latitude !== "number" || typeof gps.longitude !== "number") return null;
+      return { lat: gps.latitude, lng: gps.longitude };
+    }).catch(function () { return null; });
+    return Promise.race([read, timeout]);
+  }
+  // 폼의 숨은 위치 칸에 넣는다 (한 장씩 고치는 사진 칸)
+  function setLocationFields(form, loc) {
+    if (!form) return;
+    var lat = form.querySelector('input[name="latitude"]'), lng = form.querySelector('input[name="longitude"]');
+    if (!lat || !lng) return;
+    lat.value = loc ? String(loc.lat) : "";
+    lng.value = loc ? String(loc.lng) : "";
+  }
+
   // 사진 칸: 누르거나 파일을 끌어 놓아 고르고, 고른 사진을 미리 보여 준다
   $$("[data-dropzone]").forEach(function (zone) {
     var input = zone.querySelector('input[type="file"]');
@@ -191,7 +211,10 @@
       busy = true;
       zone.classList.add("working");
       if (hint) hint.textContent = "사진을 준비하는 중…";
-      shrinkImage(file).then(function (ready) {
+      readLocation(file).then(function (loc) {
+        setLocationFields(form, loc);
+        return shrinkImage(file);
+      }).then(function (ready) {
         busy = false;
         zone.classList.remove("working");
         if (ready.size > maxBytes) {
@@ -761,14 +784,16 @@
         if (i >= queue.length || stopped) return finish();
         var item = queue[i];
         setState(item, "work", "준비 중");
-        readTakenDate(item.file).then(function (taken) {
-          return shrinkImage(item.file).then(function (ready) { return { ready: ready, taken: taken }; });
+        Promise.all([readTakenDate(item.file), readLocation(item.file)]).then(function (meta) {
+          return shrinkImage(item.file).then(function (ready) { return { ready: ready, taken: meta[0], loc: meta[1] }; });
         }).then(function (r) {
           if (r.ready.size > maxBytes) return { ok: false, error: "사진이 너무 커요 (" + sizeText(r.ready.size) + "). " + sizeText(maxBytes) + " 이하로 골라 주세요." };
           var data = new FormData();
           base.forEach(function (value, key) { data.append(key, value); });
           if (albumId) { data.set("album", albumId); data.delete("new_album"); } // 새 앨범은 첫 장 때 만들어진다
           if (!chosenDate && r.taken) data.set("taken_on", r.taken);
+          data.set("latitude", r.loc ? String(r.loc.lat) : "");
+          data.set("longitude", r.loc ? String(r.loc.lng) : "");
           if (items.length > 1) data.delete("caption");
           data.append("image", r.ready, r.ready.name);
           setState(item, "work", "올리는 중");

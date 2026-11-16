@@ -496,7 +496,33 @@ def album(request):
             "memory": _memory(couple, today),
             "photo_groups": [{"month": m, "photos": ps} for m, ps in by_month.items()],
             "has_photos": bool(photos),
+            "map_view": request.GET.get("view") == "map",
+            "kakao_js_key": settings.KAKAO_JS_KEY,
         },
+    )
+
+
+@login_required
+def album_map_data(request):
+    """지도에 찍을 사진들. 내 커플의 위치 있는 사진만, 찍은 날 순. 사진 주소는 서명 주소다."""
+    photos = (
+        request.user.couple.photos.filter(latitude__isnull=False, longitude__isnull=False)
+        .order_by("taken_on", "created_at", "pk")
+    )
+    return JsonResponse(
+        {
+            "photos": [
+                {
+                    "id": p.pk,
+                    "lat": p.latitude,
+                    "lng": p.longitude,
+                    "src": p.image.url,
+                    "taken": p.shot_date.isoformat(),
+                    "url": reverse("photo_detail", args=[p.pk]),
+                }
+                for p in photos
+            ]
+        }
     )
 
 
