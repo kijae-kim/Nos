@@ -1518,3 +1518,13 @@ class PlacePhotoTests(TestCase):
         data = self.client.get(reverse("place_photo_choices")).json()["photos"]
         self.assertEqual([p["id"] for p in data], [mine.pk])
         self.assertEqual(set(data[0]), {"id", "src", "lat", "lng", "taken"})
+
+
+class PlaceSearchSettingsTests(TestCase):
+    """설정을 덮어쓰지 않은 실제 설정으로도 검색이 오류 없이 돈다 (KAKAO_CLIENT_ID 가 settings 에 있어야 한다)."""
+
+    def test_search_with_real_settings(self):
+        from . import placesearch
+
+        with mock.patch.object(placesearch, "_http_json", return_value=[]):
+            self.assertEqual(placesearch.search("성수"), [])

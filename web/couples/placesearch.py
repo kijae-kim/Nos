@@ -45,7 +45,10 @@ def _kakao(query):
     except Exception:
         return []
     results = []
-    for d in data.get("documents", []):
+    documents = data.get("documents") if isinstance(data, dict) else None  # 모르는 모양이면 결과 없음
+    for d in documents if isinstance(documents, list) else []:
+        if not isinstance(d, dict):
+            continue
         r = _result(d.get("place_name", ""), d.get("road_address_name") or d.get("address_name", ""), d.get("y"), d.get("x"), d.get("place_url", ""), "kakao")
         if r:
             results.append(r)
@@ -66,6 +69,8 @@ def _nominatim(query):
         return []
     results = []
     for d in data if isinstance(data, list) else []:
+        if not isinstance(d, dict):
+            continue
         display = d.get("display_name", "")
         name = d.get("name") or display.split(",")[0].strip()
         r = _result(name, display, d.get("lat"), d.get("lon"), "", "osm")
