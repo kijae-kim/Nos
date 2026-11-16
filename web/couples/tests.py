@@ -935,3 +935,42 @@ class LinkPreviewTests(TestCase):
     def test_preview_needs_login(self):
         self.client.logout()
         self.assertEqual(self.client.get(reverse("taste_link_preview"), {"url": "https://example.com"}).status_code, 302)
+
+
+class EventMemoAndAlbumTabTests(TestCase):
+    """일정 메모, 앨범 첫 화면(전체 사진)."""
+
+    setUp = ScreenTests.setUp
+    event_form = ScreenTests.event_form
+
+    def test_event_memo_saved_shown_and_editable(self):
+        memo = "예약 번호 1234\n우산 챙기기"
+        self.client.post(reverse("event_create"), self.event_form(memo=memo))
+        event = Event.objects.get()
+        self.assertEqual(event.memo, memo)
+        calendar = self.client.get(reverse("calendar"))
+        self.assertContains(calendar, "예약 번호 1234")
+        edit = self.client.get(reverse("event_update", args=[event.pk]))
+        self.assertContains(edit, "예약 번호 1234")
+        self.client.post(reverse("event_update", args=[event.pk]), self.event_form(memo=""))
+        event.refresh_from_db()
+        self.assertEqual(event.memo, "")
+
+    def test_event_memo_too_long_rejected(self):
+        res = self.client.post(reverse("event_create"), self.event_form(memo="가" * 1001))
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(Event.objects.exists())
+
+    def test_event_memo_in_calendar_feed(self):
+        from .ics import build_calendar
+        from .models import CalendarFeed
+
+        self.client.post(reverse("event_create"), self.event_form(memo="우산 챙기기"))
+        feed = CalendarFeed.objects.create(user=self.a)
+        self.assertIn("우산 챙기기", build_calendar(feed))
+
+    def test_album_opens_on_all_photos(self):
+        html = self.client.get(reverse("albums")).content.decode()
+        self.assertIn('<section class="view on" id="album-photos">', html)
+        self.assertIn('<section class="view" id="album-albums">', html)
+        self.assertLess(html.index('data-target="album-photos"'), html.index('data-target="album-albums"'))

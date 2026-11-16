@@ -161,6 +161,10 @@ input:not([type="checkbox"]):not([type="hidden"]), textarea, select {
 }
 input:not([type="checkbox"]):not([type="hidden"]):focus { border-color: var(--primary); }
 input::placeholder { color: var(--faint); }
+/* 여러 줄 글상자는 한 줄 칸보다 크게, 줄 간격을 두고 세로로만 늘릴 수 있게 */
+textarea { height: auto; min-height: 96px; padding: 14px 16px; line-height: 1.5; resize: vertical; }
+textarea:focus { border-color: var(--primary); }
+textarea::placeholder { color: var(--faint); }
 .check { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
 .check input { width: 20px; height: 20px; accent-color: var(--primary); }
 .hint { font-size: 12px; color: var(--muted); }
@@ -510,6 +514,8 @@ a.label-chip:active { transform: scale(.94); }
 .list-sub { font-size: 13px; font-weight: 600; color: var(--muted); padding: 14px 2px 8px; }
 .events .bar { width: 5px; align-self: stretch; min-height: 38px; border-radius: 3px; flex: none; }
 .events .main { flex: 1; display: grid; min-width: 0; gap: 2px; }
+/* 일정 메모 한 줄 미리 보기 (전체는 일정을 열면 보인다) */
+.events .memo { font-size: 12px; font-style: normal; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .events small { font-size: 11px; color: var(--muted); }
 .events strong { font-size: 15px; font-weight: 600; }
 .kind { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: var(--tile); color: var(--muted); margin-left: 6px; vertical-align: 1px; }
