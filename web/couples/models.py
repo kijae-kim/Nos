@@ -96,6 +96,7 @@ class Event(models.Model):
     start_time = models.TimeField("시작", null=True, blank=True)
     end_time = models.TimeField("끝", null=True, blank=True)
     place = models.CharField("장소", max_length=100, blank=True)
+    memo = models.TextField("메모", blank=True)
     color = models.CharField(max_length=10, choices=COLOR_CHOICES, default="sky")
     labels = models.ManyToManyField(Label, blank=True, related_name="events")
     created_at = models.DateTimeField(auto_now_add=True)

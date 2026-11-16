@@ -41,6 +41,7 @@ def save_event(event, couple, data):
     event.start_time = data.get("start_time")
     event.end_time = data.get("end_time")
     event.place = data.get("place", "")
+    event.memo = data.get("memo", "")
     event.scope = data["scope"]
     event.color = data["color"]
     event.save()

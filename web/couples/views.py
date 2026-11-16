@@ -316,6 +316,7 @@ def _event_initial(event):
         "start_time": event.start_time,
         "end_time": event.end_time,
         "place": event.place,
+        "memo": event.memo,
         "scope": event.scope,
         "color": event.color,
     }

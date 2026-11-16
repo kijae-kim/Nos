@@ -69,7 +69,7 @@ def _event_lines(event, stamp):
     lines.append(f"SUMMARY:{escape(title)}")
     if event.place:
         lines.append(f"LOCATION:{escape(event.place)}")
-    notes = []
+    notes = [event.memo] if event.memo else []
     labels = " ".join(label.token for label in event.labels.all())
     if labels:
         notes.append(labels)

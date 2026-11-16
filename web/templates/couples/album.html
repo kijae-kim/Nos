@@ -22,11 +22,25 @@
 
 <div class="segment two" data-tabs>
   <i class="thumb"></i>
-  <button type="button" class="on" data-target="album-albums">앨범</button>
-  <button type="button" data-target="album-photos">전체 사진</button>
+  <button type="button" class="on" data-target="album-photos">전체 사진</button>
+  <button type="button" data-target="album-albums">앨범</button>
 </div>
 
-<section class="view on" id="album-albums">
+<section class="view on" id="album-photos">
+  {% for g in photo_groups %}
+    <h3 class="month-label">{{ g.month }}</h3>
+    <div class="photos">
+      {% for p in g.photos %}
+        <a class="tile" href="{% url 'photo_detail' p.pk %}" aria-label="{{ p.caption|default:'사진' }} 보기"><img src="{{ p.image.url }}" loading="lazy" decoding="async" alt=""></a>
+      {% endfor %}
+    </div>
+  {% empty %}
+    <p class="empty">아직 올린 사진이 없어요.</p>
+  {% endfor %}
+  <a class="btn primary" href="{% url 'photo_create' %}">사진 올리기</a>
+</section>
+
+<section class="view" id="album-albums">
   <div class="albums">
     {% for a in albums %}
       <a class="album" href="{% url 'album_detail' a.pk %}">
@@ -43,16 +57,4 @@
   <a class="btn primary" href="{% url 'photo_create' %}">사진 올리기</a>
 </section>
 
-<section class="view" id="album-photos">
-  {% for g in photo_groups %}
-    <h3 class="month-label">{{ g.month }}</h3>
-    <div class="photos">
-      {% for p in g.photos %}
-        <a class="tile" href="{% url 'photo_detail' p.pk %}" aria-label="{{ p.caption|default:'사진' }} 보기"><img src="{{ p.image.url }}" loading="lazy" decoding="async" alt=""></a>
-      {% endfor %}
-    </div>
-  {% empty %}
-    <p class="empty">아직 올린 사진이 없어요.</p>
-  {% endfor %}
-</section>
 {% endblock %}

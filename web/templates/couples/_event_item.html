@@ -5,6 +5,7 @@
     <span class="main">
       <small>{{ event.date|date:"n. j." }}{% if event.start_time %} · {{ event.start_time|time:"A g:i" }}{% if event.end_time %} – {{ event.end_time|time:"g:i" }}{% endif %}{% else %} · 하루 종일{% endif %}{% if event.place %} · {{ event.place }}{% endif %}</small>
       <strong>{{ event.title }}{% if event.scope == 'personal' %}<span class="kind">개인</span>{% endif %}</strong>
+      {% if event.memo %}<em class="memo">{{ event.memo|truncatechars:60 }}</em>{% endif %}
     </span>
     {% if event.scope == 'shared' %}
       {% if event.created_by_id == user.id %}
