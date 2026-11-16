@@ -1157,3 +1157,71 @@ class PhotoMapTests(TestCase):
         plain = self.make()
         self.assertContains(self.client.get(reverse("photo_detail", args=[located.pk])), "view=map&amp;focus=37.5445,127.056")
         self.assertContains(self.client.get(reverse("photo_detail", args=[plain.pk])), "위치 없음")
+
+
+class PlaceLinkTests(TestCase):
+    """장소 위치와 사진 자동 연결 (couples/places.py). 찍은 위치 기준 200m 안 가장 가까운 장소."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def place(self, lat, lng, couple=None, title="장소"):
+        return Taste.objects.create(
+            couple=couple or self.couple, author=self.user, category=Taste.PLACE, title=title, latitude=lat, longitude=lng
+        )
+
+    def photo(self, lat=None, lng=None, **fields):
+        return Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png(), latitude=lat, longitude=lng, **fields)
+
+    def test_distance(self):
+        from .places import distance_m
+
+        self.assertAlmostEqual(distance_m(37.5445, 127.056, 37.5445, 127.0583), 203, delta=2)
+
+    def test_nearest_and_ties(self):
+        from .places import nearest_place
+
+        a = self.place(37.5445, 127.056, title="A")
+        b = self.place(37.5455, 127.056, title="B")
+        self.assertEqual(nearest_place(self.couple, 37.5450, 127.056), a)  # 거리 같음 → 먼저 만든 것
+        self.assertEqual(nearest_place(self.couple, 37.5460, 127.056), b)
+        self.assertIsNone(nearest_place(self.couple, 37.5445, 127.060))  # 약 350m
+
+    def test_ignores_other_couple_and_moments(self):
+        from .places import nearest_place
+
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("z", password="pw", couple=other)
+        Taste.objects.create(couple=other, author=stranger, category=Taste.PLACE, title="남의 곳", latitude=37.5445, longitude=127.056)
+        Taste.objects.create(couple=self.couple, author=self.user, category="음악", title="노래", latitude=37.5445, longitude=127.056)
+        self.assertIsNone(nearest_place(self.couple, 37.5445, 127.056))
+
+    def test_relink_keeps_manual_and_handles_delete(self):
+        from .places import relink
+
+        a = self.place(37.5445, 127.056, title="A")
+        auto = self.photo(37.5446, 127.056)
+        manual = self.photo(37.5446, 127.056, place=None, place_manual=True)
+        self.assertEqual(relink(self.couple), 1)
+        auto.refresh_from_db(); manual.refresh_from_db()
+        self.assertEqual(auto.place, a)
+        self.assertIsNone(manual.place)
+
+        b = self.place(37.5450, 127.056, title="B")  # 약 44m 떨어진 새 장소
+        a.delete()
+        relink(self.couple)
+        auto.refresh_from_db(); manual.refresh_from_db()
+        self.assertEqual(auto.place, b)
+        self.assertTrue(manual.place_manual)
+        self.assertIsNone(manual.place)
+
+        b.delete()
+        relink(self.couple)
+        auto.refresh_from_db()
+        self.assertIsNone(auto.place)
+
+    def test_upload_links_to_place(self):
+        seongsu = self.place(37.5445, 127.056, title="성수")
+        self.client.post(reverse("photo_create"), {"image": gps_jpeg()})
+        self.assertEqual(Photo.objects.latest("pk").place, seongsu)

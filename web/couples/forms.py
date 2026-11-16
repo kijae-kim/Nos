@@ -5,6 +5,7 @@ from config.fields import TypedDateField
 
 from . import quota
 from .geo import clean_coords, gps_from_image
+from .places import link_photo
 from .models import CODE_LENGTH, COLOR_CHOICES, Album, Photo, Taste, TasteComment
 from .storage import ImageUploadField, delete_file
 
@@ -218,7 +219,12 @@ class PhotoForm(forms.ModelForm):
             # 새 사진이 들어올 때만 위치를 정한다. 사진 정보만 고치면 위치는 그대로.
             coords = clean_coords(self.cleaned_data.get("latitude"), self.cleaned_data.get("longitude")) or gps_from_image(new_file)
             photo.latitude, photo.longitude = coords or (None, None)
+            relink_needed = True
+        else:
+            relink_needed = False
         photo.save()
+        if relink_needed:
+            link_photo(photo)
         if old_name and old_name != photo.image.name:
             delete_file(old_name)
         return photo
