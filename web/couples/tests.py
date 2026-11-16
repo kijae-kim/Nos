@@ -974,3 +974,12 @@ class EventMemoAndAlbumTabTests(TestCase):
         self.assertIn('<section class="view on" id="album-photos">', html)
         self.assertIn('<section class="view" id="album-albums">', html)
         self.assertLess(html.index('data-target="album-photos"'), html.index('data-target="album-albums"'))
+
+
+class LoginRequiredTests(TestCase):
+    """로그인하지 않고 열면 오류 대신 로그인 화면으로."""
+
+    def test_album_redirects_to_login(self):
+        res = self.client.get(reverse("albums"))
+        self.assertEqual(res.status_code, 302)
+        self.assertIn(reverse("account_login"), res["Location"])

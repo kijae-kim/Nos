@@ -478,6 +478,7 @@ def _uploaded_notice(request):
         messages.success(request, f"사진 {int(count)}장을 올렸어요.")
 
 
+@login_required
 def album(request):
     couple = request.user.couple
     _uploaded_notice(request)
