@@ -1102,3 +1102,58 @@ class FillLocationsCommandTests(TestCase):
         photo = self.make(gps_jpeg())
         photo.image.storage.delete(photo.image.name)
         self.assertEqual(self.run_command(), "위치를 찾은 사진 0장 / 살펴본 사진 1장")
+
+
+class PhotoMapTests(TestCase):
+    """앨범 지도 칸과 지도 데이터 (/albums/map/data/)."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def make(self, couple=None, user=None, **fields):
+        return Photo.objects.create(
+            couple=couple or self.couple, uploaded_by=user or self.user, image=self.png(), **fields
+        )
+
+    def test_map_data_only_my_located_photos(self):
+        from datetime import date
+
+        a = self.make(latitude=37.5445, longitude=127.056, taken_on=date(2026, 3, 1))
+        b = self.make(latitude=35.6812, longitude=139.7671, taken_on=date(2026, 5, 1))
+        self.make()  # 위치 없음
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("z", password="pw", couple=other)
+        self.make(couple=other, user=stranger, latitude=48.8566, longitude=2.3522)
+
+        data = self.client.get(reverse("album_map_data")).json()["photos"]
+        self.assertEqual([p["id"] for p in data], [a.pk, b.pk])
+        self.assertEqual(set(data[0]), {"id", "lat", "lng", "src", "taken", "url"})
+        self.assertEqual((data[0]["lat"], data[0]["lng"], data[0]["taken"]), (37.5445, 127.056, "2026-03-01"))
+        self.assertEqual(data[0]["url"], reverse("photo_detail", args=[a.pk]))
+
+    def test_map_data_login_required(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("album_map_data")).status_code, 302)
+
+    def test_album_has_map_tab(self):
+        res = self.client.get(reverse("albums"))
+        for text in ['data-target="album-map"', "data-photo-map", "js/map.js", 'class="segment three"']:
+            self.assertContains(res, text)
+
+    def test_album_view_map_opens_map(self):
+        html = self.client.get(reverse("albums") + "?view=map").content.decode()
+        self.assertIn('<section class="view on" id="album-map"', html)
+        self.assertIn('<section class="view" id="album-photos">', html)
+
+    def test_kakao_key_passed_or_empty(self):
+        with override_settings(KAKAO_JS_KEY="k"):
+            self.assertContains(self.client.get(reverse("albums")), 'data-kakao-key="k"')
+        with override_settings(KAKAO_JS_KEY=""):
+            self.assertContains(self.client.get(reverse("albums")), 'data-kakao-key=""')
+
+    def test_photo_detail_map_link(self):
+        located = self.make(latitude=37.5445, longitude=127.056)
+        plain = self.make()
+        self.assertContains(self.client.get(reverse("photo_detail", args=[located.pk])), "view=map&amp;focus=37.5445,127.056")
+        self.assertContains(self.client.get(reverse("photo_detail", args=[plain.pk])), "위치 없음")

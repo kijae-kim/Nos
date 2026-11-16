@@ -28,6 +28,7 @@ urlpatterns = [
     path("tastes/comments/<int:pk>/delete/", views.taste_comment_delete, name="taste_comment_delete"),
     # 앨범
     path("albums/", views.album, name="albums"),
+    path("albums/map/data/", views.album_map_data, name="album_map_data"),
     path("albums/<int:pk>/", views.album_detail, name="album_detail"),
     path("albums/<int:pk>/delete/", views.album_delete, name="album_delete"),
     path("albums/photos/new/", views.photo_create, name="photo_create"),
