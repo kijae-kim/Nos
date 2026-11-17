@@ -4,6 +4,8 @@
   /* 지도 핀 테두리·그림자 (지도 위라 테마와 상관없이 밝게) */
   --pin-ring: #fff;
   --pin-shadow: 0 2px 6px rgba(0, 0, 0, .3);
+  /* 파스텔 색(목록·이름표 색) 위의 글자: 라이트·다크 모두 진하게 */
+  --on-pastel: #1D2440;
   --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --spring: cubic-bezier(.34, 1.56, .64, 1);
   --ease: cubic-bezier(.3, .7, .2, 1);
@@ -686,7 +688,8 @@ a.label-chip:active { transform: scale(.94); }
 .us-pill .av { width: 28px; height: 28px; border-width: 2px; }
 .us-pill .av + .av { margin-left: -10px; }
 .us-pill svg.i { width: 16px; height: 16px; color: var(--faint); }
-@media (min-width: 900px) { .home-brand { display: none; } .home-head { justify-content: flex-end; } }
+@media (min-width: 900px) { .home-brand { display: none; } .home-head { justify-content: flex-end; } .brand-head { display: none; } }
+.brand-head { margin-bottom: 14px; }
 
 /* ---------- 체크박스는 스위치 모양으로 ---------- */
 .check { justify-content: space-between; cursor: pointer; }
@@ -1025,7 +1028,10 @@ a.label-chip:active { transform: scale(.94); }
 .visit-form { flex: none; }
 .visit-form .chip-btn { padding: 8px 12px; }
 .wish-list-pick { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
-.wish-list-pick .choice { border-left: 4px solid var(--c); }
+/* 목록 칩: 칩 자체가 목록 색. 고르면 진하게, 안 고르면 옅게 (체크 상자는 숨긴다) */
+.wish-list-pick .choice { background: color-mix(in srgb, var(--c) 30%, var(--surface)); color: var(--muted); }
+.wish-list-pick .choice input[type="checkbox"] { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; padding: 0; box-shadow: none; border: 0; }
+.wish-list-pick .choice:has(input:checked) { background: var(--c); color: var(--on-pastel); font-weight: 700; }
 
 /* 끌어서 옮긴 뒤 안내 (캘린더 위쪽) */
 .move-note { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }

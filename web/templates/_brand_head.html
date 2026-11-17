@@ -1,0 +1,5 @@
+{% load people %}{# 위쪽 로고·이름과 우리(프로필) 버튼. 홈과 같은 모양. 넓은 화면은 옆 메뉴에 있으므로 숨긴다 #}
+<header class="row-between home-head brand-head">
+  <a class="home-brand" href="{% url 'home' %}" aria-label="{{ APP_NAME }} 홈"><svg class="logo-boat" aria-hidden="true"><use href="#boat"/></svg>{{ APP_NAME }}</a>
+  <a class="us-pill" href="{% url 'us' %}" aria-label="우리 화면 열기: 프로필, 기념일, 테마, 설정">{% avatar user %}{% if user.partner %}{% avatar user.partner %}{% endif %}우리<svg class="i" aria-hidden="true"><use href="#i-right"/></svg></a>
+</header>

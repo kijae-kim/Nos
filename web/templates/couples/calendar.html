@@ -9,6 +9,7 @@
 {% endif %}
 {# 휴대폰: 달력과 선택한 날의 일정 #}
 <div class="mobile-only">
+  {% include "_brand_head.html" %}
   <header class="row-between cal-head">
     <h1 class="page-title">{{ first|date:"n월" }} <span>{{ first|date:"Y" }}</span></h1>
     <div class="arrows">
