@@ -2261,3 +2261,105 @@ class LabelManageTests(TestCase):
     def test_login_required(self):
         self.client.logout()
         self.assertEqual(self.client.get(reverse("labels")).status_code, 302)
+
+
+class PhotoThumbTests(TestCase):
+    """작은 사진(320px): 만들기·지우기·한도·채우기 명령·앨범 격자."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+
+    def jpeg(self, name="a.jpg", w=600, h=400, gps=True):
+        import io
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        img = Image.new("RGB", (w, h), (200, 80, 60))
+        buf = io.BytesIO()
+        exif = Image.Exif()
+        if gps:
+            exif[0x8825] = {1: "N", 2: (37.0, 32.0, 0.0), 3: "E", 4: (127.0, 3.0, 0.0)}
+            exif[0x010F] = "TestCam"
+        img.save(buf, "JPEG", exif=exif)
+        return SimpleUploadedFile(name, buf.getvalue(), content_type="image/jpeg")
+
+    def upload(self, **kw):
+        self.client.post(reverse("photo_create"), {"image": self.jpeg(**kw)})
+        return Photo.objects.latest("pk")
+
+    def test_upload_makes_small_thumb_without_exif(self):
+        from django.core.files.storage import default_storage
+        from PIL import Image
+
+        p = self.upload()
+        self.assertTrue(p.thumb.name.endswith("-thumb.jpg"))
+        self.assertEqual(p.thumb.name, p.image.name.rsplit(".", 1)[0] + "-thumb.jpg")
+        with default_storage.open(p.thumb.name, "rb") as f:
+            raw = f.read()
+            img = Image.open(f)
+            img.load()
+        self.assertEqual(max(img.size), 320)
+        self.assertEqual(len(img.getexif()), 0)
+        self.assertNotIn(b"TestCam", raw)
+        self.assertEqual(p.thumb_size, len(raw))
+        self.assertEqual(p.thumb_url, p.thumb.url)
+
+    def test_replace_and_delete_remove_thumb(self):
+        from django.core.files.storage import default_storage
+
+        p = self.upload()
+        old = p.thumb.name
+        self.client.post(reverse("photo_update", args=[p.pk]), {"image": self.jpeg("b.jpg"), "caption": ""})
+        p.refresh_from_db()
+        self.assertFalse(default_storage.exists(old))
+        self.assertTrue(default_storage.exists(p.thumb.name))
+        current = p.thumb.name
+        self.client.post(reverse("photo_delete", args=[p.pk]))
+        self.assertFalse(default_storage.exists(current))
+
+    def test_leave_removes_thumbs(self):
+        from django.core.files.storage import default_storage
+
+        p = self.upload()
+        name = p.thumb.name
+        self.client.post(reverse("couple_leave"))
+        self.assertFalse(default_storage.exists(name))
+
+    def test_thumb_failure_keeps_upload(self):
+        from .thumbs import make_thumb
+
+        self.assertIsNone(make_thumb(__import__("io").BytesIO(b"not an image")))
+        with patch("couples.thumbs.make_thumb", return_value=None):
+            p = self.upload()
+        self.assertFalse(p.thumb)
+        self.assertEqual(p.thumb_size, 0)
+        self.assertEqual(p.thumb_url, p.image.url)
+
+    def test_quota_counts_thumbs(self):
+        from . import quota
+
+        p = self.upload()
+        self.assertEqual(quota.used_bytes(self.couple), p.size + p.thumb_size)
+
+    def test_command_fills_missing_thumbs(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        with patch("couples.thumbs.make_thumb", return_value=None):
+            p = self.upload()
+        out = StringIO()
+        call_command("make_photo_thumbs", "--dry-run", stdout=out)
+        p.refresh_from_db()
+        self.assertFalse(p.thumb)
+        self.assertIn("1장", out.getvalue())
+        out = StringIO()
+        call_command("make_photo_thumbs", stdout=out)
+        p.refresh_from_db()
+        self.assertTrue(p.thumb)
+        self.assertIn("만든 1장", out.getvalue())
+
+    def test_album_grid_uses_thumb(self):
+        p = self.upload()
+        self.assertContains(self.client.get(reverse("albums")), p.thumb.url)

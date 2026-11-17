@@ -86,7 +86,12 @@ def leave(request):
         request.user.couple = None
         request.user.save(update_fields=["couple"])
         if not couple.members.exists():
-            for name in list(couple.photos.values_list("image", flat=True)) + list(couple.tastes.values_list("image", flat=True)):
+            names = (
+                list(couple.photos.values_list("image", flat=True))
+                + list(couple.photos.exclude(thumb="").values_list("thumb", flat=True))
+                + list(couple.tastes.values_list("image", flat=True))
+            )
+            for name in names:
                 delete_file(name)
             couple.delete()
     return redirect("couple_connect")
@@ -1016,6 +1021,8 @@ def photo_update(request, pk):
 @require_POST
 def photo_delete(request, pk):
     photo = get_object_or_404(Photo, pk=pk, couple=request.user.couple)
+    if photo.thumb:
+        delete_file(photo.thumb.name)
     photo.image.delete(save=False)
     photo.delete()
     messages.success(request, "사진을 지웠어요.")

@@ -18,13 +18,13 @@ def _sum(queryset, field):
 
 
 def used_bytes(couple=None):
-    """올린 사진과 취향 이미지의 크기 합. couple 을 주면 그 커플 것만."""
+    """올린 사진(작은 사진 포함)과 취향 이미지의 크기 합. couple 을 주면 그 커플 것만."""
     from .models import Photo, Taste
 
     photos, tastes = Photo.objects.all(), Taste.objects.all()
     if couple is not None:
         photos, tastes = photos.filter(couple=couple), tastes.filter(couple=couple)
-    return _sum(photos, "size") + _sum(tastes, "image_size")
+    return _sum(photos, "size") + _sum(photos, "thumb_size") + _sum(tastes, "image_size")
 
 
 def uploads_today(couple):

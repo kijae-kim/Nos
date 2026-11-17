@@ -300,6 +300,9 @@ class Photo(models.Model):
         "Taste", on_delete=models.SET_NULL, null=True, blank=True, related_name="place_photos", limit_choices_to={"category": "장소"}
     )
     # 사용자가 장소를 직접 정했으면 True: 자동 연결이 다시 바꾸지 않는다
+    # 작은 사진(긴 변 320px). 이름은 원본 옆 "-thumb.jpg" (couples/thumbs.py)
+    thumb = models.ImageField(blank=True, max_length=200, editable=False)
+    thumb_size = models.PositiveIntegerField(default=0, editable=False)
     place_manual = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -308,6 +311,11 @@ class Photo(models.Model):
 
     def __str__(self):
         return self.caption or f"사진 {self.pk}"
+
+    @property
+    def thumb_url(self):
+        """작은 사진 주소. 없으면(만들지 못한 사진) 원본."""
+        return self.thumb.url if self.thumb else self.image.url
 
     @property
     def has_location(self):
