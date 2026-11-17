@@ -46,7 +46,7 @@ class Migration(migrations.Migration):
                 ('visited_place', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to='couples.taste')),
             ],
             options={
-                'ordering': [models.OrderBy(models.F('visited_at'), nulls_first=True), '-created_at', '-pk'],
+                'ordering': [models.OrderBy(models.F('visited_at'), descending=True, nulls_first=True), '-created_at', '-pk'],
             },
         ),
         migrations.AddConstraint(

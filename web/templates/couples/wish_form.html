@@ -4,7 +4,7 @@
 {% block extra_head %}<meta name="referrer" content="strict-origin-when-cross-origin">{% endblock %}
 {% block header %}
 <header class="row-between bar-head">
-  <a class="circle" href="{% url 'wishes' %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <a class="circle" href="{{ back_url }}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
   <h1 class="bar-title">{% if wish %}가고 싶은 곳 고치기{% else %}가고 싶은 곳 저장{% endif %}</h1>
   <span class="spacer"></span>
 </header>

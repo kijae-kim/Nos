@@ -877,7 +877,8 @@ a.label-chip:active { transform: scale(.94); }
 .icon-btn { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: var(--tile); color: var(--muted); }
 .icon-btn svg.i { width: 20px; height: 20px; }
 .icon-btn.on { background: var(--primary); color: #fff; }
-.map-under { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
+.map-under { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
+.map-under .overlay-chip { margin-left: auto; }
 .map-summary { font-size: 13px; margin: 0 2px; }
 .overlay-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); padding: 6px 12px; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow); cursor: pointer; }
 .overlay-chip input { width: 16px; height: 16px; accent-color: var(--primary); }

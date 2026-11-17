@@ -343,7 +343,7 @@ class WishPlace(models.Model):
     visited_place = models.ForeignKey("Taste", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     class Meta:
-        ordering = [models.F("visited_at").asc(nulls_first=True), "-created_at", "-pk"]
+        ordering = [models.F("visited_at").desc(nulls_first=True), "-created_at", "-pk"]
 
     def __str__(self):
         return self.name

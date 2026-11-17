@@ -412,8 +412,17 @@ def wishes(request):
     )
 
 
+def _wish_back(request):
+    """돌아갈 곳: 기록 지도 겹쳐 보기에서 왔으면(?from=record) 기록 탭, 아니면 가고 싶은 곳 화면."""
+    if request.GET.get("from") == "record":
+        return f"{reverse('tastes')}?tab=record"
+    return reverse("wishes")
+
+
 def _wish_form_page(request, form, wish):
-    return render(request, "couples/wish_form.html", {"form": form, "wish": wish, "kakao_js_key": settings.KAKAO_JS_KEY})
+    return render(request, "couples/wish_form.html", {
+        "form": form, "wish": wish, "kakao_js_key": settings.KAKAO_JS_KEY, "back_url": _wish_back(request),
+    })
 
 
 @login_required
@@ -433,7 +442,7 @@ def wish_update(request, pk):
     if request.method == "POST" and form.is_valid():
         form.save_for(request.user.couple, request.user)
         messages.success(request, "고쳤어요.")
-        return redirect("wishes")
+        return redirect(_wish_back(request))
     return _wish_form_page(request, form, wish)
 
 

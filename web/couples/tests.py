@@ -1719,6 +1719,33 @@ class WishlistTests(TestCase):
         self.assertIn("갈 곳", html)
         self.assertNotIn("다른 곳", html)
 
+    def test_edit_from_record_map_goes_back_there(self):
+        """기록 지도 겹쳐 보기에서 들어온 고치기 화면은 기록 탭으로 돌아간다."""
+        from .models import WishPlace
+
+        w = WishPlace.objects.create(couple=self.couple, name="성수 카페", latitude=37.5, longitude=127)
+        back = reverse("tastes") + "?tab=record"
+        url = reverse("wish_update", args=[w.pk])
+        self.assertContains(self.client.get(url + "?from=record"), f'href="{back}"')
+        self.assertNotContains(self.client.get(url), f'href="{back}"')
+        self.assertRedirects(self.client.post(url + "?from=record", self.wish_data()), back, fetch_redirect_response=False)
+        self.assertRedirects(self.client.post(url + "?from=evil", self.wish_data()), reverse("wishes"))
+
+    def test_recent_visits_first(self):
+        """다녀온 곳끼리는 최근에 다녀온 곳이 먼저."""
+        from datetime import timedelta
+
+        from django.utils import timezone as tz
+
+        from .models import WishPlace
+
+        now = tz.now()
+        WishPlace.objects.create(couple=self.couple, name="예전에 간 곳", latitude=37.5, longitude=127, visited_at=now - timedelta(days=30))
+        WishPlace.objects.create(couple=self.couple, name="어제 간 곳", latitude=37.5, longitude=127, visited_at=now - timedelta(days=1))
+        WishPlace.objects.create(couple=self.couple, name="아직 갈 곳", latitude=37.5, longitude=127)
+        names = list(WishPlace.objects.values_list("name", flat=True))
+        self.assertEqual(names, ["아직 갈 곳", "어제 간 곳", "예전에 간 곳"])
+
     def test_login_required(self):
         self.client.logout()
         self.assertEqual(self.client.get(reverse("wishes")).status_code, 302)
