@@ -1,10 +1,11 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from django.shortcuts import redirect
+from django.http import Http404, HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .models import User
+from .forms import EMOJIS, ProfileForm
+from .models import COLOR_CHOICES, User
 
 
 @login_required
@@ -35,3 +36,47 @@ def social_login_cancelled(request):
         return redirect("socialaccount_connections")
     messages.info(request, "로그인을 취소했어요.")
     return redirect("account_login")
+
+
+@login_required
+def profile(request):
+    """프로필 바꾸기: 사진·이모지·내 색."""
+    user = request.user
+    partner = user.partner
+    if request.method == "POST":
+        form = ProfileForm(request.POST, request.FILES, partner=partner)
+        if form.is_valid():
+            fields = ["emoji", "color"]
+            user.emoji = form.cleaned_data["emoji"]
+            user.color = form.cleaned_data["color"]
+            if form.avatar_bytes:
+                user.avatar, user.has_avatar = form.avatar_bytes, True
+                user.avatar_version += 1
+                fields += ["avatar", "has_avatar", "avatar_version"]
+            elif form.cleaned_data["remove_photo"] and user.has_avatar:
+                user.avatar, user.has_avatar = None, False
+                fields += ["avatar", "has_avatar"]
+            user.save(update_fields=fields)
+            messages.success(request, "프로필을 바꿨어요.")
+            return redirect("us")
+    else:
+        form = ProfileForm(initial={"emoji": user.emoji, "color": user.color}, partner=partner)
+    return render(request, "accounts/profile.html", {
+        "form": form, "emojis": EMOJIS, "colors": COLOR_CHOICES,
+        "partner_color": partner.color if partner else None,
+        "current_color": form["color"].value() or user.color,
+    })
+
+
+@login_required
+def avatar(request, pk):
+    """프로필 사진. 나와 내 커플 상대만 볼 수 있다. 주소 끝 ?v= 가 바뀌면 새 사진."""
+    me = request.user
+    allowed = pk == me.pk or (me.couple_id and User.objects.filter(pk=pk, couple_id=me.couple_id).exists())
+    if not allowed:
+        raise Http404
+    person = get_object_or_404(User.objects.only("pk", "avatar", "has_avatar"), pk=pk, has_avatar=True)
+    res = HttpResponse(bytes(person.avatar), content_type="image/jpeg")
+    res["Cache-Control"] = "private, max-age=31536000"
+    return res
+

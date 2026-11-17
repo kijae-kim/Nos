@@ -1103,4 +1103,69 @@
 
     refresh();
   }
+
+  // ---------- 프로필 바꾸기 ----------
+  // 사진은 가운데 정사각형 256px JPEG 로 줄여서 보낸다 (서버도 다시 줄이고 촬영 정보를 지운다).
+  var avatarInput = document.querySelector("[data-avatar-input]");
+  if (avatarInput) {
+    var face = document.querySelector("[data-preview-face]");
+    var photoPreview = document.querySelector("[data-preview-photo]");
+    var emojiInput = document.querySelector("[data-emoji-input]");
+    var removePhoto = document.querySelector("[data-remove-photo]");
+    var showFace = function () {
+      var hasPhoto = photoPreview && !photoPreview.hidden;
+      face.hidden = !!hasPhoto;
+      face.textContent = emojiInput.value;
+      face.classList.toggle("emoji", !!emojiInput.value);
+    };
+    avatarInput.addEventListener("change", function () {
+      var file = avatarInput.files && avatarInput.files[0];
+      if (!file) return;
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var side = Math.min(img.naturalWidth, img.naturalHeight);
+        var canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 256;
+        var ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, 256, 256);
+        ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 256, 256);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(function (blob) {
+          if (!blob) return;
+          try {
+            var dt = new DataTransfer();
+            dt.items.add(new File([blob], "avatar.jpg", { type: "image/jpeg" }));
+            avatarInput.files = dt.files; // 줄인 사진으로 바꿔 보낸다
+          } catch (e) { /* 바꿀 수 없는 브라우저는 원본을 보내고 서버가 줄인다 */ }
+          if (!photoPreview) {
+            photoPreview = document.createElement("img");
+            photoPreview.className = "av big";
+            photoPreview.alt = "";
+            face.parentNode.insertBefore(photoPreview, face);
+          }
+          photoPreview.src = canvas.toDataURL("image/jpeg", 0.85);
+          photoPreview.hidden = false;
+          if (removePhoto) removePhoto.checked = false;
+          showFace();
+        }, "image/jpeg", 0.85);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); }; // 못 읽는 사진(HEIC 등)은 그대로 보내 서버가 판단
+      img.src = url;
+    });
+    document.querySelectorAll("[data-emoji]").forEach(function (b) {
+      b.addEventListener("click", function () { emojiInput.value = b.dataset.emoji; showFace(); });
+    });
+    emojiInput.addEventListener("input", showFace);
+    var clear = document.querySelector("[data-emoji-clear]");
+    if (clear) clear.addEventListener("click", function () { emojiInput.value = ""; showFace(); });
+    if (removePhoto) removePhoto.addEventListener("change", function () {
+      if (photoPreview) photoPreview.hidden = removePhoto.checked;
+      showFace();
+    });
+    document.querySelectorAll("[data-color-pick]").forEach(function (r) {
+      r.addEventListener("change", function () { face.style.setProperty("--c", "var(--" + r.value + ")"); });
+    });
+  }
 })();

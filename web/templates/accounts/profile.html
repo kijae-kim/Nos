@@ -1,0 +1,54 @@
+{% extends "layout_app.html" %}
+{% block head_title %}프로필 바꾸기 · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'us' %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">프로필 바꾸기</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="card form-card profile-form">
+  {% csrf_token %}
+  {# 미리 보기: 사진 > 이모지 > 색 (app.js 가 고르는 대로 바꿔 보여 준다) #}
+  <div class="profile-preview" data-profile-preview>
+    {% if user.has_avatar %}<img class="av big" src="{{ user.avatar_url }}" alt="" data-preview-photo>{% endif %}
+    <i class="av big{% if user.emoji %} emoji{% endif %}" style="--c: var(--{{ current_color }})" data-preview-face{% if user.has_avatar %} hidden{% endif %}>{{ user.emoji }}</i>
+  </div>
+
+  <div class="field">
+    <span class="field-label">사진</span>
+    <label class="btn ghost file-btn">사진 고르기{{ form.photo }}</label>
+    {% if user.has_avatar %}<label class="check"><input type="checkbox" name="remove_photo" value="1" data-remove-photo> <span>사진 빼기</span></label>{% endif %}
+    <small>가운데를 동그랗게 잘라 작게 저장해요. 촬영 위치 같은 정보는 지워요.</small>
+    {% for e in form.photo.errors %}<p class="error">{{ e }}</p>{% endfor %}
+  </div>
+
+  <div class="field">
+    <span class="field-label">이모지</span>
+    <div class="emoji-grid" role="group" aria-label="이모지 고르기">
+      {% for e in emojis %}<button type="button" class="emoji-btn" data-emoji="{{ e }}" aria-label="{{ e }} 고르기">{{ e }}</button>{% endfor %}
+    </div>
+    <div class="emoji-row">{{ form.emoji }}<button type="button" class="link-btn" data-emoji-clear>이모지 빼기</button></div>
+    <small>사진이 있으면 사진이 먼저 보여요.</small>
+    {% for e in form.emoji.errors %}<p class="error">{{ e }}</p>{% endfor %}
+  </div>
+
+  <div class="field">
+    <span class="field-label">내 색</span>
+    <div class="choices">
+      {% for value, name in colors %}
+        <label class="choice swatch-choice{% if value == partner_color %} taken{% endif %}">
+          <input type="radio" name="color" value="{{ value }}"{% if value == current_color %} checked{% endif %}{% if value == partner_color %} disabled{% endif %} data-color-pick>
+          <i class="swatch" style="--c: var(--{{ value }})"></i>
+          <span>{{ name }}{% if value == partner_color %} · 상대{% endif %}</span>
+        </label>
+      {% endfor %}
+    </div>
+    <small>일정에 누가 만들었는지 이 색 점으로 보여요.</small>
+    {% for e in form.color.errors %}<p class="error">{{ e }}</p>{% endfor %}
+  </div>
+
+  <button type="submit" class="btn primary">저장</button>
+</form>
+{% endblock %}

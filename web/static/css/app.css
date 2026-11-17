@@ -1023,3 +1023,16 @@ a.label-chip:active { transform: scale(.94); }
 .label-list li a small { margin-left: auto; color: var(--muted); font-size: 12px; }
 .label-list li a .i { width: 16px; height: 16px; color: var(--faint); }
 .label-list .empty-line { padding: 12px 16px; }
+
+/* ---------- 프로필 바꾸기 ---------- */
+.profile-preview { display: grid; place-items: center; padding: 6px 0 2px; }
+.profile-preview .av { margin: 0; }
+.file-btn { position: relative; overflow: hidden; display: inline-grid; place-items: center; }
+.file-btn input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.emoji-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
+.emoji-btn { aspect-ratio: 1; min-height: 36px; border-radius: 12px; background: var(--tile); font-size: 20px; line-height: 1; display: grid; place-items: center; }
+.emoji-btn:active { transform: scale(.92); }
+.emoji-row { display: flex; gap: 8px; align-items: center; }
+.emoji-row input { flex: 1; }
+.choice.taken { opacity: .45; }
+.mini-link { display: block; font-size: 12px; font-weight: 600; color: var(--primary); margin-top: 2px; }

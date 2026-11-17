@@ -11,7 +11,7 @@
 {% block content %}
 <section class="couple card">
   <div class="pair">
-    <figure><i class="av a big"></i><figcaption>{{ user.display_name }}</figcaption></figure>
+    <figure><a href="{% url 'profile' %}" class="profile-link" aria-label="프로필 바꾸기"><i class="av a big"></i></a><figcaption>{{ user.display_name }}<a class="mini-link" href="{% url 'profile' %}">프로필 바꾸기</a></figcaption></figure>
     <div class="link">
       <span></span>
       <svg class="t-boat" width="22" height="24"><use href="#boat"/></svg>
