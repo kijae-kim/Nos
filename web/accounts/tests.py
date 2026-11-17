@@ -205,10 +205,10 @@ class ProfileTests(TestCase):
         self.a.refresh_from_db()
         self.assertTrue(self.a.has_avatar)
         self.assertEqual(self.a.avatar_version, 1)
-        img = Image.open(io.BytesIO(bytes(self.a.avatar)))
+        img = Image.open(io.BytesIO(bytes(self.a.avatar_data.data)))
         self.assertEqual(img.size, (256, 256))
         self.assertEqual(len(img.getexif()), 0)
-        self.assertNotIn(b"TestCam", bytes(self.a.avatar))
+        self.assertNotIn(b"TestCam", bytes(self.a.avatar_data.data))
 
     def test_bad_and_big_photo(self):
         self.assertContains(self.upload(b"hello", name="x.txt"), "이 사진은 열 수 없어요. 다른 사진을 골라 주세요.")
@@ -266,9 +266,71 @@ class ProfileTests(TestCase):
         self.post(emoji="🐰", remove_photo="1")
         self.a.refresh_from_db()
         self.assertFalse(self.a.has_avatar)
-        self.assertIsNone(self.a.avatar)
+        from .models import Avatar
+
+        self.assertFalse(Avatar.objects.filter(user=self.a).exists())
         self.assertEqual(self.a.avatar_url, "")
 
     def test_us_page_links_profile(self):
         self.assertContains(self.client.get(reverse("us")), reverse("profile"))
         self.assertEqual(self.client.get(reverse("profile")).status_code, 200)
+
+
+class AvatarRenderTests(TestCase):
+    """아바타: 사람마다 같은 모습. 일정은 만든 사람 색 점."""
+
+    setUp = ProfileTests.setUp
+
+    def render(self, person, size=""):
+        from django.template import Context, Template
+
+        return Template("{% load people %}{% avatar person size %}").render(Context({"person": person, "size": size}))
+
+    def test_tag_variants(self):
+        self.a.emoji = "🐻"
+        html = self.render(self.a, "big")
+        self.assertIn("🐻", html)
+        self.assertIn("--c: var(--rose)", html)
+        self.assertIn('class="av emoji big"', html)
+        self.assertIn('class="av"', self.render(self.b))
+        self.assertIn("--c: var(--sky)", self.render(self.b))
+        self.assertIn("vacant", self.render(None))
+        self.a.has_avatar, self.a.avatar_version = True, 3
+        html = self.render(self.a)
+        self.assertIn("<img", html)
+        self.assertIn(reverse("avatar", args=[self.a.pk]) + "?v=3", html)
+
+    def test_tag_escapes(self):
+        self.a.emoji = "<b>"
+        self.assertIn("&lt;b&gt;", self.render(self.a))
+
+    def test_screens_use_people_not_relative_colors(self):
+        from couples.models import Event
+
+        Event.objects.create(couple=self.couple, created_by=self.a, title="같이 저녁", date=timezone_today())
+        Event.objects.create(couple=self.couple, created_by=self.b, title="바다 약속", date=timezone_today())
+        for name in ("home", "us", "calendar"):
+            html = self.client.get(reverse(name)).content.decode()
+            self.assertNotRegex(html, r'class="av [ab][ "]', name)
+        cal = self.client.get(reverse("calendar")).content.decode()
+        self.assertIn('class="dot" style="background: var(--rose)"', cal)
+        self.assertIn('class="dot" style="background: var(--sky)"', cal)
+
+    def test_event_list_does_not_load_avatar_bytes(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from couples.models import Event
+
+        Event.objects.create(couple=self.couple, created_by=self.b, title="바다 약속", date=timezone_today())
+        with CaptureQueriesContext(connection) as ctx:
+            self.client.get(reverse("calendar"))
+        event_sql = [q["sql"] for q in ctx if "couples_event" in q["sql"] and "accounts_user" in q["sql"]]
+        self.assertTrue(event_sql)
+        self.assertFalse(any('"avatar"' in sql for sql in event_sql))
+
+
+def timezone_today():
+    from django.utils import timezone
+
+    return timezone.localdate()

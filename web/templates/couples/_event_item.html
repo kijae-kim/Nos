@@ -9,9 +9,9 @@
     </span>
     {% if event.scope == 'shared' %}
       {% if event.created_by_id == user.id %}
-        <span class="by" title="내가 만든 일정"><i class="av a"></i>나</span>
+        <span class="by" title="내가 만든 일정"><i class="dot" style="background: var(--{{ event.created_by.color }})"></i>나</span>
       {% else %}
-        <span class="by" title="{{ event.created_by.display_name }}님이 만든 일정"><i class="av b"></i>{{ event.created_by.display_name|truncatechars:6 }}</span>
+        <span class="by" title="{{ event.created_by.display_name }}님이 만든 일정"><i class="dot" style="background: var(--{{ event.created_by.color }})"></i>{{ event.created_by.display_name|truncatechars:6 }}</span>
       {% endif %}
     {% endif %}
   </a>

@@ -1,4 +1,5 @@
 {% extends "layout_app.html" %}
+{% load people %}
 {% load static %}
 {% block extra_head %}{% if taste.is_place %}<meta name="referrer" content="strict-origin-when-cross-origin">{% endif %}{% endblock %}
 {% block head_title %}{{ taste.title }} · {{ APP_NAME }}{% endblock %}
@@ -81,7 +82,7 @@
     <ul class="comment-list">
       {% for c in comments %}
         <li class="comment-item{% if c.author == user %} mine{% endif %}">
-          <i class="av {% if c.author == user %}a{% else %}b{% endif %}" aria-hidden="true"></i>
+          {% avatar c.author %}
           <div class="bubble">
             <small>{{ c.author.display_name }} · {{ c.created_at|date:"n. j. A g:i" }}</small>
             <p>{{ c.text|linebreaksbr }}</p>

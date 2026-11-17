@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load people %}
 {% block body %}
 {% include "_icons.html" %}
 {% with tab=request.resolver_match.url_name %}
@@ -13,7 +14,7 @@
       <a class="{% if tab == 'albums' %}on{% endif %}" href="{% url 'albums' %}" aria-label="앨범"><svg class="i"><use href="#i-album"/></svg></a>
       <a href="{% url 'anniversary_index' %}" aria-label="기념일"><svg class="i"><use href="#i-gift"/></svg></a>
     </nav>
-    <a class="us" href="{% url 'us' %}" aria-label="우리" title="우리 · 프로필과 설정"><i class="av a"></i><i class="av b"></i></a>
+    <a class="us" href="{% url 'us' %}" aria-label="우리" title="우리 · 프로필과 설정">{% avatar user %}{% if user.couple_id %}{% avatar user.partner %}{% endif %}</a>
   </aside>
 
   <main class="page">

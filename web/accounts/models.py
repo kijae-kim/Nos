@@ -27,7 +27,7 @@ class User(AbstractUser):
     # 프로필: 내 색(일정 만든 사람 점·아바타 바탕), 이모지, 사진(256px JPEG 바이트, DB 에 둔다)
     color = models.CharField("내 색", max_length=10, choices=COLOR_CHOICES, default="sky")
     emoji = models.CharField("이모지", max_length=16, blank=True)
-    avatar = models.BinaryField(null=True, blank=True, editable=False)
+    # 사진 바이트는 Avatar 표에 따로 둔다 (로그인 확인 때마다 사용자 행을 읽으므로)
     has_avatar = models.BooleanField(default=False, editable=False)  # avatar 를 읽지 않고 알기 위해
     avatar_version = models.PositiveIntegerField(default=0, editable=False)
     couple = models.ForeignKey(
@@ -61,3 +61,11 @@ class User(AbstractUser):
         if not self.couple_id:
             return None
         return self.couple.members.exclude(pk=self.pk).first()
+
+
+class Avatar(models.Model):
+    """프로필 사진 256px JPEG 바이트. 사용자 행과 떼어 두어 평소에는 읽지 않는다."""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name="avatar_data")
+    data = models.BinaryField()
+

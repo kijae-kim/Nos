@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from .forms import EMOJIS, ProfileForm
-from .models import COLOR_CHOICES, User
+from .models import COLOR_CHOICES, Avatar, User
 
 
 @login_required
@@ -50,12 +50,14 @@ def profile(request):
             user.emoji = form.cleaned_data["emoji"]
             user.color = form.cleaned_data["color"]
             if form.avatar_bytes:
-                user.avatar, user.has_avatar = form.avatar_bytes, True
+                Avatar.objects.update_or_create(user=user, defaults={"data": form.avatar_bytes})
+                user.has_avatar = True
                 user.avatar_version += 1
-                fields += ["avatar", "has_avatar", "avatar_version"]
+                fields += ["has_avatar", "avatar_version"]
             elif form.cleaned_data["remove_photo"] and user.has_avatar:
-                user.avatar, user.has_avatar = None, False
-                fields += ["avatar", "has_avatar"]
+                Avatar.objects.filter(user=user).delete()
+                user.has_avatar = False
+                fields += ["has_avatar"]
             user.save(update_fields=fields)
             messages.success(request, "프로필을 바꿨어요.")
             return redirect("us")
@@ -75,8 +77,8 @@ def avatar(request, pk):
     allowed = pk == me.pk or (me.couple_id and User.objects.filter(pk=pk, couple_id=me.couple_id).exists())
     if not allowed:
         raise Http404
-    person = get_object_or_404(User.objects.only("pk", "avatar", "has_avatar"), pk=pk, has_avatar=True)
-    res = HttpResponse(bytes(person.avatar), content_type="image/jpeg")
+    photo = get_object_or_404(Avatar, user_id=pk)
+    res = HttpResponse(bytes(photo.data), content_type="image/jpeg")
     res["Cache-Control"] = "private, max-age=31536000"
     return res
 
