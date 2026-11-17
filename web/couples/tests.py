@@ -2531,7 +2531,7 @@ class PhotoPinMinorTests(TestCase):
         call_command("make_photo_thumbs", stdout=out)
         text = out.getvalue()
         self.assertIn("HEIC 1장은 건너뛰어요", text)
-        self.assertIn("저장소:", text)
+        self.assertIn("저장소: FileSystemStorage", text)  # 감싼 이름(DefaultStorage) 말고 실제 저장소
         self.assertIn("만든 0장 · 못 만든 0장", text)
 
     def test_big_non_jpeg_pixels_rejected(self):
