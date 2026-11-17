@@ -17,7 +17,16 @@ class Command(BaseCommand):
         parser.add_argument("--limit", type=int, default=0, help="이번에 만들 최대 장수 (0 = 모두)")
 
     def handle(self, *args, dry_run=False, limit=0, **options):
-        todo = Photo.objects.filter(thumb="").order_by("pk")
+        from django.core.files.storage import default_storage
+        from django.db.models import Q
+
+        # 어느 저장소에 쓰는지 먼저 알려 준다 (운영 R2 가 아니면 원본을 못 찾아 모두 실패한다)
+        self.stdout.write(f"저장소: {type(default_storage).__name__}")
+        heic = Q(image__iendswith=".heic") | Q(image__iendswith=".heif")
+        skipped = Photo.objects.filter(thumb="").filter(heic).count()
+        if skipped:
+            self.stdout.write(f"HEIC {skipped}장은 건너뛰어요 (서버가 열 수 없어요. 화면은 원본을 써요)")
+        todo = Photo.objects.filter(thumb="").exclude(heic).order_by("pk")
         if limit:
             todo = todo[:limit]
         if dry_run:

@@ -196,6 +196,7 @@
       });
     }
     function byDate(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id; }
+    var STRIP_MAX = 60; // 사진 묶음을 눌러도 최근 60장만 줄로 (확대하면 나뉜다)
 
     function showCards(list) {
       cards.innerHTML = "";
@@ -209,7 +210,14 @@
         var head = document.createElement("strong");
         head.textContent = "사진 " + photos.length + "장";
         box.appendChild(head);
-        box.appendChild(photoStrip(photos.slice().sort(byDate), photos.length));
+        var shown = photos.slice().sort(byDate).slice(-STRIP_MAX);
+        box.appendChild(photoStrip(shown, photos.length));
+        if (photos.length > shown.length) {
+          var note = document.createElement("small");
+          note.className = "muted";
+          note.textContent = "최근 " + STRIP_MAX + "장만 보여요. 지도를 확대하면 나눠 볼 수 있어요.";
+          box.appendChild(note);
+        }
         cards.appendChild(box);
       }
       places.forEach(function (p) {

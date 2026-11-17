@@ -11,7 +11,8 @@ from django.core.files.storage import default_storage
 from PIL import Image, ImageOps
 
 EDGE = 320
-MAX_PIXELS = 80_000_000  # 화소가 너무 많은 사진은 풀지 않는다 (서버 메모리)
+MAX_PIXELS = 80_000_000  # 화소가 너무 많은 사진은 풀지 않는다 (서버 메모리). JPEG 는 작게 풀 수 있어 넉넉히
+MAX_PIXELS_OTHER = 40_000_000  # PNG 등은 전부 풀어야 하므로 더 낮게
 
 
 def thumb_name(image_name):
@@ -23,7 +24,8 @@ def make_thumb(fileobj):
     try:
         fileobj.seek(0)
         img = Image.open(fileobj)
-        if img.width * img.height > MAX_PIXELS:
+        limit = MAX_PIXELS if img.format == "JPEG" else MAX_PIXELS_OTHER
+        if img.width * img.height > limit:
             return None
         img.draft("RGB", (EDGE * 2, EDGE * 2))  # JPEG 는 작게 풀어 메모리를 아낀다
         img = ImageOps.exif_transpose(img)

@@ -67,8 +67,14 @@ def room_for(couple):
     )
 
 
-def problem(couple, new_bytes, old_bytes=0):
-    """새 파일을 받아도 되면 None, 안 되면 사용자에게 보여 줄 이유."""
+THUMB_ROOM_MAX = 64 * 1024  # 작은 사진(320px)이 차지할 수 있는 자리 (보통 30KB 안팎)
+
+
+def problem(couple, new_bytes, old_bytes=0, with_thumb=False):
+    """새 파일을 받아도 되면 None, 안 되면 사용자에게 보여 줄 이유.
+    with_thumb: 사진처럼 작은 사진이 함께 생기면 그 자리(원본의 절반, 최대 64KB)도 남아 있어야 한다."""
+    if with_thumb:
+        new_bytes += min(new_bytes // 2, THUMB_ROOM_MAX)
     room = room_for(couple)
     if room.uploads_left <= 0:
         return f"오늘은 {settings.MEDIA_UPLOADS_PER_DAY}장까지 올릴 수 있어요. 내일 다시 올려 주세요."

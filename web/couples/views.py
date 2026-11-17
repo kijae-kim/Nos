@@ -610,8 +610,10 @@ def place_photo_strip(request, pk):
     place = get_object_or_404(Taste, pk=pk, couple=request.user.couple, category=Taste.PLACE)
     photos = _photo_day(place.place_photos.all())
     total = photos.count()
+    # 최근 60장을 골라 날짜 순서로 (자주 가는 곳도 최근 방문이 보이게)
+    recent = sorted(photos.order_by("-day", "-pk")[:PLACE_STRIP_MAX], key=lambda p: (p.day, p.pk))
     return JsonResponse({
-        "photos": [_photo_item(p) for p in photos.order_by("day", "pk")[:PLACE_STRIP_MAX]],
+        "photos": [_photo_item(p) for p in recent],
         "total": total,
         "more_url": reverse("taste_detail", args=[place.pk]),
     })

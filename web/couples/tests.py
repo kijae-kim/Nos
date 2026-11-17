@@ -2438,7 +2438,7 @@ class PhotoMapDataTests(TestCase):
         res = self.client.get(reverse("place_photo_strip", args=[pl.pk])).json()
         self.assertEqual(len(res["photos"]), 60)
         self.assertEqual(res["total"], 61)
-        self.assertEqual(res["photos"][0]["date"], "2026-01-01")
+        self.assertEqual(res["photos"][0]["date"], "2026-01-02")  # 최근 60장 (가장 오래된 1장 빠짐), 날짜 순
         self.assertEqual(res["more_url"], reverse("taste_detail", args=[pl.pk]))
         other = self.place(couple=Couple.objects.create())
         self.assertEqual(self.client.get(reverse("place_photo_strip", args=[other.pk])).status_code, 404)
@@ -2507,3 +2507,74 @@ class PhotoPinReviewFixTests(TestCase):
         self.assertEqual(res.status_code, 302)
         p = Photo.objects.get()
         self.assertFalse(p.thumb)
+
+
+class PhotoPinMinorTests(TestCase):
+    """사진 핀 작은 것들."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+
+    def photo(self, **kw):
+        from datetime import date
+
+        kw.setdefault("taken_on", date(2026, 1, 1))
+        return Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=kw.pop("image", "photos/x.jpg"), **kw)
+
+    def test_command_skips_heic_and_names_storage(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        self.photo(image="photos/a.heic")
+        out = StringIO()
+        call_command("make_photo_thumbs", stdout=out)
+        text = out.getvalue()
+        self.assertIn("HEIC 1장은 건너뛰어요", text)
+        self.assertIn("저장소:", text)
+        self.assertIn("만든 0장 · 못 만든 0장", text)
+
+    def test_big_non_jpeg_pixels_rejected(self):
+        import io
+
+        from PIL import Image
+
+        from .thumbs import make_thumb
+
+        buf = io.BytesIO()
+        Image.new("1", (7000, 7000)).save(buf, "PNG")  # 4900만 화소 PNG
+        self.assertIsNone(make_thumb(buf))
+
+    def test_strip_takes_newest_60_in_date_order(self):
+        from datetime import date, timedelta as td
+
+        place = Taste.objects.create(couple=self.couple, author=self.user, category=Taste.PLACE, title="장소", latitude=37.5, longitude=127.0)
+        for i in range(61):
+            self.photo(place=place, taken_on=date(2026, 1, 1) + td(days=i))
+        dates = [p["date"] for p in self.client.get(reverse("place_photo_strip", args=[place.pk])).json()["photos"]]
+        self.assertEqual(dates[0], "2026-01-02")
+        self.assertEqual(dates[-1], (date(2026, 1, 1) + td(days=60)).isoformat())
+        self.assertEqual(dates, sorted(dates))
+
+    def test_cluster_strip_capped(self):
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/map.js").read_text()
+        self.assertIn("STRIP_MAX = 60", js)
+
+    def test_quota_leaves_room_for_thumb(self):
+        from . import quota
+
+        with override_settings(MEDIA_QUOTA_PER_COUPLE_BYTES=1000):
+            self.assertIsNone(quota.problem(self.couple, 100, with_thumb=True))
+            self.assertIsNotNone(quota.problem(self.couple, 1000, with_thumb=True))
+            self.assertIsNone(quota.problem(self.couple, 1000))  # 취향 이미지 등 작은 사진이 없는 파일  # 원본만으로는 딱 맞아도 작은 사진 자리가 없다
+
+    def test_pin_colors_are_tokens(self):
+        from pathlib import Path
+
+        css = (Path(__file__).resolve().parent.parent / "static/css/app.css").read_text()
+        self.assertIn("--pin-ring:", css)
+        for rule in (".photo-pin {", ".wish-pin {", ".map-pin {"):
+            line = next(l for l in css.splitlines() if l.startswith(rule))
+            self.assertNotIn("#fff", line, rule)

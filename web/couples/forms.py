@@ -274,7 +274,7 @@ class PhotoForm(forms.ModelForm):
             self.add_error("new_album", "앨범은 하나만 고를 수 있어요. 새 앨범을 만들거나 기존 앨범을 고르세요.")
         new_file = cleaned.get("image")
         if self.couple is not None and "image" in self.changed_data and new_file:
-            reason = quota.problem(self.couple, new_file.size, self.instance.size if self.instance.pk else 0)
+            reason = quota.problem(self.couple, new_file.size, self.instance.size if self.instance.pk else 0, with_thumb=True)
             if reason:
                 self.add_error("image", reason)
         return cleaned
