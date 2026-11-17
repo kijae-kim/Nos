@@ -18,7 +18,12 @@
 </nav>
 
 {% if tab_name == "record" %}
-{# 기록: 지도(static/js/map.js)와 장소 목록 #}
+{# 기록: 핀 지도(static/js/map.js) · 색칠 지도(static/js/coloring-map.js) 와 장소 목록 #}
+<div class="segment two record-views" role="group" aria-label="지도 보기">
+  <i class="thumb"></i>
+  <button type="button" class="on" data-record-view="pin" aria-pressed="true">핀 지도</button>
+  <button type="button" data-record-view="color" aria-pressed="false">색칠 지도</button>
+</div>
 <section class="record-map" data-record-map
   data-data-url="{% url 'place_map_data' %}" data-kakao-key="{{ kakao_js_key }}"
   data-geo-kr="{% static 'geo/kr-municipalities-2018.topo.json' %}" data-geo-world="{% static 'geo/world-countries-50m.topo.json' %}">
@@ -31,6 +36,27 @@
   <div class="map-canvas card" data-map-canvas></div>
   <div class="map-cards" data-map-card hidden></div>
 </section>
+
+<section class="coloring-map" data-coloring-map hidden
+  data-data-url="{% url 'region_data' %}" data-mark-url="{% url 'region_mark' %}"
+  data-geo-kr="{% static 'geo/kr-municipalities-2018.topo.json' %}" data-geo-seoul="{% static 'geo/seoul-dongs-2013.topo.json' %}">
+  <nav class="color-crumbs" data-crumbs aria-label="지도 단계"></nav>
+  <p class="map-summary muted" data-color-summary aria-live="polite"></p>
+  <div class="color-canvas card"><svg data-color-svg role="group" aria-label="다녀온 곳 색칠 지도"></svg></div>
+  <p class="hint" data-color-note hidden>동 경계는 2013년 기준이라 그 뒤 새로 생긴 동은 옛 동에 칠해질 수 있어요.</p>
+  <div class="region-panel card" data-region-panel hidden aria-live="polite"></div>
+</section>
+{# 마지막에 고른 보기를 지도 스크립트보다 먼저 적용한다 (숨은 칸에서 지도를 그리지 않게) #}
+<script>
+  (function () {
+    var v = null;
+    try { v = localStorage.getItem("nos.recordView"); } catch (e) {}
+    if (v === "color") {
+      document.querySelector("[data-record-map]").hidden = true;
+      document.querySelector("[data-coloring-map]").hidden = false;
+    }
+  })();
+</script>
 
 <a class="btn primary" href="{% url 'taste_create' %}?kind=place">장소 기록하기</a>
 
@@ -49,6 +75,7 @@
   {% endfor %}
 </ul>
 <script src="{% static 'js/map.js' %}" defer></script>
+<script src="{% static 'js/coloring-map.js' %}" defer></script>
 {% else %}
 {# 순간: 태그(영화·음악·영상·책)로 걸러 본다 #}
 <nav class="cats" aria-label="태그">

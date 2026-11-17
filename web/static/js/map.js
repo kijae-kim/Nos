@@ -318,7 +318,18 @@
     }, leaflet).catch(function () { box.hidden = true; });
   }
 
+  // 색칠 지도(coloring-map.js)도 같은 지역 판정 함수를 쓴다
+  window.NosMap.geo = { features: features, contains: contains, find: find, polygonsOf: polygonsOf, topojsonUrl: LIBS.topojson };
+
+  // 기록 지도는 보일 때 그린다 (색칠 지도를 보고 있으면 핀 지도로 바꿀 때 그린다: 숨은 칸에서 그리면 크기가 0)
   var record = document.querySelector("[data-record-map]");
-  if (record) recordMap(record);
+  if (record) {
+    if (!record.hidden) recordMap(record);
+    else document.addEventListener("nos:record-view", function first(e) {
+      if (e.detail !== "pin") return;
+      document.removeEventListener("nos:record-view", first);
+      recordMap(record);
+    });
+  }
   Array.prototype.forEach.call(document.querySelectorAll("[data-mini-map]"), miniMap);
 })();
