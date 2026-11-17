@@ -17,6 +17,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
+from accounts.avatars import fix_color_on_join
 from anniversaries import services as anniversary_services
 
 from . import ics, linkpreview, places, placesearch, quota, services
@@ -72,6 +73,7 @@ def join(request):
             else:
                 request.user.couple = couple
                 request.user.save(update_fields=["couple"])
+                fix_color_on_join(request.user)  # 상대와 같은 색이면 다른 색으로
                 return redirect("home")
     return _render_connect(request, join_form=form)
 

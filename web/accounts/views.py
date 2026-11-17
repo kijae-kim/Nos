@@ -1,10 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from django.shortcuts import redirect
+from django.http import Http404, HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .models import User
+from .avatars import free_color
+from .forms import EMOJIS, ProfileForm
+from .models import COLOR_CHOICES, Avatar, User
 
 
 @login_required
@@ -35,3 +37,57 @@ def social_login_cancelled(request):
         return redirect("socialaccount_connections")
     messages.info(request, "로그인을 취소했어요.")
     return redirect("account_login")
+
+
+@login_required
+def profile(request):
+    """프로필 바꾸기: 사진·이모지·내 색."""
+    user = request.user
+    partner = user.partner
+    if request.method == "POST":
+        form = ProfileForm(request.POST, request.FILES, partner=partner)
+        if form.is_valid():
+            fields = ["emoji", "color"]
+            user.emoji = form.cleaned_data["emoji"]
+            user.color = form.cleaned_data["color"]
+            if form.avatar_bytes:
+                Avatar.objects.update_or_create(user=user, defaults={"data": form.avatar_bytes})
+                user.has_avatar = True
+                user.avatar_version += 1
+                fields += ["has_avatar", "avatar_version"]
+            elif form.cleaned_data["remove_photo"] and user.has_avatar:
+                Avatar.objects.filter(user=user).delete()
+                user.has_avatar = False
+                fields += ["has_avatar"]
+            user.save(update_fields=fields)
+            messages.success(request, "프로필을 바꿨어요.")
+            return redirect("us")
+    else:
+        form = ProfileForm(initial={"emoji": user.emoji, "color": user.color}, partner=partner)
+    partner_color = partner.color if partner else None
+    # 미리 보기·체크할 색: 보낸 값이 올바른 색일 때만 쓰고, 상대 색과 겹치면(동시에 저장한 경우) 남은 색으로
+    current = form["color"].value()
+    if current not in dict(COLOR_CHOICES):
+        current = user.color
+    if current == partner_color:
+        current = free_color(partner_color)
+    return render(request, "accounts/profile.html", {
+        "form": form, "emojis": EMOJIS, "colors": COLOR_CHOICES,
+        "partner_color": partner_color,
+        "current_color": current,
+    })
+
+
+@login_required
+def avatar(request, pk):
+    """프로필 사진. 나와 내 커플 상대만 볼 수 있다. 주소 끝 ?v= 가 바뀌면 새 사진."""
+    me = request.user
+    allowed = pk == me.pk or (me.couple_id and User.objects.filter(pk=pk, couple_id=me.couple_id).exists())
+    if not allowed:
+        raise Http404
+    photo = get_object_or_404(Avatar, user_id=pk)
+    res = HttpResponse(bytes(photo.data), content_type="image/jpeg")
+    # 새 사진은 주소의 ?v= 로 바로 보인다. 하루로 짧게 두어, 연결을 끊은 뒤 옛 사진이 오래 남지 않게
+    res["Cache-Control"] = "private, max-age=86400"
+    return res
+

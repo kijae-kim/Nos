@@ -1,4 +1,5 @@
 {% extends "layout_app.html" %}
+{% load people %}
 {% load socialaccount %}
 {% block head_title %}우리 · {{ APP_NAME }}{% endblock %}
 {% block header %}
@@ -11,7 +12,7 @@
 {% block content %}
 <section class="couple card">
   <div class="pair">
-    <figure><i class="av a big"></i><figcaption>{{ user.display_name }}</figcaption></figure>
+    <figure><a href="{% url 'profile' %}" class="profile-link" aria-label="프로필 바꾸기">{% avatar user "big" %}</a><figcaption>{{ user.display_name }}<a class="mini-link" href="{% url 'profile' %}">프로필 바꾸기</a></figcaption></figure>
     <div class="link">
       <span></span>
       <svg class="t-boat" width="22" height="24"><use href="#boat"/></svg>
@@ -20,7 +21,7 @@
     </div>
     <figure>
       {% if partner %}
-        <i class="av b big"></i><figcaption>{{ partner.display_name }}</figcaption>
+        {% avatar partner "big" %}<figcaption>{{ partner.display_name }}</figcaption>
       {% else %}
         <i class="av big vacant">?</i><figcaption>상대방</figcaption>
       {% endif %}
