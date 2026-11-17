@@ -2451,3 +2451,14 @@ class PhotoMapDataTests(TestCase):
     def test_login_required(self):
         self.client.logout()
         self.assertEqual(self.client.get(reverse("photo_map_data")).status_code, 302)
+
+
+class PhotoPinScreenTests(TestCase):
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+
+    def test_record_tab_has_photo_overlay(self):
+        page = self.client.get(reverse("tastes") + "?tab=record")
+        self.assertContains(page, "data-photo-overlay")
+        self.assertContains(page, f'data-photo-url="{reverse("photo_map_data")}"')
+        self.assertContains(page, "사진도 보기")
