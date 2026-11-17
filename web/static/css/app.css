@@ -926,3 +926,29 @@ a.label-chip:active { transform: scale(.94); }
 .pick-tile input:checked ~ img { opacity: .75; }
 .pick-tile input:focus-visible ~ .pick-mark { outline: 2px solid var(--primary); outline-offset: 2px; }
 .pick-photo-form .btn.primary { margin-top: 16px; }
+
+/* ---------- 색칠 지도 (static/js/coloring-map.js) ---------- */
+.record-views { margin: 10px 0 4px; }
+.record-map[hidden], .coloring-map[hidden], .region-panel[hidden], [data-color-note][hidden] { display: none; }
+.coloring-map { display: grid; gap: 8px; margin-top: 8px; }
+.color-crumbs { font-size: 14px; font-weight: 600; color: var(--muted); }
+.color-crumbs .link-btn { font-size: 14px; }
+.color-canvas { padding: 10px; border-radius: 22px; }
+.color-canvas svg { display: block; width: 100%; height: auto; max-height: 70vh; }
+.color-canvas .region {
+  /* 안 칠한 곳: 글자색을 조금 섞어 라이트·다크 모두 카드 바탕과 구분되게, 경계는 카드 바탕색 선 */
+  fill: color-mix(in srgb, var(--text) 10%, var(--surface)); stroke: var(--surface); stroke-width: 1; vector-effect: non-scaling-stroke;
+  cursor: pointer; transition: fill .2s; outline: none;
+}
+.color-canvas .region.on { fill: color-mix(in srgb, var(--primary) 78%, var(--surface)); }
+.color-canvas .region.sel { stroke: var(--text); stroke-width: 2.5; }
+.color-canvas .region:focus-visible { stroke: var(--primary); stroke-width: 3; }
+.color-canvas .region-labels text {
+  fill: var(--text); font-weight: 600; text-anchor: middle; dominant-baseline: middle; pointer-events: none;
+  paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round;
+}
+.region-panel { display: grid; gap: 6px; padding: 14px 16px; }
+.region-panel small { font-size: 13px; color: var(--muted); }
+.region-panel .region-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.region-panel .chip-btn.on { background: var(--primary); color: #fff; }
+.region-panel .btn { margin: 4px 0 0; }
