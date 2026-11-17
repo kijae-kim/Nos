@@ -1406,7 +1406,7 @@ class MemoriesScreenTests(TestCase):
         Taste.objects.create(couple=other, author=stranger, category="장소", title="남의 곳", latitude=1, longitude=1)
         data = self.client.get(reverse("place_map_data")).json()["places"]
         self.assertEqual([p["id"] for p in data], [mine.pk])
-        self.assertEqual(set(data[0]), {"id", "name", "lat", "lng", "photos", "url", "address"})
+        self.assertEqual(set(data[0]), {"id", "name", "lat", "lng", "photos", "url", "address", "strip"})
         self.client.logout()
         self.assertEqual(self.client.get(reverse("place_map_data")).status_code, 302)
 
