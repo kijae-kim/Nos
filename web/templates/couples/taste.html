@@ -3,6 +3,7 @@
 {% block head_title %}추억 · {{ APP_NAME }}{% endblock %}
 {% block extra_head %}{% if tab_name == "record" %}<meta name="referrer" content="strict-origin-when-cross-origin">{% endif %}{% endblock %}
 {% block header %}
+{% include "_brand_head.html" %}
 <header class="row-between">
   <div>
     <h1 class="page-title">추억</h1>
@@ -68,7 +69,6 @@
   <span class="main"><strong>가고 싶은 곳 · {{ wish_open_count }}곳</strong><small>목록별로 모아 두고 다녀오면 기록으로 옮겨요</small></span>
   <svg class="i chev"><use href="#i-right"/></svg>
 </a>
-<a class="btn primary" href="{% url 'taste_create' %}?kind=place">장소 기록하기</a>
 
 <ul class="place-list">
   {% for p in places %}

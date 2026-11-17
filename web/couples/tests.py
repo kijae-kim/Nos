@@ -2578,3 +2578,32 @@ class PhotoPinMinorTests(TestCase):
         for rule in (".photo-pin {", ".wish-pin {", ".map-pin {"):
             line = next(l for l in css.splitlines() if l.startswith(rule))
             self.assertNotIn("#fff", line, rule)
+
+
+class ScreenTidyTests(TestCase):
+    """화면 정리: 사진 올리기 자리, 위 로고·우리, 장소 기록하기 버튼, 목록 칩."""
+
+    setUp = ScreenTests.setUp
+
+    def test_album_upload_button_in_header_once(self):
+        html = self.client.get(reverse("albums")).content.decode()
+        head = html.split('<h1 class="page-title">앨범</h1>')[1].split("</header>")[0]
+        self.assertIn(reverse("photo_create"), head)  # 사진이 있든 없든 머리의 같은 자리
+        self.assertNotIn(f'<a class="btn primary" href="{reverse("photo_create")}">', html)
+
+    def test_brand_head_on_other_tabs(self):
+        for name in ("tastes", "calendar", "albums"):
+            html = self.client.get(reverse(name)).content.decode()
+            self.assertIn('class="row-between home-head brand-head"', html, name)
+            self.assertIn(reverse("us"), html, name)
+
+    def test_no_place_record_button(self):
+        self.assertNotContains(self.client.get(reverse("tastes") + "?tab=record"), "장소 기록하기")
+
+    def test_wish_list_chip_styles(self):
+        from pathlib import Path
+
+        css = (Path(__file__).resolve().parent.parent / "static/css/app.css").read_text()
+        self.assertIn('.wish-list-pick .choice input[type="checkbox"]', css)
+        self.assertIn(".wish-list-pick .choice:has(input:checked)", css)
+        self.assertNotIn(".wish-list-pick .choice { border-left", css)

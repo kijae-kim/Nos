@@ -2,11 +2,14 @@
 {% load static %}
 {% block head_title %}앨범 · {{ APP_NAME }}{% endblock %}
 {% block header %}
+{% include "_brand_head.html" %}
 <header class="row-between">
   <div>
     <h1 class="page-title">앨범</h1>
     <p class="sub">지나온 장면들</p>
   </div>
+  {# 사진이 있든 없든 같은 자리 #}
+  <a class="add-link" href="{% url 'photo_create' %}"><svg class="i"><use href="#i-plus"/></svg>사진 올리기</a>
 </header>
 {% endblock %}
 {% block content %}
@@ -38,7 +41,6 @@
   {% empty %}
     <p class="empty">아직 올린 사진이 없어요.</p>
   {% endfor %}
-  <a class="btn primary" href="{% url 'photo_create' %}">사진 올리기</a>
 </section>
 
 <section class="view" id="album-albums">
@@ -55,7 +57,6 @@
       <p class="empty wide-empty">앨범은 사진을 올릴 때 함께 만들 수 있어요.</p>
     {% endfor %}
   </div>
-  <a class="btn primary" href="{% url 'photo_create' %}">사진 올리기</a>
 </section>
 
 {% endblock %}
