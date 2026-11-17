@@ -339,7 +339,8 @@ def taste(request):
             .annotate(photo_count=Count("place_photos", distinct=True))
             .order_by(F("latitude").asc(nulls_last=True), "-created_at", "-pk")
         )
-        return render(request, "couples/taste.html", {**common, "places": places})
+        wish_open_count = WishPlace.objects.filter(couple=couple, visited_at__isnull=True).count()
+        return render(request, "couples/taste.html", {**common, "places": places, "wish_open_count": wish_open_count})
 
     partner = user.partner
     category = request.GET.get("cat", "전체")
@@ -442,6 +443,50 @@ def wish_delete(request, pk):
     get_object_or_404(WishPlace, pk=pk, couple=request.user.couple).delete()
     messages.success(request, "가고 싶은 곳에서 지웠어요.")
     return redirect("wishes")
+
+
+@login_required
+@require_POST
+def wish_visited(request, pk):
+    """다녀왔어요: 기록 장소를 만들고 가고 싶은 곳에는 다녀옴으로 남긴다 (커플이 함께 본다).
+    행을 잠가 두 사람이 동시에 눌러도 기록은 하나만 생긴다."""
+    couple = request.user.couple
+    with transaction.atomic():
+        wish = get_object_or_404(WishPlace.objects.select_for_update(), pk=pk, couple=couple)
+        if wish.visited_place_id:
+            return redirect("taste_detail", pk=wish.visited_place_id)
+        place = Taste.objects.create(
+            couple=couple, author=request.user, category=Taste.PLACE, title=wish.name,
+            latitude=wish.latitude, longitude=wish.longitude, address=wish.address,
+            place_url=wish.place_url, link=wish.link,
+        )
+        wish.visited_place = place
+        if wish.visited_at is None:
+            wish.visited_at = timezone.now()
+        wish.save(update_fields=["visited_place", "visited_at"])
+    places.relink(couple)
+    messages.success(request, "기록으로 옮겼어요. 사진은 근처에서 찍은 것이 저절로 모여요.")
+    return redirect("taste_detail", pk=place.pk)
+
+
+@login_required
+def wish_map_data(request):
+    """가고 싶은 곳 지도용. ?list= 로 거르고, ?open=1 이면 아직 안 다녀온 곳만 (기록 지도에 겹쳐 볼 때)."""
+    wishes_qs = request.user.couple.wish_places.prefetch_related("lists")
+    list_id = request.GET.get("list", "")
+    if list_id.isdigit():
+        wishes_qs = wishes_qs.filter(lists__pk=int(list_id))
+    if request.GET.get("open") == "1":
+        wishes_qs = wishes_qs.filter(visited_at__isnull=True)
+    return JsonResponse(
+        {
+            "places": [
+                {"id": w.pk, "name": w.name, "lat": w.latitude, "lng": w.longitude, "color": w.color,
+                 "visited": w.is_visited, "url": reverse("wish_update", args=[w.pk]), "address": w.address, "photos": 0}
+                for w in wishes_qs.distinct()
+            ]
+        }
+    )
 
 
 @login_required

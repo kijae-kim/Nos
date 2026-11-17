@@ -59,6 +59,11 @@
   })();
 </script>
 
+<a class="wish-card card" href="{% url 'wishes' %}">
+  <span class="icon-tile" style="background:var(--rose)"><svg class="i"><use href="#i-heart"/></svg></span>
+  <span class="main"><strong>가고 싶은 곳 · {{ wish_open_count }}곳</strong><small>목록별로 모아 두고 다녀오면 기록으로 옮겨요</small></span>
+  <svg class="i chev"><use href="#i-right"/></svg>
+</a>
 <a class="btn primary" href="{% url 'taste_create' %}?kind=place">장소 기록하기</a>
 
 <ul class="place-list">

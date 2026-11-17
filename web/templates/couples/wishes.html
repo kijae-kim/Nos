@@ -36,7 +36,14 @@
       </a>
       {% if w.is_visited %}
         {% if w.visited_place_id %}<a class="visited-badge" href="{% url 'taste_detail' w.visited_place_id %}"><svg class="i"><use href="#i-check"/></svg>다녀옴</a>
-        {% else %}<span class="visited-badge"><svg class="i"><use href="#i-check"/></svg>다녀옴</span>{% endif %}
+        {% else %}
+          {# 다녀온 기록 장소를 지웠으면 다시 기록할 수 있다 #}
+          <form method="post" action="{% url 'wish_visited' w.pk %}" class="visit-form">{% csrf_token %}<button type="submit" class="chip-btn">다시 기록하기</button></form>
+        {% endif %}
+      {% else %}
+        <form method="post" action="{% url 'wish_visited' w.pk %}" class="visit-form" data-confirm="다녀왔나요? 이 장소를 기록으로 옮길게요." data-confirm-ok="다녀왔어요">
+          {% csrf_token %}<button type="submit" class="chip-btn">다녀왔어요</button>
+        </form>
       {% endif %}
     </li>
   {% empty %}
