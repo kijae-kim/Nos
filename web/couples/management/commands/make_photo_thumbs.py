@@ -17,11 +17,11 @@ class Command(BaseCommand):
         parser.add_argument("--limit", type=int, default=0, help="이번에 만들 최대 장수 (0 = 모두)")
 
     def handle(self, *args, dry_run=False, limit=0, **options):
-        from django.core.files.storage import default_storage
+        from django.core.files.storage import storages
         from django.db.models import Q
 
         # 어느 저장소에 쓰는지 먼저 알려 준다 (운영 R2 가 아니면 원본을 못 찾아 모두 실패한다)
-        self.stdout.write(f"저장소: {type(default_storage).__name__}")
+        self.stdout.write(f"저장소: {type(storages['default']).__name__}")
         heic = Q(image__iendswith=".heic") | Q(image__iendswith=".heif")
         skipped = Photo.objects.filter(thumb="").filter(heic).count()
         if skipped:
