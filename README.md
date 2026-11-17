@@ -194,7 +194,8 @@ Redirect URI 는 주소마다 따로 등록합니다. 끝의 `/` 까지 정확�
 - **사진 연결**: 사진의 **찍은 위치**(올린 곳이 아님)에서 200m 안의 가장 가까운 장소에 저절로 붙습니다. 장소 화면의 "사진 고르기"나 사진 고치기의 "장소" 로 직접 정하면, 그 사진은 자동 연결이 다시 바꾸지 않습니다.
 - **카카오맵 키**: [developers.kakao.com](https://developers.kakao.com) → 앱 › 플랫폼 키 › **JavaScript 키** 의 JavaScript SDK 도메인에 `https://nos-rho-jade.vercel.app`, `http://localhost:8000` 을 넣고, Vercel 환경 변수 `KAKAO_JS_KEY`(Production)에 넣은 뒤 재배포합니다. 로컬에서 시험하려면 `.env` 에도 넣습니다.
 - **사진 위치**: 사진을 올릴 때 브라우저가 줄이기 전에 촬영 위치(EXIF GPS)를 읽어 함께 보냅니다(exifr, JPEG·HEIC). 이미 올린 원본 사진은 `ENV_FILE=.env.neon python web/manage.py fill_photo_locations [--dry-run]` 로 채웁니다(R2 GET, 목록 조회 없음). 채우면 가까운 장소에도 저절로 붙습니다.
-- **색칠 지도**: 기록 탭에서 `핀 지도 · 색칠 지도` 를 바꿔 봅니다. 경계만 그린 지도로 전국 시·군·구 → 서울 구 → 구의 동까지 들어가고, 위치 있는 장소·사진이 있는 지역이 저절로 칠해집니다. 지역을 눌러 `칠하기 / 지우기 / 자동으로` 를 고르면 저장됩니다(`RegionMark`). 동이 칠해지면 그 구도 칠해집니다.
+- **색칠 지도**: 기록 탭 지도 카드 오른쪽 위의 핀/붓 버튼으로 바꿔 봅니다(국내·해외는 왼쪽 위 작은 칩). 경계만 그린 지도로 전국 시·군·구 → 서울 구 → 구의 동까지 들어가고, 위치 있는 장소·사진이 있는 지역이 저절로 칠해집니다. 지역을 눌러 `칠하기 / 지우기 / 자동으로` 를 고르면 저장됩니다(`RegionMark`). 동이 칠해지면 그 구도 칠해집니다.
+- **가고 싶은 곳**: 기록 탭의 `가고 싶은 곳 · N곳` 카드로 들어갑니다. 장소를 검색·지도에서 찍어 저장하고, 두 사람이 만든 목록(여행·맛집·카페…, 목록마다 색)에 넣습니다(`WishList`, `WishPlace`). 한 곳을 여러 목록에 넣을 수 있고 핀은 첫 목록(이름순) 색입니다. `다녀왔어요` 를 누르면 그 장소로 기록 장소를 만들고(근처 사진 자동 연결·색칠 지도 반영), 가고 싶은 곳은 `다녀옴` 으로 남습니다. 두 번 눌러도 기록은 하나이고, 두 사람 모두에게 다녀옴으로 보입니다. 기록 핀 지도 아래 `가고 싶은 곳도 보기` 를 켜면 아직 안 간 곳이 빈 핀으로 겹쳐 보입니다.
 - **데이터 출처** (`web/static/geo/`): 한국 시·군·구 — 통계청(KOSTAT) 2018 센서스용 행정구역경계([southkorea/southkorea-maps](https://github.com/southkorea/southkorea-maps)), 서울 행정동 — 통계청(KOSTAT) 2013([southkorea/seoul-maps](https://github.com/southkorea/seoul-maps), 423개 동, 2013년 이후 바뀐 동은 옛 경계), 세계 나라 — [world-atlas](https://github.com/topojson/world-atlas) 2.0.2 `countries-50m`(ISC, 원본 Natural Earth 퍼블릭 도메인), 지도 타일·해외 검색 — © OpenStreetMap 기여자.
 
 ## 구조
