@@ -14,6 +14,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
 from anniversaries import services as anniversary_services
@@ -179,6 +180,7 @@ def calendar_lanes(week, events):
 
 
 @login_required
+@ensure_csrf_cookie  # 끌어서 옮기기(calendar-drag.js)가 csrftoken 쿠키를 읽는다
 def calendar(request):
     user = request.user
     today = timezone.localdate()
@@ -313,7 +315,7 @@ def label_update(request, pk):
                 for event in label.events.all():
                     event.labels.add(target)
                 label.delete()
-            messages.success(request, f"{target.token} 과 합쳤어요.")
+            messages.success(request, f"{target.token}에 합쳤어요.")  # '에' 는 받침과 상관없이 자연스럽다
         else:
             form.save()
             messages.success(request, "이름표를 고쳤어요.")

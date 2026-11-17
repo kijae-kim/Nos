@@ -2157,7 +2157,7 @@ class LabelManageTests(TestCase):
         only_old = self.event(old)
         both = self.event(old, target)
         res = self.client.post(reverse("label_update", args=[old.pk]), {"name": "성수동", "color": "lav"}, follow=True)
-        self.assertContains(res, "#성수동 과 합쳤어요.")
+        self.assertContains(res, "#성수동에 합쳤어요.")
         self.assertFalse(Label.objects.filter(pk=old.pk).exists())
         target.refresh_from_db()
         self.assertEqual(target.color, "rose")
@@ -2190,6 +2190,22 @@ class LabelManageTests(TestCase):
         lab = self.label("성수")
         self.event(lab)
         self.assertContains(self.client.get(reverse("calendar")), "이름표 관리")
+
+    def test_merge_message_vowel_ending(self):
+        """받침 없는 이름도 어색하지 않게 ('#데이트 과' 가 아니라 '#데이트에')."""
+        old = self.label("데이투")
+        self.label("데이트")
+        res = self.client.post(reverse("label_update", args=[old.pk]), {"name": "데이트", "color": "sky"}, follow=True)
+        self.assertContains(res, "#데이트에 합쳤어요.")
+
+    def test_calendar_sets_csrf_cookie_for_drag(self):
+        """끌어서 옮기기는 csrftoken 쿠키를 읽으므로 캘린더가 쿠키를 꼭 준다."""
+        from django.test import Client
+
+        c = Client(enforce_csrf_checks=True)
+        c.force_login(self.a)
+        res = c.get(reverse("calendar"))
+        self.assertIn("csrftoken", res.cookies)
 
     def test_login_required(self):
         self.client.logout()
