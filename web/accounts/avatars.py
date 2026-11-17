@@ -7,6 +7,7 @@ from .models import COLOR_CHOICES
 
 COLORS = [c for c, _ in COLOR_CHOICES]
 MAX_BYTES = 2 * 1024 * 1024
+MAX_PIXELS = 40_000_000  # 파일은 작아도 화소가 아주 많은 사진은 풀기 전에 거절 (서버 메모리)
 SIZE = 256
 
 
@@ -19,7 +20,16 @@ def clean_avatar(data):
         raise ValueError("too_big")
     try:
         img = Image.open(io.BytesIO(data))
+        if img.width * img.height > MAX_PIXELS:
+            raise ValueError("bad")
+        img.draft("RGB", (SIZE * 2, SIZE * 2))  # JPEG 는 작게 풀어 메모리를 아낀다
         img = ImageOps.exif_transpose(img)  # 돌려 찍은 사진 바로 세우기
+        if img.mode in ("RGBA", "LA", "P"):
+            # 투명한 부분은 흰 바탕으로 (그냥 RGB 로 바꾸면 검게 나온다)
+            img = img.convert("RGBA")
+            base = Image.new("RGB", img.size, (255, 255, 255))
+            base.paste(img, mask=img.getchannel("A"))
+            img = base
         img = ImageOps.fit(img.convert("RGB"), (SIZE, SIZE), Image.LANCZOS)
     except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
         raise ValueError("bad")

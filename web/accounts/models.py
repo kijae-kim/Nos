@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils.functional import cached_property
 
 
 # 커플 앱과 같은 6색 (순환 import 를 피해 여기 둔다. couples.models.COLOR_CHOICES 와 같아야 한다)
@@ -56,11 +57,12 @@ class User(AbstractUser):
 
         return f"{reverse('avatar', args=[self.pk])}?v={self.avatar_version}"
 
-    @property
+    @cached_property
     def partner(self):
         if not self.couple_id:
             return None
-        return self.couple.members.exclude(pk=self.pk).first()
+        # 한 요청 안에서는 한 번만 묻는다 (사이드바 등 여러 곳에서 쓴다)
+        return type(self).objects.filter(couple_id=self.couple_id).exclude(pk=self.pk).first()
 
 
 class Avatar(models.Model):

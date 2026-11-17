@@ -223,7 +223,7 @@ class ProfileTests(TestCase):
         self.assertTrue(url.startswith(reverse("avatar", args=[self.a.pk]) + "?v=1"))
         res = self.client.get(url)
         self.assertEqual((res.status_code, res["Content-Type"]), (200, "image/jpeg"))
-        self.assertIn("max-age=31536000", res["Cache-Control"])
+        self.assertIn("max-age=86400", res["Cache-Control"])
         self.client.force_login(self.b)
         self.assertEqual(self.client.get(url).status_code, 200)
         self.assertEqual(self.client.get(reverse("avatar", args=[self.b.pk])).status_code, 404)  # 사진 없음
@@ -327,7 +327,7 @@ class AvatarRenderTests(TestCase):
             self.client.get(reverse("calendar"))
         event_sql = [q["sql"] for q in ctx if "couples_event" in q["sql"] and "accounts_user" in q["sql"]]
         self.assertTrue(event_sql)
-        self.assertFalse(any('"avatar"' in sql for sql in event_sql))
+        self.assertFalse(any("accounts_avatar" in q["sql"] for q in ctx))
 
 
 def timezone_today():
@@ -357,3 +357,84 @@ class ProfileStyleTests(TestCase):
 
         js = (Path(__file__).resolve().parent.parent / "static/js/app.js").read_text()
         self.assertIn("data-profile-submit", js)
+
+
+class ProfileEdgeTests(TestCase):
+    """프로필 작은 경우들."""
+
+    setUp = ProfileTests.setUp
+    post = ProfileTests.post
+
+    def test_huge_pixel_png_rejected_fast(self):
+        import io
+
+        from PIL import Image
+
+        from .avatars import clean_avatar
+
+        buf = io.BytesIO()
+        Image.new("1", (9000, 9000)).save(buf, "PNG")  # 파일은 작지만 8100만 화소
+        self.assertLess(len(buf.getvalue()), 2 * 1024 * 1024)
+        with self.assertRaisesMessage(ValueError, "bad"):
+            clean_avatar(buf.getvalue())
+
+    def test_transparent_png_gets_white_background(self):
+        import io
+
+        from PIL import Image
+
+        from .avatars import clean_avatar
+
+        buf = io.BytesIO()
+        Image.new("RGBA", (300, 300), (0, 0, 0, 0)).save(buf, "PNG")
+        out = Image.open(io.BytesIO(clean_avatar(buf.getvalue())))
+        self.assertGreater(out.getpixel((128, 128))[0], 240)
+
+    def test_same_color_as_partner_gets_free_initial(self):
+        User.objects.filter(pk=self.a.pk).update(color="sky")  # 동시에 저장해 겹친 경우
+        page = self.client.get(reverse("profile"))
+        self.assertEqual(page.context["current_color"], "rose")
+        self.assertNotContains(page, 'value="sky" checked')
+
+    def test_missing_color_soft_message(self):
+        self.assertContains(self.client.post(reverse("profile"), {"emoji": ""}), "색을 골라 주세요.")
+
+    def test_bad_color_not_in_preview_style(self):
+        res = self.post(color="sky);background:url(x)")
+        self.assertNotContains(res, "background:url(x)")
+
+    def test_partner_cached_per_request(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        user = User.objects.get(pk=self.a.pk)
+        with CaptureQueriesContext(connection) as ctx:
+            user.partner
+            user.partner
+        self.assertEqual(len(ctx), 1)
+
+    def test_emoji_one_grapheme(self):
+        for ok in ("🐻", "☀️", "1️⃣", "🇰🇷", "👩‍❤️‍👨", "👍🏽", "★"):
+            self.post(emoji=ok)
+            self.a.refresh_from_db()
+            self.assertEqual(self.a.emoji, ok, ok)
+        for bad in ("🐻🐰", "가", "a", "🐻 "):
+            res = self.post(emoji=bad)
+            if bad.strip() == "🐻":
+                continue  # 앞뒤 공백은 잘라 낸다
+            self.assertContains(res, "이모지 하나만 넣어 주세요.", msg_prefix=bad)
+
+    def test_color_lists_match(self):
+        from couples.models import COLOR_CHOICES as couple_colors
+
+        from .models import COLOR_CHOICES
+
+        self.assertEqual(COLOR_CHOICES, couple_colors)
+
+    def test_avatar_cache_is_a_day(self):
+        """헤어진 뒤 상대 브라우저에 옛 사진이 오래 남지 않게 (주소의 ?v= 로 새 사진은 바로 보인다)."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        self.client.post(reverse("profile"), {"photo": SimpleUploadedFile("a.jpg", _jpeg(), content_type="image/jpeg"), "color": "rose", "emoji": ""})
+        self.a.refresh_from_db()
+        self.assertIn("max-age=86400", self.client.get(self.a.avatar_url)["Cache-Control"])

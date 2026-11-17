@@ -4,6 +4,7 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from .avatars import free_color
 from .forms import EMOJIS, ProfileForm
 from .models import COLOR_CHOICES, Avatar, User
 
@@ -63,10 +64,17 @@ def profile(request):
             return redirect("us")
     else:
         form = ProfileForm(initial={"emoji": user.emoji, "color": user.color}, partner=partner)
+    partner_color = partner.color if partner else None
+    # 미리 보기·체크할 색: 보낸 값이 올바른 색일 때만 쓰고, 상대 색과 겹치면(동시에 저장한 경우) 남은 색으로
+    current = form["color"].value()
+    if current not in dict(COLOR_CHOICES):
+        current = user.color
+    if current == partner_color:
+        current = free_color(partner_color)
     return render(request, "accounts/profile.html", {
         "form": form, "emojis": EMOJIS, "colors": COLOR_CHOICES,
-        "partner_color": partner.color if partner else None,
-        "current_color": form["color"].value() or user.color,
+        "partner_color": partner_color,
+        "current_color": current,
     })
 
 
@@ -79,6 +87,7 @@ def avatar(request, pk):
         raise Http404
     photo = get_object_or_404(Avatar, user_id=pk)
     res = HttpResponse(bytes(photo.data), content_type="image/jpeg")
-    res["Cache-Control"] = "private, max-age=31536000"
+    # 새 사진은 주소의 ?v= 로 바로 보인다. 하루로 짧게 두어, 연결을 끊은 뒤 옛 사진이 오래 남지 않게
+    res["Cache-Control"] = "private, max-age=86400"
     return res
 
