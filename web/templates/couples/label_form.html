@@ -1,0 +1,25 @@
+{% extends "layout_app.html" %}
+{% block head_title %}{% if label %}이름표 고치기{% else %}새 이름표{% endif %} · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'labels' %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">{% if label %}{{ label.token }} 고치기{% else %}새 이름표{% endif %}</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<form method="post" class="card form-card">
+  {% csrf_token %}
+  {% if form.kind %}{% include "_choices.html" with field=form.kind %}{% endif %}
+  {% include "_field.html" with field=form.name %}
+  {% if label %}<small class="sub">이미 있는 이름으로 바꾸면 두 이름표가 하나로 합쳐져요.</small>{% endif %}
+  {% include "_choices.html" with field=form.color swatch=True %}
+  <button type="submit" class="btn primary">{% if label %}저장{% else %}만들기{% endif %}</button>
+</form>
+{% if label %}
+  <form method="post" action="{% url 'label_delete' label.pk %}" class="danger-form" data-confirm="이 이름표를 지울까요? 일정은 그대로 남아요.">
+    {% csrf_token %}
+    <button type="submit" class="btn danger">이름표 지우기</button>
+  </form>
+{% endif %}
+{% endblock %}

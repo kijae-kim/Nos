@@ -21,9 +21,9 @@ from anniversaries import services as anniversary_services
 from . import ics, linkpreview, places, placesearch, quota, services
 from .storage import MAX_IMAGE_BYTES, delete_file
 from .forms import (
-    AlbumForm, CreateForm, EventForm, JoinForm, MomentForm, PhotoForm, PlaceForm, ProfileForm, TasteCommentForm, WishListForm, WishPlaceForm,
+    AlbumForm, CreateForm, EventForm, JoinForm, LabelForm, MomentForm, PhotoForm, PlaceForm, ProfileForm, TasteCommentForm, WishListForm, WishPlaceForm,
 )
-from .models import Album, CalendarFeed, Couple, Event, Photo, RegionMark, Taste, TasteComment, TasteLike, WishList, WishPlace
+from .models import Album, CalendarFeed, Couple, Event, Label, Photo, RegionMark, Taste, TasteComment, TasteLike, WishList, WishPlace
 
 
 def _render_connect(request, create_form=None, join_form=None):
@@ -269,6 +269,66 @@ def calendar(request):
             "last_move": _last_move(request, today),
         },
     )
+
+
+@login_required
+def labels(request):
+    """이름표 관리: @카테고리와 #태그, 각각 붙은 일정 수 (내가 볼 수 있는 일정만 센다)."""
+    user = request.user
+    all_labels = list(user.couple.labels.all())
+    counts = {l.pk: 0 for l in all_labels}
+    visible = Event.objects.visible_to(user)
+    for row in Label.events.through.objects.filter(event__in=visible, label__in=all_labels).values("label_id").annotate(n=Count("id")):
+        counts[row["label_id"]] = row["n"]
+    for l in all_labels:
+        l.count = counts[l.pk]
+    return render(request, "couples/labels.html", {
+        "categories": [l for l in all_labels if l.kind == Label.CATEGORY],
+        "tags": [l for l in all_labels if l.kind == Label.TAG],
+        "counts": counts,
+    })
+
+
+@login_required
+def label_create(request):
+    form = LabelForm(request.POST or None, couple=request.user.couple)
+    if request.method == "POST" and form.is_valid():
+        label = form.save(commit=False)
+        label.couple = request.user.couple
+        label.save()
+        messages.success(request, f"{label.token} 이름표를 만들었어요.")
+        return redirect("labels")
+    return render(request, "couples/label_form.html", {"form": form, "label": None})
+
+
+@login_required
+def label_update(request, pk):
+    label = get_object_or_404(Label, pk=pk, couple=request.user.couple)
+    form = LabelForm(request.POST or None, instance=label, couple=request.user.couple)
+    if request.method == "POST" and form.is_valid():
+        target = form.merge_into
+        if target:
+            # 같은 이름이 이미 있으면 합친다: 일정을 그 이름표로 옮기고 이것은 지운다 (색은 원래 있던 것)
+            with transaction.atomic():
+                for event in label.events.all():
+                    event.labels.add(target)
+                label.delete()
+            messages.success(request, f"{target.token} 과 합쳤어요.")
+        else:
+            form.save()
+            messages.success(request, "이름표를 고쳤어요.")
+        return redirect("labels")
+    return render(request, "couples/label_form.html", {"form": form, "label": label})
+
+
+@login_required
+@require_POST
+def label_delete(request, pk):
+    """이름표만 지운다. 붙어 있던 일정은 그대로 남는다."""
+    label = get_object_or_404(Label, pk=pk, couple=request.user.couple)
+    label.delete()
+    messages.success(request, "이름표를 지웠어요. 일정은 그대로 남아 있어요.")
+    return redirect("labels")
 
 
 @login_required

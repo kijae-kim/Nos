@@ -2104,3 +2104,93 @@ class EventMoveTests(TestCase):
         e = self.make(timezone.localdate() + timedelta(days=1))
         self.client.logout()
         self.assertEqual(self.move(e, timezone.localdate()).status_code, 302)
+
+
+class LabelManageTests(TestCase):
+    """이름표(@카테고리 #태그) 관리 화면."""
+
+    setUp = ScreenTests.setUp
+    event_form = ScreenTests.event_form
+
+    def label(self, name, kind=Label.TAG, color="sky", couple=None):
+        return Label.objects.create(couple=couple or self.couple, kind=kind, name=name, color=color)
+
+    def event(self, *labels, user=None, scope=Event.SHARED):
+        e = Event.objects.create(couple=self.couple, created_by=user or self.a, title="일정", date=timezone.localdate() + timedelta(days=1), scope=scope)
+        e.labels.add(*labels)
+        return e
+
+    def test_create_without_event_and_list(self):
+        res = self.client.post(reverse("label_create"), {"kind": "tag", "name": "카페", "color": "rose"})
+        self.assertRedirects(res, reverse("labels"))
+        lab = Label.objects.get(name="카페")
+        self.assertEqual((lab.kind, lab.color), (Label.TAG, "rose"))
+        page = self.client.get(reverse("labels"))
+        self.assertContains(page, "#카페")
+        self.assertEqual(page.context["counts"][lab.pk], 0)
+
+    def test_create_duplicate_and_bad_names(self):
+        self.label("카페")
+        res = self.client.post(reverse("label_create"), {"kind": "tag", "name": " 카페 ", "color": "rose"})
+        self.assertContains(res, "이미 있는 이름표예요.")
+        for bad in ("동네 카페", "@카페", "#카페", ""):
+            res = self.client.post(reverse("label_create"), {"kind": "category", "name": bad, "color": "rose"})
+            self.assertEqual(res.status_code, 200, bad)
+        self.assertContains(self.client.post(reverse("label_create"), {"kind": "tag", "name": "동네 카페", "color": "sky"}),
+                            "이름표에는 띄어쓰기와 @·# 를 넣을 수 없어요.")
+        # 종류가 다르면 같은 이름도 된다
+        self.client.post(reverse("label_create"), {"kind": "category", "name": "카페", "color": "sky"})
+        self.assertEqual(Label.objects.filter(name="카페").count(), 2)
+
+    def test_rename_and_recolor_shows_in_event_text(self):
+        lab = self.label("성수")
+        e = self.event(lab)
+        self.client.post(reverse("label_update", args=[lab.pk]), {"name": "성수동", "color": "lav"})
+        lab.refresh_from_db()
+        self.assertEqual((lab.name, lab.color), ("성수동", "lav"))
+        page = self.client.get(reverse("event_update", args=[e.pk]))
+        self.assertIn("#성수동", page.context["form"].initial["text"])
+
+    def test_rename_to_existing_merges(self):
+        old = self.label("성수", color="sky")
+        target = self.label("성수동", color="rose")
+        only_old = self.event(old)
+        both = self.event(old, target)
+        res = self.client.post(reverse("label_update", args=[old.pk]), {"name": "성수동", "color": "lav"}, follow=True)
+        self.assertContains(res, "#성수동 과 합쳤어요.")
+        self.assertFalse(Label.objects.filter(pk=old.pk).exists())
+        target.refresh_from_db()
+        self.assertEqual(target.color, "rose")
+        self.assertEqual(list(only_old.labels.all()), [target])
+        self.assertEqual(list(both.labels.all()), [target])
+
+    def test_delete_keeps_events(self):
+        lab = self.label("성수")
+        e = self.event(lab)
+        self.client.post(reverse("label_delete", args=[lab.pk]))
+        self.assertFalse(Label.objects.filter(pk=lab.pk).exists())
+        self.assertTrue(Event.objects.filter(pk=e.pk).exists())
+        self.assertEqual(e.labels.count(), 0)
+
+    def test_other_couple_404(self):
+        other = Couple.objects.create()
+        lab = self.label("남의것", couple=other)
+        self.assertEqual(self.client.get(reverse("label_update", args=[lab.pk])).status_code, 404)
+        self.assertEqual(self.client.post(reverse("label_delete", args=[lab.pk])).status_code, 404)
+        self.assertNotContains(self.client.get(reverse("labels")), "남의것")
+
+    def test_counts_hide_partner_personal(self):
+        lab = self.label("운동")
+        self.event(lab)
+        self.event(lab, user=self.b, scope=Event.PERSONAL)
+        self.assertEqual(self.client.get(reverse("labels")).context["counts"][lab.pk], 1)
+
+    def test_calendar_links(self):
+        self.assertContains(self.client.get(reverse("calendar")), reverse("labels"))
+        lab = self.label("성수")
+        self.event(lab)
+        self.assertContains(self.client.get(reverse("calendar")), "이름표 관리")
+
+    def test_login_required(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("labels")).status_code, 302)

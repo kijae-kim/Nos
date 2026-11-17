@@ -8,5 +8,8 @@
         <a class="label-chip" style="--c: var(--{{ l.color }})" href="?label={{ l.pk }}">{{ l.token }}</a>
       {% endif %}
     {% endfor %}
+    <a class="label-chip manage" href="{% url 'labels' %}">이름표 관리</a>
   </nav>
+{% else %}
+  <nav class="label-strip" aria-label="이름표"><a class="label-chip manage" href="{% url 'labels' %}">이름표 만들기</a></nav>
 {% endif %}

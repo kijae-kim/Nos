@@ -1,0 +1,33 @@
+{% extends "layout_app.html" %}
+{% block head_title %}이름표 관리 · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'calendar' %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">이름표 관리</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<p class="sub label-help">일정 글에 @카테고리 #태그 를 적으면 저절로 생겨요. 여기서 미리 만들거나 이름·색을 바꿀 수 있어요.</p>
+<section class="label-group">
+  <h2>@ 카테고리</h2>
+  <ul class="label-list card">
+    {% for l in categories %}
+      <li><a href="{% url 'label_update' l.pk %}"><span class="label-chip" style="--c: var(--{{ l.color }})">{{ l.token }}</span><small>일정 {{ l.count }}개</small><svg class="i" aria-hidden="true"><use href="#i-right"/></svg></a></li>
+    {% empty %}
+      <li class="empty-line">아직 카테고리가 없어요</li>
+    {% endfor %}
+  </ul>
+</section>
+<section class="label-group">
+  <h2># 태그</h2>
+  <ul class="label-list card">
+    {% for l in tags %}
+      <li><a href="{% url 'label_update' l.pk %}"><span class="label-chip" style="--c: var(--{{ l.color }})">{{ l.token }}</span><small>일정 {{ l.count }}개</small><svg class="i" aria-hidden="true"><use href="#i-right"/></svg></a></li>
+    {% empty %}
+      <li class="empty-line">아직 태그가 없어요</li>
+    {% endfor %}
+  </ul>
+</section>
+<a class="btn primary" href="{% url 'label_create' %}">새 이름표</a>
+{% endblock %}
