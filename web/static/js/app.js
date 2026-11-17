@@ -1118,9 +1118,17 @@
       face.textContent = emojiInput.value;
       face.classList.toggle("emoji", !!emojiInput.value);
     };
+    // 사진을 줄이는 동안에는 저장을 막는다 (원본이 그대로 가면 "너무 커요" 가 될 수 있다)
+    var submitBtn = document.querySelector("[data-profile-submit]");
+    var busy = function (on) {
+      if (!submitBtn) return;
+      submitBtn.disabled = on;
+      submitBtn.textContent = on ? "사진을 준비하고 있어요…" : "저장";
+    };
     avatarInput.addEventListener("change", function () {
       var file = avatarInput.files && avatarInput.files[0];
       if (!file) return;
+      busy(true);
       var url = URL.createObjectURL(file);
       var img = new Image();
       img.onload = function () {
@@ -1133,6 +1141,7 @@
         ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 256, 256);
         URL.revokeObjectURL(url);
         canvas.toBlob(function (blob) {
+          busy(false);
           if (!blob) return;
           try {
             var dt = new DataTransfer();
@@ -1151,7 +1160,7 @@
           showFace();
         }, "image/jpeg", 0.85);
       };
-      img.onerror = function () { URL.revokeObjectURL(url); }; // 못 읽는 사진(HEIC 등)은 그대로 보내 서버가 판단
+      img.onerror = function () { URL.revokeObjectURL(url); busy(false); }; // 못 읽는 사진(HEIC 등)은 그대로 보내 서버가 판단
       img.src = url;
     });
     document.querySelectorAll("[data-emoji]").forEach(function (b) {

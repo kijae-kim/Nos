@@ -334,3 +334,26 @@ def timezone_today():
     from django.utils import timezone
 
     return timezone.localdate()
+
+
+class ProfileStyleTests(TestCase):
+    """화면이 깨지지 않게 하는 스타일·스크립트 규칙 (브라우저에서도 확인)."""
+
+    def css(self):
+        from pathlib import Path
+
+        return (Path(__file__).resolve().parent.parent / "static/css/app.css").read_text()
+
+    def test_hidden_preview_really_hides(self):
+        self.assertIn(".profile-preview [hidden] { display: none; }", self.css())
+
+    def test_plain_color_avatar_keeps_size_inside_link(self):
+        css = self.css()
+        self.assertIn(".profile-link { display: grid; }", css)
+        self.assertRegex(css, r"\.av \{[^}]*display: inline-block")
+
+    def test_submit_waits_for_photo_shrink(self):
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/app.js").read_text()
+        self.assertIn("data-profile-submit", js)
