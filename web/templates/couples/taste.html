@@ -51,7 +51,8 @@
   (function () {
     var v = null;
     try { v = localStorage.getItem("nos.recordView"); } catch (e) {}
-    if (v === "color") {
+    // "지도에서 보기"(?focus=…)로 왔으면 그 위치를 보여 줘야 하니 핀 지도로
+    if (v === "color" && !/[?&]focus=/.test(location.search)) {
       document.querySelector("[data-record-map]").hidden = true;
       document.querySelector("[data-coloring-map]").hidden = false;
     }

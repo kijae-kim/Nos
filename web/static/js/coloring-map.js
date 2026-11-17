@@ -59,6 +59,22 @@
     return [x / best.length, y / best.length];
   }
 
+  function data_dongGu(map, d) { return map[d.properties.code] || null; }
+  // 다각형 밖의 점: 바깥 고리 꼭짓점까지 가장 가까운 지역 (maxDeg 도 이내만)
+  function nearest(list, lng, lat, maxDeg) {
+    var k = Math.cos(lat * Math.PI / 180), best = null, bestD = maxDeg * maxDeg;
+    list.forEach(function (f) {
+      var b = f.bbox;
+      if (lng < b[0] - maxDeg || lng > b[2] + maxDeg || lat < b[1] - maxDeg || lat > b[3] + maxDeg) return;
+      G.polygonsOf(f.geometry).forEach(function (poly) {
+        poly[0].forEach(function (q) {
+          var dx = (q[0] - lng) * k, dy = q[1] - lat, dd = dx * dx + dy * dy;
+          if (dd < bestD) { bestD = dd; best = f; }
+        });
+      });
+    });
+    return best;
+  }
   function prepare(res) {
     var kr = G.features(res[1]), dongs = G.features(res[2]);
     var seoulGu = kr.filter(function (f) { return isSeoul(f.properties.code); });
@@ -74,13 +90,19 @@
       c[kind] += 1;
     };
     res[0].points.forEach(function (p) {
-      var s = G.find(kr, p.lng, p.lat);
-      if (!s) return; // 해외·바다
-      add("sigungu", String(s.properties.code), p.kind);
-      if (isSeoul(s.properties.code)) {
-        var d = G.find(dongs, p.lng, p.lat);
-        if (d) add("dong", String(d.properties.code), p.kind);
+      // 경계가 단순화돼 해변·섬 가까운 점은 다각형 밖에 떨어진다 → 약 3km 안의 가장 가까운 지역으로
+      var s = G.find(kr, p.lng, p.lat) || nearest(kr, p.lng, p.lat, 0.03);
+      if (!s) return; // 해외·먼 바다
+      var gu = String(s.properties.code);
+      if (isSeoul(gu)) {
+        var d = G.find(dongs, p.lng, p.lat) || nearest(dongs, p.lng, p.lat, 0.005);
+        if (d) {
+          add("dong", String(d.properties.code), p.kind);
+          // 동(2013)과 구(2018) 경계가 조금 어긋나므로, 서울 점은 그 동이 속한 구로 센다 (한 점이 두 구를 칠하지 않게)
+          if (data_dongGu(dongGu, d)) gu = data_dongGu(dongGu, d);
+        }
       }
+      add("sigungu", gu, p.kind);
     });
     var marks = {};
     res[0].marks.forEach(function (m) { marks[key(m.level, m.code)] = m.state; });
@@ -235,19 +257,31 @@
     var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
     return m ? decodeURIComponent(m[1]) : "";
   }
+  // 지역마다 저장 요청을 차례로 보낸다 (빠르게 연달아 눌러도 서버에 마지막 것이 남게).
+  // savedMark: 서버에 저장됐다고 확인된 값, queue: 그 지역의 앞 요청
+  var savedMark = {}, queue = {}, latest = {};
   function setMark(level, code, state) {
-    var k = key(level, code), before = data.marks[k];
+    var k = key(level, code);
+    if (!(k in savedMark)) savedMark[k] = data.marks[k];
     if (state === "auto") delete data.marks[k]; else data.marks[k] = state;
     draw(); showPanel(); // 저장 전에 바로 보여 준다
-    fetch(root.dataset.markUrl, {
-      method: "POST", credentials: "same-origin",
-      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-      body: JSON.stringify({ level: level, code: code, state: state }),
-    }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); }).catch(function () {
-      if (before === undefined) delete data.marks[k]; else data.marks[k] = before;
-      draw(); showPanel();
-      var m = panel.querySelector("[data-panel-msg]");
-      if (m) { m.textContent = "저장하지 못했어요. 잠시 뒤 다시 해 볼까요?"; m.hidden = false; }
+    var seq = (latest[k] || 0) + 1;
+    latest[k] = seq;
+    queue[k] = (queue[k] || Promise.resolve()).then(function () {
+      return fetch(root.dataset.markUrl, {
+        method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+        body: JSON.stringify({ level: level, code: code, state: state }),
+      }).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        savedMark[k] = state === "auto" ? undefined : state;
+      }).catch(function () {
+        if (seq !== latest[k]) return; // 뒤에 누른 것이 있으면 그쪽이 화면을 정한다
+        if (savedMark[k] === undefined) delete data.marks[k]; else data.marks[k] = savedMark[k];
+        draw(); showPanel();
+        var m = panel.querySelector("[data-panel-msg]");
+        if (m) { m.textContent = "저장하지 못했어요. 잠시 뒤 다시 해 볼까요?"; m.hidden = false; }
+      });
     });
   }
 
@@ -310,5 +344,6 @@
   toggles.forEach(function (b) { b.addEventListener("click", function () { setView(b.dataset.recordView); }); });
   var saved = null;
   try { saved = localStorage.getItem("nos.recordView"); } catch (e) { /* 없음 */ }
-  if (saved === "color") setView("color");
+  // "지도에서 보기"(?focus=…)로 왔으면 저장된 보기와 상관없이 핀 지도 (그 위치를 보여 준다)
+  if (saved === "color" && !/[?&]focus=/.test(location.search)) setView("color");
 })();
