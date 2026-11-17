@@ -1846,3 +1846,103 @@ class WishVisitedTests(TestCase):
         html = self.client.get(reverse("tastes") + "?tab=record").content.decode()
         self.assertIn(reverse("wishes"), html)
         self.assertIn("가고 싶은 곳 · 2곳", html)
+
+
+class MultiDayEventTests(TestCase):
+    """여러 날 일정 (하루 종일만)."""
+
+    setUp = ScreenTests.setUp
+    event_form = ScreenTests.event_form
+
+    def make(self, start, end=None, title="여행", user=None, scope=Event.SHARED):
+        return Event.objects.create(couple=self.couple, created_by=user or self.a, title=title, date=start, end_date=end, scope=scope)
+
+    def test_create_multi_day_clears_times(self):
+        day = timezone.localdate()
+        self.client.post(reverse("event_create"), self.event_form(date=day.isoformat(), end_date=(day + timedelta(days=2)).isoformat()))
+        e = Event.objects.get()
+        self.assertEqual(e.end_date, day + timedelta(days=2))
+        self.assertEqual((e.start_time, e.end_time), (None, None))
+        self.assertTrue(e.is_multi_day)
+        self.assertEqual(e.span_days, 3)
+
+    def test_end_date_same_day_is_single(self):
+        day = timezone.localdate()
+        self.client.post(reverse("event_create"), self.event_form(end_date=day.isoformat()))
+        e = Event.objects.get()
+        self.assertIsNone(e.end_date)
+        self.assertFalse(e.is_multi_day)
+        self.assertIsNotNone(e.start_time)
+
+    def test_end_date_before_start_rejected(self):
+        day = timezone.localdate()
+        res = self.client.post(reverse("event_create"), self.event_form(end_date=(day - timedelta(days=1)).isoformat()))
+        self.assertContains(res, "끝나는 날은 시작하는 날보다 뒤여야 해요.")
+        self.assertFalse(Event.objects.exists())
+
+    def test_longer_than_60_days_rejected(self):
+        day = timezone.localdate()
+        res = self.client.post(reverse("event_create"), self.event_form(end_date=(day + timedelta(days=60)).isoformat()))
+        self.assertContains(res, "여러 날 일정은 60일까지 넣을 수 있어요.")
+        self.client.post(reverse("event_create"), self.event_form(end_date=(day + timedelta(days=59)).isoformat()))
+        self.assertEqual(Event.objects.get().span_days, 60)
+
+    def test_month_shows_event_started_last_month(self):
+        first = timezone.localdate().replace(day=1)
+        start = first - timedelta(days=4)
+        e = self.make(start, first + timedelta(days=1))
+        res = self.client.get(reverse("calendar") + f"?month={first:%Y-%m}&day={first + timedelta(days=1):%Y-%m-%d}")
+        cells = {c["date"]: c for week in res.context["weeks"] for c in week}
+        self.assertIn(e, cells[first]["events"])
+        self.assertIn(e, cells[first + timedelta(days=1)]["events"])
+        self.assertNotIn(e, cells[first + timedelta(days=2)]["events"])
+        if first + timedelta(days=1) != timezone.localdate():
+            self.assertIn(e, res.context["day_events"])
+
+    def test_ongoing_trip_upcoming_and_editable(self):
+        today = timezone.localdate()
+        trip = self.make(today - timedelta(days=1), today + timedelta(days=1))
+        done = self.make(today - timedelta(days=2), today - timedelta(days=1), title="끝난 여행")
+        self.assertIn(trip, list(self.client.get(reverse("calendar")).context["upcoming"]))
+        self.assertIn(trip, list(self.client.get(reverse("home")).context["events"]))
+        self.assertFalse(trip.is_past)
+        self.assertTrue(done.is_past)
+        page = self.client.get(reverse("event_update", args=[trip.pk]))
+        self.assertNotContains(page, "지난 일정은 고칠 수 없어요")
+        self.client.post(reverse("event_update", args=[trip.pk]), self.event_form(
+            text="부산 여행", date=trip.date.isoformat(), end_date=trip.end_date.isoformat()))
+        trip.refresh_from_db()
+        self.assertEqual(trip.title, "부산 여행")
+        self.assertContains(self.client.get(reverse("event_update", args=[done.pk])), "지난 일정은 고칠 수 없어요")
+
+    def test_edit_form_prefills_end_date(self):
+        today = timezone.localdate()
+        trip = self.make(today, today + timedelta(days=2))
+        page = self.client.get(reverse("event_update", args=[trip.pk]))
+        self.assertEqual(page.context["form"].initial["end_date"], trip.end_date)
+
+    def test_ics_multi_day_all_day(self):
+        from .models import CalendarFeed
+
+        today = timezone.localdate()
+        self.make(today + timedelta(days=3), today + timedelta(days=5))
+        feed, _ = CalendarFeed.objects.get_or_create(user=self.a)
+        text = self.client.get(reverse("calendar_feed", args=[feed.token])).content.decode()
+        self.assertIn(f"DTSTART;VALUE=DATE:{today + timedelta(days=3):%Y%m%d}", text)
+        self.assertIn(f"DTEND;VALUE=DATE:{today + timedelta(days=6):%Y%m%d}", text)
+
+    def test_event_item_shows_range(self):
+        today = timezone.localdate()
+        start, end = today + timedelta(days=1), today + timedelta(days=3)
+        self.make(start, end)
+        res = self.client.get(reverse("calendar"))
+        self.assertContains(res, f"{start.month}. {start.day}. – {end.month}. {end.day}. · 하루 종일")
+
+    def test_label_past_uses_last_date(self):
+        today = timezone.localdate()
+        label = Label.objects.create(couple=self.couple, kind=Label.TAG, name="부산")
+        trip = self.make(today - timedelta(days=1), today + timedelta(days=1))
+        trip.labels.add(label)
+        res = self.client.get(reverse("calendar") + f"?label={label.pk}")
+        self.assertIn(trip, res.context["label_upcoming"])
+        self.assertNotIn(trip, res.context["label_past"])

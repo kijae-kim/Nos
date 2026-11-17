@@ -1,7 +1,7 @@
 import calendar as month_calendar
 import json
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 
 from django.conf import settings
 from django.contrib import messages
@@ -104,7 +104,7 @@ def home(request):
             "next_item": upcoming[0] if upcoming else None,
             "anniversaries": upcoming[:3],
             # 공통 일정과 내 개인 일정만 보인다 (캘린더와 같은 규칙)
-            "events": Event.objects.visible_to(user).filter(date__gte=today).select_related("created_by").prefetch_related("labels")[:3],
+            "events": Event.objects.visible_to(user).not_past(today).select_related("created_by").prefetch_related("labels")[:3],
             "tastes": Taste.objects.filter(couple=couple).select_related("author")[:3],
             "photos": Photo.objects.filter(couple=couple)[:4],
         },
@@ -168,8 +168,13 @@ def calendar(request):
     weeks = month_calendar.Calendar(firstweekday=6).monthdatescalendar(first.year, first.month)
     visible = Event.objects.visible_to(user).select_related("created_by").prefetch_related("labels")
     by_date = defaultdict(list)
-    for event in visible.filter(date__gte=weeks[0][0], date__lte=weeks[-1][-1]):
-        by_date[event.date].append(event)
+    grid_start, grid_end = weeks[0][0], weeks[-1][-1]
+    # 여러 날 일정은 걸친 날마다 넣는다 (달력 범위 안만)
+    for event in visible.overlapping(grid_start, grid_end):
+        d = max(event.date, grid_start)
+        while d <= min(event.last_date, grid_end):
+            by_date[d].append(event)
+            d += timedelta(days=1)
 
     grid = [
         [
@@ -186,7 +191,7 @@ def calendar(request):
         for week in weeks
     ]
 
-    upcoming = list(visible.filter(date__gte=today)[:3])
+    upcoming = list(visible.not_past(today)[:3])
     day_events = by_date.get(selected, [])
     list_title = "다가오는 일정" if selected == today else f"{selected.month}월 {selected.day}일"
     if selected == today:
@@ -200,8 +205,8 @@ def calendar(request):
         label = user.couple.labels.filter(pk=int(label_id)).first()
     if label:
         tagged = visible.filter(labels=label)
-        label_upcoming = list(tagged.filter(date__gte=today))
-        label_past = list(tagged.filter(date__lt=today).order_by("-date", "-start_time"))
+        label_upcoming = list(tagged.not_past(today))
+        label_past = list(tagged.exclude(pk__in=[e.pk for e in label_upcoming]).order_by("-date", "-start_time"))
 
     anniversaries, _ = anniversary_services.build(user.couple)
     return render(
@@ -291,7 +296,7 @@ def event_update(request, pk):
     event = _event_for_user(request, pk)
     couple = request.user.couple
     # 지난 일정(오늘보다 전)은 보기만 한다. 지우기는 따로(event_delete) 된다
-    locked = event.date < timezone.localdate()
+    locked = event.is_past
     if locked and request.method == "POST":
         messages.error(request, "지난 일정은 고칠 수 없어요.")
         return redirect(_calendar_url(event.date))
@@ -322,6 +327,7 @@ def _event_initial(event):
     return {
         "text": services.label_text(event),
         "date": event.date,
+        "end_date": event.end_date,
         "all_day": event.start_time is None,
         "start_time": event.start_time,
         "end_time": event.end_time,

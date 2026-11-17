@@ -64,7 +64,8 @@ def _event_lines(event, stamp):
             end = start + timedelta(hours=1)
         lines += [f"DTSTART:{_utc(start)}", f"DTEND:{_utc(end)}"]
     else:
-        lines += [f"DTSTART;VALUE=DATE:{_day(event.date)}", f"DTEND;VALUE=DATE:{_day(event.date + timedelta(days=1))}"]
+        # 하루 종일 (여러 날 일정은 끝나는 날 다음 날이 DTEND)
+        lines += [f"DTSTART;VALUE=DATE:{_day(event.date)}", f"DTEND;VALUE=DATE:{_day(event.last_date + timedelta(days=1))}"]
     title = event.title + (" (개인)" if event.scope == Event.PERSONAL else "")
     lines.append(f"SUMMARY:{escape(title)}")
     if event.place:
@@ -121,7 +122,7 @@ def build_calendar(feed, now=None):
         else:
             events = Event.objects.filter(couple=couple, scope=Event.SHARED)
         since = timezone.localdate() - timedelta(days=PAST_DAYS)
-        for event in events.filter(date__gte=since).select_related("created_by").prefetch_related("labels"):
+        for event in events.not_past(since).select_related("created_by").prefetch_related("labels"):
             lines += _event_lines(event, stamp)
 
         # 직접 등록한 기념일 (생일처럼 매년 반복이면 캘린더 앱이 알아서 해마다 보여 준다)

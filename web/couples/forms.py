@@ -51,6 +51,12 @@ class EventForm(forms.Form):
         widget=forms.TextInput(attrs={"placeholder": "무슨 일정인가요?", "autocomplete": "off"}),
     )
     date = forms.DateField(label="날짜", widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
+    end_date = forms.DateField(
+        label="끝나는 날 (여러 날이면)",
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date", "data-end-date": ""}, format="%Y-%m-%d"),
+        help_text="여행처럼 며칠 이어지면 넣어 주세요. 여러 날 일정은 하루 종일로 저장돼요.",
+    )
     all_day = forms.BooleanField(label="하루 종일", required=False)
     start_time = forms.TimeField(label="시작", required=False, widget=forms.TimeInput(attrs={"type": "time", "step": 900}, format="%H:%M"))
     end_time = forms.TimeField(label="끝", required=False, widget=forms.TimeInput(attrs={"type": "time", "step": 900}, format="%H:%M"))
@@ -73,6 +79,16 @@ class EventForm(forms.Form):
             title, _ = split_text(text)
             if not title:
                 self.add_error("text", "이름표만 적으면 일정 이름이 없어요. 일정 이름을 먼저 적어 주세요.")
+        start_day, end_day = cleaned.get("date"), cleaned.get("end_date")
+        if start_day and end_day:
+            if end_day == start_day:
+                cleaned["end_date"] = None  # 같은 날이면 하루 일정
+            elif end_day < start_day:
+                self.add_error("end_date", "끝나는 날은 시작하는 날보다 뒤여야 해요.")
+            elif (end_day - start_day).days > 59:
+                self.add_error("end_date", "여러 날 일정은 60일까지 넣을 수 있어요.")
+            else:
+                cleaned["all_day"] = True  # 여러 날 일정은 하루 종일만
         if cleaned.get("all_day"):
             cleaned["start_time"] = cleaned["end_time"] = None
         start, end = cleaned.get("start_time"), cleaned.get("end_time")
