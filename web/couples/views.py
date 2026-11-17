@@ -1,7 +1,7 @@
 import calendar as month_calendar
 import json
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 
 from django.conf import settings
 from django.contrib import messages
@@ -152,6 +152,32 @@ def _calendar_url(day):
     return f"{reverse('calendar')}?month={day:%Y-%m}&day={day:%Y-%m-%d}"
 
 
+def calendar_lanes(week, events):
+    """큰 달력 한 주의 막대 조각. 같은 일정은 그 주 안에서 같은 줄(lane)에 둔다.
+
+    돌려주는 것: 날마다 [{"event", "lane", "start", "end", "title"}] (lane 순).
+    start/end = 그 조각이 일정의 첫날/끝날인지, title = 제목을 쓸 조각(첫날이거나 주의 첫 칸).
+    """
+    first, last = week[0], week[-1]
+    inside = [e for e in events if e.date <= last and e.last_date >= first]
+    # 여러 날 먼저, 일찍 시작하는 것, 긴 것, 시작 시간, 만든 순
+    inside.sort(key=lambda e: (not e.is_multi_day, e.date, -e.span_days, e.start_time is not None, e.start_time or time.min, e.pk))
+    taken = [set() for _ in week]  # 날마다 쓰인 줄
+    days = [[] for _ in week]
+    for e in inside:
+        idx = [i for i, d in enumerate(week) if e.date <= d <= e.last_date]
+        lane = 0
+        while any(lane in taken[i] for i in idx):
+            lane += 1
+        for i in idx:
+            taken[i].add(lane)
+            d = week[i]
+            days[i].append({"event": e, "lane": lane, "start": d == e.date, "end": d == e.last_date, "title": d == e.date or i == 0})
+    for day in days:
+        day.sort(key=lambda p: p["lane"])
+    return days
+
+
 @login_required
 def calendar(request):
     user = request.user
@@ -176,20 +202,30 @@ def calendar(request):
             by_date[d].append(event)
             d += timedelta(days=1)
 
-    grid = [
-        [
-            {
+    grid = []
+    for week in weeks:
+        week_events = list({e.pk: e for d in week for e in by_date.get(d, [])}.values())
+        lanes = calendar_lanes(week, week_events)
+        row = []
+        for i, d in enumerate(week):
+            # 큰 달력 칸은 줄 0·1 만 보인다. 빈 줄은 None 자리로 높이를 맞춘다
+            shown = [None, None]
+            for p in lanes[i]:
+                if p["lane"] < 2:
+                    shown[p["lane"]] = p
+            while shown and shown[-1] is None:
+                shown.pop()
+            row.append({
                 "date": d,
                 "day": d.day,
                 "in_month": d.month == first.month,
                 "is_today": d == today,
                 "is_selected": d == selected,
                 "events": by_date.get(d, []),
-            }
-            for d in week
-        ]
-        for week in weeks
-    ]
+                "pieces": shown,
+                "more": sum(1 for p in lanes[i] if p["lane"] >= 2),
+            })
+        grid.append(row)
 
     upcoming = list(visible.not_past(today)[:3])
     day_events = by_date.get(selected, [])

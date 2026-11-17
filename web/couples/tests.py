@@ -1946,3 +1946,58 @@ class MultiDayEventTests(TestCase):
         res = self.client.get(reverse("calendar") + f"?label={label.pk}")
         self.assertIn(trip, res.context["label_upcoming"])
         self.assertNotIn(trip, res.context["label_past"])
+
+
+class CalendarLaneTests(TestCase):
+    """큰 달력: 여러 날 막대 조각과 줄(lane)."""
+
+    setUp = ScreenTests.setUp
+
+    def week(self):
+        # 다음 주 일요일부터 7일 (오늘과 상관없이 미래)
+        today = timezone.localdate()
+        sunday = today + timedelta(days=(6 - today.weekday()) % 7 + 7)
+        return [sunday + timedelta(days=i) for i in range(7)]
+
+    def make(self, start, end=None, title="일정"):
+        return Event.objects.create(couple=self.couple, created_by=self.a, title=title, date=start, end_date=end)
+
+    def lanes(self, week, events):
+        from .views import calendar_lanes
+
+        return calendar_lanes(week, events)
+
+    def test_multi_day_keeps_lane_start_end_title(self):
+        w = self.week()
+        single = self.make(w[1], title="하루")
+        trip = self.make(w[1], w[3], title="여행")
+        days = self.lanes(w, [single, trip])
+        pieces = {i: [p for p in day if p["event"] == trip] for i, day in enumerate(days)}
+        self.assertEqual({i: [p["lane"] for p in ps] for i, ps in pieces.items() if ps}, {1: [0], 2: [0], 3: [0]})
+        self.assertEqual([(p["start"], p["end"], p["title"]) for i in (1, 2, 3) for p in pieces[i]],
+                         [(True, False, True), (False, False, False), (False, True, False)])
+        self.assertEqual([p["lane"] for p in days[1] if p["event"] == single], [1])
+
+    def test_title_on_week_first_cell(self):
+        w = self.week()
+        trip = self.make(w[0] - timedelta(days=2), w[1])
+        days = self.lanes(w, [trip])
+        self.assertEqual([(p["start"], p["title"], p["end"]) for p in days[0]], [(False, True, False)])
+        self.assertEqual([(p["start"], p["title"], p["end"]) for p in days[1]], [(False, False, True)])
+
+    def test_cells_overflow_and_hole(self):
+        w = self.week()
+        a = self.make(w[2], w[3], "가")
+        b = self.make(w[3], w[4], "나")
+        c = self.make(w[3], title="다")
+        res = self.client.get(reverse("calendar") + f"?month={w[3]:%Y-%m}")
+        cells = {cell["date"]: cell for week in res.context["weeks"] for cell in week}
+        self.assertEqual(cells[w[3]]["more"], 1)
+        self.assertEqual([p["event"] for p in cells[w[3]]["pieces"]], [a, b])
+        # 4번째 날(w[4])은 줄 0 이 비고 줄 1 에 '나'
+        self.assertIsNone(cells[w[4]]["pieces"][0])
+        self.assertEqual(cells[w[4]]["pieces"][1]["event"], b)
+        self.assertContains(res, 'class="piece multi s')
+
+    def test_time_fields_fit(self):
+        self.assertContains(self.client.get(reverse("event_create")), 'class="time-row"')

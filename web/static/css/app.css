@@ -454,6 +454,8 @@ textarea::placeholder { color: var(--faint); }
 .swatch { width: 14px; height: 14px; border-radius: 50%; background: var(--c); display: inline-block; }
 .choice:has(input:checked) .swatch { box-shadow: 0 0 0 2px #fff; }
 .time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* 좁은 폰에서 "오후 01:00" 이 잘리지 않게 시간 칸의 안쪽 여백과 글자를 줄인다 */
+.time-row input[type="time"] { padding-left: 12px; padding-right: 8px; font-size: 15px; min-width: 0; }
 input[type="file"] { height: auto; padding: 12px 14px; font-size: 14px; }
 .photo-preview { width: 100%; max-height: 260px; object-fit: cover; border-radius: 20px; }
 .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -628,6 +630,11 @@ a.label-chip:active { transform: scale(.94); }
   .cell.today b { background: var(--primary); color: #fff; font-weight: 600; }
   .cell .more { font-size: 11px; font-weight: 600; font-style: normal; color: var(--muted); padding: 0 6px; }
   .cell span { font-size: 11px; font-weight: 500; padding: 3px 6px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* 일정 조각. 여러 날 일정은 칸 안쪽 여백까지 늘려 옆 칸과 이어져 보이게 (끝만 둥글게) */
+  .cell .piece { background: color-mix(in srgb, var(--c) 60%, var(--surface)); min-height: 21px; flex: none; }
+  .cell .piece.hole { visibility: hidden; }
+  .cell .piece.multi:not(.s) { margin-left: -6px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  .cell .piece.multi:not(.e) { margin-right: -6px; border-top-right-radius: 0; border-bottom-right-radius: 0; }
 }
 
 /* ---------- 시간 조정 · 사진 칸 · 취향 사진 ---------- */
