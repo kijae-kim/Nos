@@ -1665,6 +1665,14 @@ class WishlistTests(TestCase):
         self.client.post(reverse("wish_create"), self.wish_data(name="부산", new_list="부산 여행"))
         self.assertEqual(WishPlace.objects.get(name="부산").lists.get().name, "부산 여행")
 
+    def test_deleted_list_choice_shows_error(self):
+        """고르는 사이에 상대가 목록을 지우면 왜 저장이 안 됐는지 보여 준다."""
+        gone = self.make_list("카페")
+        pk = gone.pk
+        gone.delete()
+        res = self.client.post(reverse("wish_create"), self.wish_data(lists=[pk]))
+        self.assertContains(res, "목록이 바뀌었어요. 다시 골라 주세요.")
+
     def test_wish_needs_location(self):
         from .models import WishPlace
 
