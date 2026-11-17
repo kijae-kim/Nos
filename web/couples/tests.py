@@ -2001,3 +2001,106 @@ class CalendarLaneTests(TestCase):
 
     def test_time_fields_fit(self):
         self.assertContains(self.client.get(reverse("event_create")), 'class="time-row"')
+
+
+class EventMoveTests(TestCase):
+    """큰 달력에서 끌어서 옮기기 (event_move)."""
+
+    setUp = ScreenTests.setUp
+
+    def make(self, start, end=None, user=None, scope=Event.SHARED, **kw):
+        return Event.objects.create(couple=self.couple, created_by=user or self.a, title="일정", date=start, end_date=end, scope=scope, **kw)
+
+    def move(self, event, day, raw=None):
+        import json
+
+        body = raw if raw is not None else json.dumps({"date": day.isoformat() if hasattr(day, "isoformat") else day})
+        return self.client.post(reverse("event_move", args=[event.pk]), body, content_type="application/json")
+
+    def test_move_single_keeps_time(self):
+        from datetime import time
+
+        today = timezone.localdate()
+        e = self.make(today + timedelta(days=1), start_time=time(14), end_time=time(16))
+        res = self.move(e, today + timedelta(days=5))
+        self.assertEqual(res.json(), {"ok": True, "date": (today + timedelta(days=5)).isoformat(), "end_date": None})
+        e.refresh_from_db()
+        self.assertEqual((e.date, e.start_time, e.end_time), (today + timedelta(days=5), time(14), time(16)))
+
+    def test_move_multi_day_keeps_length_across_month(self):
+        from datetime import date
+
+        e = self.make(date(2027, 11, 29), date(2027, 12, 2))
+        self.move(e, date(2027, 12, 27))
+        e.refresh_from_db()
+        self.assertEqual((e.date, e.end_date), (date(2027, 12, 27), date(2027, 12, 30)))
+
+    def test_ongoing_trip_can_be_pushed_but_not_into_past(self):
+        today = timezone.localdate()
+        trip = self.make(today - timedelta(days=1), today + timedelta(days=1))
+        self.assertEqual(self.move(trip, today).status_code, 200)
+        trip.refresh_from_db()
+        self.assertEqual((trip.date, trip.end_date), (today, today + timedelta(days=2)))
+        res = self.move(trip, today - timedelta(days=5))
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.json(), {"ok": False, "error": "지난 날로는 옮길 수 없어요."})
+
+    def test_past_event_cannot_move(self):
+        today = timezone.localdate()
+        e = self.make(today - timedelta(days=3))
+        res = self.move(e, today + timedelta(days=1))
+        self.assertEqual(res.json(), {"ok": False, "error": "지난 일정은 옮길 수 없어요."})
+        e.refresh_from_db()
+        self.assertEqual(e.date, today - timedelta(days=3))
+
+    def test_partner_personal_and_other_couple_404(self):
+        today = timezone.localdate()
+        theirs = self.make(today + timedelta(days=1), user=self.b, scope=Event.PERSONAL)
+        self.assertEqual(self.move(theirs, today + timedelta(days=2)).status_code, 404)
+        other = Couple.objects.create()
+        u = User.objects.create_user("c", password="pw", couple=other)
+        foreign = Event.objects.create(couple=other, created_by=u, title="남", date=today + timedelta(days=1))
+        self.assertEqual(self.move(foreign, today + timedelta(days=2)).status_code, 404)
+
+    def test_bad_input(self):
+        e = self.make(timezone.localdate() + timedelta(days=1))
+        self.assertEqual(self.client.get(reverse("event_move", args=[e.pk])).status_code, 405)
+        for raw in ('"x"', "x", '{"date": "2026-13-01"}', "{}"):
+            res = self.move(e, None, raw=raw)
+            self.assertEqual(res.status_code, 400, raw)
+            self.assertEqual(res.json()["error"], "옮기지 못했어요. 잠시 뒤 다시 해 볼까요?")
+
+    def test_message_and_undo_button(self):
+        today = timezone.localdate()
+        e = self.make(today + timedelta(days=1))
+        new = today + timedelta(days=4)
+        self.move(e, new)
+        page = self.client.get(reverse("calendar") + f"?month={new:%Y-%m}")
+        self.assertContains(page, f"{new.month}월 {new.day}일로 옮겼어요.")
+        self.assertContains(page, f'data-undo-event="{e.pk}"')
+        self.assertContains(page, f'data-undo-date="{today + timedelta(days=1):%Y-%m-%d}"')
+        # 한 번만 보인다
+        self.assertNotContains(self.client.get(reverse("calendar")), "로 옮겼어요.")
+
+    def test_undo_hidden_when_it_would_be_past(self):
+        """옮긴 그날은 되돌려도 지난 일정이 아니다. 자정이 지나 옛 날짜가 지난 날이 되면 되돌리기를 감춘다."""
+        today = timezone.localdate()
+        e = self.make(today)
+        self.move(e, today + timedelta(days=3))
+        with patch("django.utils.timezone.localdate", return_value=today + timedelta(days=1)):
+            page = self.client.get(reverse("calendar"))
+        self.assertContains(page, "로 옮겼어요.")
+        self.assertNotContains(page, "data-undo-event")
+
+    def test_drag_attributes_on_big_calendar(self):
+        today = timezone.localdate()
+        e = self.make(today + timedelta(days=1))
+        page = self.client.get(reverse("calendar") + f"?month={e.date:%Y-%m}")
+        self.assertContains(page, f'data-drop-date="{e.date:%Y-%m-%d}"')
+        self.assertContains(page, 'draggable="true"')
+        self.assertContains(page, "calendar-drag.js")
+
+    def test_login_required(self):
+        e = self.make(timezone.localdate() + timedelta(days=1))
+        self.client.logout()
+        self.assertEqual(self.move(e, timezone.localdate()).status_code, 302)

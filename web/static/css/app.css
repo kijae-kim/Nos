@@ -635,6 +635,11 @@ a.label-chip:active { transform: scale(.94); }
   .cell .piece.hole { visibility: hidden; }
   .cell .piece.multi:not(.s) { margin-left: -6px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
   .cell .piece.multi:not(.e) { margin-right: -6px; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  /* 끌어서 옮기기 */
+  .cell .piece[draggable="true"] { cursor: grab; }
+  .cell .piece.dragging { opacity: .5; }
+  .cell.no-drop { opacity: .35; }
+  .cell.drop-over { box-shadow: inset 0 0 0 2px var(--primary); background: var(--tile-hover); }
 }
 
 /* ---------- 시간 조정 · 사진 칸 · 취향 사진 ---------- */
@@ -1003,3 +1008,7 @@ a.label-chip:active { transform: scale(.94); }
 .visit-form .chip-btn { padding: 8px 12px; }
 .wish-list-pick { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .wish-list-pick .choice { border-left: 4px solid var(--c); }
+
+/* 끌어서 옮긴 뒤 안내 (캘린더 위쪽) */
+.move-note { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.move-note .link-btn { font-weight: 700; color: var(--primary); white-space: nowrap; }

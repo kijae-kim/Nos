@@ -266,6 +266,7 @@ def calendar(request):
             "label_upcoming": label_upcoming,
             "label_past": label_past,
             "month_param": f"{first:%Y-%m}",
+            "last_move": _last_move(request, today),
         },
     )
 
@@ -347,6 +348,48 @@ def event_update(request, pk):
     return render(request, "couples/event_form.html", {
         "form": form, "labels": [] if locked else couple.labels.all(), "event": event, "locked": locked,
     })
+
+
+def _last_move(request, today):
+    """옮긴 뒤 한 번 보이는 안내. 되돌리면 지난 일정이 되는 경우(자정이 지난 뒤 등)는 되돌리기를 뺀다."""
+    note = request.session.pop("last_move", None)
+    if note and note.get("undo_last", "") < today.isoformat():
+        note["undo_date"] = None
+    return note
+
+
+@login_required
+@require_POST
+def event_move(request, pk):
+    """큰 달력에서 끌어서 옮기기. JSON {"date": 새 시작일}. 날짜만 바뀌고 여러 날 일정은 길이를 유지한다."""
+    event = _event_for_user(request, pk)
+    fail = "옮기지 못했어요. 잠시 뒤 다시 해 볼까요?"
+    try:
+        data = json.loads(request.body or b"{}")
+        new_start = date.fromisoformat(data["date"]) if isinstance(data, dict) and isinstance(data.get("date"), str) else None
+    except (ValueError, UnicodeDecodeError):
+        new_start = None
+    if new_start is None:
+        return JsonResponse({"ok": False, "error": fail}, status=400)
+    today = timezone.localdate()
+    if event.is_past:
+        return JsonResponse({"ok": False, "error": "지난 일정은 옮길 수 없어요."}, status=400)
+    shift = new_start - event.date
+    if event.last_date + shift < today:
+        return JsonResponse({"ok": False, "error": "지난 날로는 옮길 수 없어요."}, status=400)
+    old_start = event.date
+    event.date = new_start
+    if event.end_date:
+        event.end_date += shift
+    event.save(update_fields=["date", "end_date"])
+    # 다음에 그려지는 캘린더 위쪽에 한 번 보여 줄 안내와 되돌리기 (되돌려도 지난 일정이 안 될 때만)
+    request.session["last_move"] = {
+        "event": event.pk,
+        "text": f"{new_start.month}월 {new_start.day}일로 옮겼어요.",
+        "undo_date": old_start.isoformat(),
+        "undo_last": (event.last_date - shift).isoformat(),  # 되돌리면 끝나는 날
+    }
+    return JsonResponse({"ok": True, "date": event.date.isoformat(), "end_date": event.end_date.isoformat() if event.end_date else None})
 
 
 @login_required
