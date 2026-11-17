@@ -1,0 +1,46 @@
+{% extends "layout_app.html" %}
+{% load static %}
+{% block head_title %}가고 싶은 곳 · {{ APP_NAME }}{% endblock %}
+{% block extra_head %}<meta name="referrer" content="strict-origin-when-cross-origin">{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'tastes' %}?tab=record" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">가고 싶은 곳</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<nav class="cats wish-cats" aria-label="목록">
+  <a class="cat{% if not current %} on{% endif %}" href="{% url 'wishes' %}">전체</a>
+  {% for l in lists %}
+    <a class="cat{% if current and current.pk == l.pk %} on{% endif %}" href="?list={{ l.pk }}"><i class="list-dot" style="background: var(--{{ l.color }})"></i>{{ l.name }}</a>
+  {% endfor %}
+  <a class="cat cat-add" href="{% url 'wishlist_create' %}">+ 새 목록</a>
+</nav>
+{% if current %}<a class="add-link" href="{% url 'wishlist_update' current.pk %}">목록 고치기</a>{% endif %}
+
+{% block wish_map %}{% endblock %}
+
+<a class="btn primary" href="{% url 'wish_create' %}">가고 싶은 곳 저장</a>
+
+<ul class="place-list wish-list">
+  {% for w in places %}
+    <li class="wish-row card{% if w.is_visited %} visited{% endif %}">
+      <a class="wish-main" href="{% url 'wish_update' w.pk %}">
+        <i class="list-dot big" style="background: var(--{{ w.color }})"></i>
+        <span class="main">
+          <strong>{{ w.name }}</strong>
+          <small>{{ w.address|default:"고른 위치" }}{% if w.memo %} · {{ w.memo }}{% endif %}</small>
+          {% if w.lists.all %}<span class="wish-tags">{% for l in w.lists.all %}<em style="--c: var(--{{ l.color }})">{{ l.name }}</em>{% endfor %}</span>{% endif %}
+        </span>
+      </a>
+      {% if w.is_visited %}
+        {% if w.visited_place_id %}<a class="visited-badge" href="{% url 'taste_detail' w.visited_place_id %}"><svg class="i"><use href="#i-check"/></svg>다녀옴</a>
+        {% else %}<span class="visited-badge"><svg class="i"><use href="#i-check"/></svg>다녀옴</span>{% endif %}
+      {% endif %}
+    </li>
+  {% empty %}
+    <li class="empty">{% if current %}이 목록은 아직 비어 있어요.{% else %}가고 싶은 곳을 저장해 두면 데이트 계획을 세울 때 꺼내 볼 수 있어요.{% endif %}</li>
+  {% endfor %}
+</ul>
+{% endblock %}

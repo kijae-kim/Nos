@@ -6,7 +6,7 @@ from config.fields import TypedDateField
 from . import quota
 from .geo import clean_coords, gps_from_image
 from .places import link_photo
-from .models import CODE_LENGTH, COLOR_CHOICES, Album, Photo, Taste, TasteComment
+from .models import CODE_LENGTH, COLOR_CHOICES, Album, Photo, Taste, TasteComment, WishList, WishPlace
 from .storage import ImageUploadField, delete_file
 
 
@@ -295,3 +295,83 @@ class PhotoForm(forms.ModelForm):
         if old_name and old_name != photo.image.name:
             delete_file(old_name)
         return photo
+
+
+class WishListForm(forms.ModelForm):
+    """가고 싶은 곳 목록 만들기·고치기."""
+
+    class Meta:
+        model = WishList
+        fields = ["name", "color"]
+        widgets = {
+            "name": forms.TextInput(attrs={"placeholder": "예: 맛집, 카페, 성수 데이트"}),
+            "color": forms.RadioSelect,
+        }
+
+    def __init__(self, *args, couple=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.couple = couple
+        self.fields["color"].choices = COLOR_CHOICES
+
+    def clean_name(self):
+        name = " ".join(self.cleaned_data["name"].split())
+        taken = WishList.objects.filter(couple=self.couple, name=name).exclude(pk=self.instance.pk)
+        if taken.exists():
+            raise forms.ValidationError("이미 있는 목록 이름이에요.")
+        return name
+
+
+class WishPlaceForm(forms.ModelForm):
+    """가고 싶은 곳 저장·고치기. 위치는 장소 고르기(place-picker.js)가 숨은 칸에 넣는다."""
+
+    latitude = forms.CharField(required=False, widget=forms.HiddenInput)
+    longitude = forms.CharField(required=False, widget=forms.HiddenInput)
+    address = forms.CharField(required=False, widget=forms.HiddenInput)
+    place_url = forms.URLField(required=False, widget=forms.HiddenInput)
+    lists = forms.ModelMultipleChoiceField(label="목록", queryset=WishList.objects.none(), required=False, widget=forms.CheckboxSelectMultiple)
+    new_list = forms.CharField(label="새 목록", max_length=20, required=False, widget=forms.TextInput(attrs={"placeholder": "새 목록 이름 (선택)"}))
+
+    class Meta:
+        model = WishPlace
+        fields = ["name", "link", "memo"]
+        widgets = {
+            "name": forms.TextInput(attrs={"placeholder": "장소 이름"}),
+            "link": forms.URLInput(attrs={"placeholder": "네이버 지도·인스타그램 링크 (선택)", "inputmode": "url"}),
+            "memo": forms.TextInput(attrs={"placeholder": "한 줄 메모 (선택)"}),
+        }
+        labels = {"name": "이름", "memo": "메모"}
+
+    def __init__(self, *args, couple=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.couple = couple
+        self.fields["lists"].queryset = WishList.objects.filter(couple=couple) if couple else WishList.objects.none()
+        if self.instance.pk:
+            for f in ("latitude", "longitude", "address", "place_url"):
+                self.initial.setdefault(f, getattr(self.instance, f))
+            self.initial.setdefault("lists", list(self.instance.lists.all()))
+
+    def clean(self):
+        cleaned = super().clean()
+        coords = clean_coords(cleaned.get("latitude"), cleaned.get("longitude"))
+        if not coords:
+            raise forms.ValidationError("위치를 골라 주세요.")
+        cleaned["coords"] = coords
+        return cleaned
+
+    def save_for(self, couple, user):
+        wish = self.save(commit=False)
+        wish.couple = couple
+        if wish.pk is None:
+            wish.created_by = user
+        wish.latitude, wish.longitude = self.cleaned_data["coords"]
+        wish.address = (self.cleaned_data.get("address") or "")[:200]
+        wish.place_url = self.cleaned_data.get("place_url") or ""
+        wish.save()
+        lists = list(self.cleaned_data.get("lists") or [])
+        new_name = " ".join((self.cleaned_data.get("new_list") or "").split())
+        if new_name:
+            # 이미 같은 이름이 있으면 그 목록에 넣는다
+            lst, _ = WishList.objects.get_or_create(couple=couple, name=new_name, defaults={"created_by": user})
+            lists.append(lst)
+        wish.lists.set(lists)
+        return wish
