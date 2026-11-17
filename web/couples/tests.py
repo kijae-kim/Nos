@@ -1563,3 +1563,67 @@ class MemoriesReviewFixTests(TestCase):
         self.client.post(reverse("taste_delete", args=[a.pk]))
         photo.refresh_from_db()
         self.assertEqual((photo.place, photo.place_manual), (b, False))
+
+
+class RegionMapTests(TestCase):
+    """색칠 지도: 점(장소·사진 위치)과 직접 표시(RegionMark)."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def mark(self, data, raw=None):
+        import json as _json
+
+        body = raw if raw is not None else _json.dumps(data)
+        return self.client.post(reverse("region_mark"), body, content_type="application/json")
+
+    def test_data_points_and_marks(self):
+        from .models import RegionMark
+
+        Taste.objects.create(couple=self.couple, author=self.user, category="장소", title="곳", latitude=37.54, longitude=127.05)
+        Taste.objects.create(couple=self.couple, author=self.user, category="장소", title="위치 없음")
+        Taste.objects.create(couple=self.couple, author=self.user, category="음악", title="노래", latitude=1, longitude=1)
+        Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png(), latitude=33.5, longitude=126.5)
+        Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png())
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("z", password="pw", couple=other)
+        Taste.objects.create(couple=other, author=stranger, category="장소", title="남의 곳", latitude=35.0, longitude=129.0)
+        Photo.objects.create(couple=other, uploaded_by=stranger, image=self.png(), latitude=35.1, longitude=129.1)
+        RegionMark.objects.create(couple=self.couple, level="sigungu", code="11040", state="on")
+        RegionMark.objects.create(couple=other, level="sigungu", code="21010", state="on")
+
+        data = self.client.get(reverse("region_data")).json()
+        self.assertEqual(
+            sorted((p["kind"], p["lat"], p["lng"]) for p in data["points"]),
+            [("photo", 33.5, 126.5), ("place", 37.54, 127.05)],
+        )
+        self.assertEqual(data["marks"], [{"level": "sigungu", "code": "11040", "state": "on"}])
+
+    def test_mark_on_off_auto(self):
+        from .models import RegionMark
+
+        self.assertEqual(self.mark({"level": "dong", "code": "1104065", "state": "on"}).json(), {"ok": True})
+        self.mark({"level": "dong", "code": "1104065", "state": "off"})
+        m = RegionMark.objects.get()
+        self.assertEqual((m.state, m.updated_by), ("off", self.user))
+        self.mark({"level": "dong", "code": "1104065", "state": "auto"})
+        self.assertFalse(RegionMark.objects.exists())
+
+    def test_mark_rejects_bad_input(self):
+        bad = [
+            {"level": "gu", "code": "11040", "state": "on"},
+            {"level": "sigungu", "code": "11040", "state": "maybe"},
+            {"level": "sigungu", "code": "abc", "state": "on"},
+            {"level": "sigungu", "code": "1", "state": "on"},
+            {"level": "sigungu", "code": "12345678901", "state": "on"},
+        ]
+        for data in bad:
+            self.assertEqual(self.mark(data).status_code, 400, data)
+        self.assertEqual(self.mark(None, raw="x").status_code, 400)
+        self.assertEqual(self.mark(None, raw="[1]").status_code, 400)
+
+    def test_login_required(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("region_data")).status_code, 302)
+        self.assertEqual(self.mark({"level": "dong", "code": "1104065", "state": "on"}).status_code, 302)

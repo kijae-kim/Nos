@@ -285,3 +285,24 @@ class Photo(models.Model):
     @property
     def shot_date(self):
         return self.taken_on or self.created_at.date()
+
+
+class RegionMark(models.Model):
+    """색칠 지도에서 직접 칠하거나 지운 지역. 표시가 없으면 장소·사진 위치로 자동 판정한다 (static/js/coloring-map.js)."""
+
+    LEVELS = [("sigungu", "시·군·구"), ("dong", "동")]
+    STATES = [("on", "칠함"), ("off", "지움")]
+
+    couple = models.ForeignKey(Couple, on_delete=models.CASCADE, related_name="region_marks")
+    # sigungu: KOSTAT 2018 시·군·구 코드, dong: KOSTAT 2013 서울 동 코드
+    level = models.CharField(max_length=10, choices=LEVELS)
+    code = models.CharField(max_length=10)
+    state = models.CharField(max_length=3, choices=STATES)
+    updated_by = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["couple", "level", "code"], name="unique_region_mark")]
+
+    def __str__(self):
+        return f"{self.level}:{self.code}={self.state}"

@@ -1,4 +1,5 @@
 import calendar as month_calendar
+import json
 from collections import defaultdict
 from datetime import date
 
@@ -20,7 +21,7 @@ from anniversaries import services as anniversary_services
 from . import ics, linkpreview, places, placesearch, quota, services
 from .storage import MAX_IMAGE_BYTES, delete_file
 from .forms import AlbumForm, CreateForm, EventForm, JoinForm, MomentForm, PhotoForm, PlaceForm, ProfileForm, TasteCommentForm
-from .models import Album, CalendarFeed, Couple, Event, Photo, Taste, TasteComment, TasteLike
+from .models import Album, CalendarFeed, Couple, Event, Photo, RegionMark, Taste, TasteComment, TasteLike
 
 
 def _render_connect(request, create_form=None, join_form=None):
@@ -386,6 +387,44 @@ def place_map_data(request):
             ]
         }
     )
+
+@login_required
+def region_data(request):
+    """색칠 지도에 쓸 점(위치 있는 장소·사진)과 직접 표시. 이름·사진 주소는 넣지 않는다."""
+    couple = request.user.couple
+    places = Taste.objects.filter(couple=couple, category=Taste.PLACE, latitude__isnull=False, longitude__isnull=False)
+    photos = couple.photos.filter(latitude__isnull=False, longitude__isnull=False)
+    points = [{"lat": p.latitude, "lng": p.longitude, "kind": "place"} for p in places.only("latitude", "longitude")]
+    points += [{"lat": p.latitude, "lng": p.longitude, "kind": "photo"} for p in photos.only("latitude", "longitude")]
+    marks = [{"level": m.level, "code": m.code, "state": m.state} for m in couple.region_marks.order_by("level", "code")]
+    return JsonResponse({"points": points, "marks": marks})
+
+
+@login_required
+@require_POST
+def region_mark(request):
+    """색칠 지도에서 지역을 직접 칠하기(on)·지우기(off)·자동으로(auto: 표시 지움)."""
+    try:
+        data = json.loads(request.body or b"{}")
+    except (ValueError, UnicodeDecodeError):
+        data = None
+    if not isinstance(data, dict):
+        return JsonResponse({"ok": False}, status=400)
+    level, code, state = data.get("level"), data.get("code"), data.get("state")
+    valid = (
+        level in dict(RegionMark.LEVELS)
+        and isinstance(code, str) and code.isdigit() and 4 <= len(code) <= 10
+        and state in ("on", "off", "auto")
+    )
+    if not valid:
+        return JsonResponse({"ok": False}, status=400)
+    couple = request.user.couple
+    if state == "auto":
+        RegionMark.objects.filter(couple=couple, level=level, code=code).delete()
+    else:
+        RegionMark.objects.update_or_create(couple=couple, level=level, code=code, defaults={"state": state, "updated_by": request.user})
+    return JsonResponse({"ok": True})
+
 
 @login_required
 def place_search(request):
