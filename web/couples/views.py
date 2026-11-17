@@ -86,7 +86,12 @@ def leave(request):
         request.user.couple = None
         request.user.save(update_fields=["couple"])
         if not couple.members.exists():
-            for name in list(couple.photos.values_list("image", flat=True)) + list(couple.tastes.values_list("image", flat=True)):
+            names = (
+                list(couple.photos.values_list("image", flat=True))
+                + list(couple.photos.exclude(thumb="").values_list("thumb", flat=True))
+                + list(couple.tastes.values_list("image", flat=True))
+            )
+            for name in names:
                 delete_file(name)
             couple.delete()
     return redirect("couple_connect")
@@ -558,11 +563,61 @@ def place_map_data(request):
         {
             "places": [
                 {"id": p.pk, "name": p.title, "lat": p.latitude, "lng": p.longitude, "photos": p.photo_count,
-                 "url": reverse("taste_detail", args=[p.pk]), "address": p.address}
+                 "url": reverse("taste_detail", args=[p.pk]), "address": p.address,
+                 "strip": reverse("place_photo_strip", args=[p.pk])}
                 for p in places
             ]
         }
     )
+
+def _photo_day(qs):
+    """찍은 날(없으면 올린 날)을 day 로 붙인다."""
+    from django.db.models.functions import Coalesce, TruncDate
+
+    return qs.annotate(day=Coalesce("taken_on", TruncDate("created_at")))
+
+
+def _photo_item(p, with_coords=False):
+    # 핀(with_coords)은 작은 사진이 없으면 null (핀에 원본을 받지 않는다), 사진 줄은 원본으로 대신한다
+    thumb = p.thumb.url if p.thumb else (None if with_coords else p.image.url)
+    item = {"id": p.pk, "thumb": thumb,
+            "url": reverse("photo_detail", args=[p.pk]), "date": p.day.isoformat()}
+    if with_coords:
+        item.update(lat=p.latitude, lng=p.longitude)
+    return item
+
+
+PHOTO_PINS_MAX = 500
+PLACE_STRIP_MAX = 60
+
+
+@login_required
+def photo_map_data(request):
+    """사진 핀: 위치 있는 사진 중 장소에 안 묶였거나 묶인 장소에 위치가 없는 것. 최근 찍은 순 500장."""
+    from django.db.models import Q
+
+    photos = (
+        _photo_day(Photo.objects.filter(couple=request.user.couple, latitude__isnull=False, longitude__isnull=False))
+        .filter(Q(place__isnull=True) | Q(place__latitude__isnull=True) | Q(place__longitude__isnull=True))
+        .order_by("-day", "-pk")[:PHOTO_PINS_MAX]
+    )
+    return JsonResponse({"photos": [_photo_item(p, with_coords=True) for p in photos]})
+
+
+@login_required
+def place_photo_strip(request, pk):
+    """장소 카드의 사진 줄: 그 장소 사진을 찍은 날 순서로 60장까지."""
+    place = get_object_or_404(Taste, pk=pk, couple=request.user.couple, category=Taste.PLACE)
+    photos = _photo_day(place.place_photos.all())
+    total = photos.count()
+    # 최근 60장을 골라 날짜 순서로 (자주 가는 곳도 최근 방문이 보이게)
+    recent = sorted(photos.order_by("-day", "-pk")[:PLACE_STRIP_MAX], key=lambda p: (p.day, p.pk))
+    return JsonResponse({
+        "photos": [_photo_item(p) for p in recent],
+        "total": total,
+        "more_url": reverse("taste_detail", args=[place.pk]),
+    })
+
 
 # ---------- 가고 싶은 곳 ----------
 
@@ -1016,6 +1071,8 @@ def photo_update(request, pk):
 @require_POST
 def photo_delete(request, pk):
     photo = get_object_or_404(Photo, pk=pk, couple=request.user.couple)
+    if photo.thumb:
+        delete_file(photo.thumb.name)
     photo.image.delete(save=False)
     photo.delete()
     messages.success(request, "사진을 지웠어요.")

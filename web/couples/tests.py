@@ -1406,7 +1406,7 @@ class MemoriesScreenTests(TestCase):
         Taste.objects.create(couple=other, author=stranger, category="장소", title="남의 곳", latitude=1, longitude=1)
         data = self.client.get(reverse("place_map_data")).json()["places"]
         self.assertEqual([p["id"] for p in data], [mine.pk])
-        self.assertEqual(set(data[0]), {"id", "name", "lat", "lng", "photos", "url", "address"})
+        self.assertEqual(set(data[0]), {"id", "name", "lat", "lng", "photos", "url", "address", "strip"})
         self.client.logout()
         self.assertEqual(self.client.get(reverse("place_map_data")).status_code, 302)
 
@@ -2261,3 +2261,320 @@ class LabelManageTests(TestCase):
     def test_login_required(self):
         self.client.logout()
         self.assertEqual(self.client.get(reverse("labels")).status_code, 302)
+
+
+class PhotoThumbTests(TestCase):
+    """작은 사진(320px): 만들기·지우기·한도·채우기 명령·앨범 격자."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+
+    def jpeg(self, name="a.jpg", w=600, h=400, gps=True):
+        import io
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        img = Image.new("RGB", (w, h), (200, 80, 60))
+        buf = io.BytesIO()
+        exif = Image.Exif()
+        if gps:
+            exif[0x8825] = {1: "N", 2: (37.0, 32.0, 0.0), 3: "E", 4: (127.0, 3.0, 0.0)}
+            exif[0x010F] = "TestCam"
+        img.save(buf, "JPEG", exif=exif)
+        return SimpleUploadedFile(name, buf.getvalue(), content_type="image/jpeg")
+
+    def upload(self, **kw):
+        self.client.post(reverse("photo_create"), {"image": self.jpeg(**kw)})
+        return Photo.objects.latest("pk")
+
+    def test_upload_makes_small_thumb_without_exif(self):
+        from django.core.files.storage import default_storage
+        from PIL import Image
+
+        p = self.upload()
+        self.assertTrue(p.thumb.name.endswith("-thumb.jpg"))
+        self.assertEqual(p.thumb.name, p.image.name.rsplit(".", 1)[0] + "-thumb.jpg")
+        with default_storage.open(p.thumb.name, "rb") as f:
+            raw = f.read()
+            img = Image.open(f)
+            img.load()
+        self.assertEqual(max(img.size), 320)
+        self.assertEqual(len(img.getexif()), 0)
+        self.assertNotIn(b"TestCam", raw)
+        self.assertEqual(p.thumb_size, len(raw))
+        self.assertEqual(p.thumb_url, p.thumb.url)
+
+    def test_replace_and_delete_remove_thumb(self):
+        from django.core.files.storage import default_storage
+
+        p = self.upload()
+        old = p.thumb.name
+        self.client.post(reverse("photo_update", args=[p.pk]), {"image": self.jpeg("b.jpg"), "caption": ""})
+        p.refresh_from_db()
+        self.assertFalse(default_storage.exists(old))
+        self.assertTrue(default_storage.exists(p.thumb.name))
+        current = p.thumb.name
+        self.client.post(reverse("photo_delete", args=[p.pk]))
+        self.assertFalse(default_storage.exists(current))
+
+    def test_leave_removes_thumbs(self):
+        from django.core.files.storage import default_storage
+
+        p = self.upload()
+        name = p.thumb.name
+        self.client.post(reverse("couple_leave"))
+        self.assertFalse(default_storage.exists(name))
+
+    def test_thumb_failure_keeps_upload(self):
+        from .thumbs import make_thumb
+
+        self.assertIsNone(make_thumb(__import__("io").BytesIO(b"not an image")))
+        with patch("couples.thumbs.make_thumb", return_value=None):
+            p = self.upload()
+        self.assertFalse(p.thumb)
+        self.assertEqual(p.thumb_size, 0)
+        self.assertEqual(p.thumb_url, p.image.url)
+
+    def test_quota_counts_thumbs(self):
+        from . import quota
+
+        p = self.upload()
+        self.assertEqual(quota.used_bytes(self.couple), p.size + p.thumb_size)
+
+    def test_command_fills_missing_thumbs(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        with patch("couples.thumbs.make_thumb", return_value=None):
+            p = self.upload()
+        out = StringIO()
+        call_command("make_photo_thumbs", "--dry-run", stdout=out)
+        p.refresh_from_db()
+        self.assertFalse(p.thumb)
+        self.assertIn("1장", out.getvalue())
+        out = StringIO()
+        call_command("make_photo_thumbs", stdout=out)
+        p.refresh_from_db()
+        self.assertTrue(p.thumb)
+        self.assertIn("만든 1장", out.getvalue())
+
+    def test_album_grid_uses_thumb(self):
+        p = self.upload()
+        self.assertContains(self.client.get(reverse("albums")), p.thumb.url)
+
+
+class PhotoMapDataTests(TestCase):
+    """사진 핀(photo_map_data)과 장소 사진 줄(place_photo_strip)."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+
+    def photo(self, lat=37.5, lng=127.0, place=None, couple=None, taken=None, thumb=True):
+        from datetime import date
+
+        p = Photo.objects.create(couple=couple or self.couple, uploaded_by=self.user, image="photos/x.jpg", latitude=lat, longitude=lng,
+                                 place=place, taken_on=taken or date(2026, 11, 8))
+        if thumb:
+            p.thumb = f"photos/x-{p.pk}-thumb.jpg"
+            p.save(update_fields=["thumb"])
+        return p
+
+    def place(self, lat=37.5, lng=127.0, couple=None):
+        return Taste.objects.create(couple=couple or self.couple, author=self.user, category=Taste.PLACE, title="장소", latitude=lat, longitude=lng)
+
+    def data(self):
+        return {p["id"]: p for p in self.client.get(reverse("photo_map_data")).json()["photos"]}
+
+    def test_which_photos_get_pins(self):
+        free = self.photo()
+        linked = self.photo(place=self.place())
+        no_coord_place = Taste.objects.create(couple=self.couple, author=self.user, category=Taste.PLACE, title="위치 없음")
+        manual = self.photo(place=no_coord_place)
+        no_loc = self.photo(lat=None, lng=None)
+        other = Couple.objects.create()
+        foreign = self.photo(couple=other)
+        ids = set(self.data())
+        self.assertIn(free.pk, ids)
+        self.assertIn(manual.pk, ids)
+        self.assertFalse({linked.pk, no_loc.pk, foreign.pk} & ids)
+
+    def test_pin_fields_and_missing_thumb(self):
+        from datetime import date
+
+        p = self.photo(taken=date(2026, 11, 8))
+        q = self.photo(thumb=False, taken=None)
+        Photo.objects.filter(pk=q.pk).update(taken_on=None)
+        d = self.data()
+        self.assertEqual(set(d[p.pk]), {"id", "lat", "lng", "thumb", "url", "date"})
+        self.assertEqual(d[p.pk]["date"], "2026-11-08")
+        self.assertEqual(d[p.pk]["url"], reverse("photo_detail", args=[p.pk]))
+        self.assertIsNotNone(d[p.pk]["thumb"])
+        self.assertIsNone(d[q.pk]["thumb"])
+        self.assertEqual(d[q.pk]["date"], timezone.localdate().isoformat())
+
+    def test_pins_capped_at_500_newest(self):
+        from datetime import date, timedelta as td
+
+        base = date(2025, 1, 1)
+        Photo.objects.bulk_create([
+            Photo(couple=self.couple, uploaded_by=self.user, image="photos/x.jpg", latitude=37.5, longitude=127.0, taken_on=base + td(days=i))
+            for i in range(501)
+        ])
+        photos = self.client.get(reverse("photo_map_data")).json()["photos"]
+        self.assertEqual(len(photos), 500)
+        self.assertEqual(photos[0]["date"], (base + td(days=500)).isoformat())
+        self.assertNotIn(base.isoformat(), {p["date"] for p in photos})
+
+    def test_place_strip(self):
+        from datetime import date, timedelta as td
+
+        pl = self.place()
+        Photo.objects.bulk_create([
+            Photo(couple=self.couple, uploaded_by=self.user, image="photos/x.jpg", latitude=37.5, longitude=127.0, place=pl, taken_on=date(2026, 1, 1) + td(days=i))
+            for i in range(61)
+        ])
+        res = self.client.get(reverse("place_photo_strip", args=[pl.pk])).json()
+        self.assertEqual(len(res["photos"]), 60)
+        self.assertEqual(res["total"], 61)
+        self.assertEqual(res["photos"][0]["date"], "2026-01-02")  # 최근 60장 (가장 오래된 1장 빠짐), 날짜 순
+        self.assertEqual(res["more_url"], reverse("taste_detail", args=[pl.pk]))
+        other = self.place(couple=Couple.objects.create())
+        self.assertEqual(self.client.get(reverse("place_photo_strip", args=[other.pk])).status_code, 404)
+
+    def test_place_data_has_strip_url(self):
+        pl = self.place()
+        places = self.client.get(reverse("place_map_data")).json()["places"]
+        self.assertEqual(places[0]["strip"], reverse("place_photo_strip", args=[pl.pk]))
+
+    def test_login_required(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("photo_map_data")).status_code, 302)
+
+
+class PhotoPinScreenTests(TestCase):
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+
+    def test_record_tab_has_photo_overlay(self):
+        page = self.client.get(reverse("tastes") + "?tab=record")
+        self.assertContains(page, "data-photo-overlay")
+        self.assertContains(page, f'data-photo-url="{reverse("photo_map_data")}"')
+        self.assertContains(page, "사진도 보기")
+
+
+class PhotoPinReviewFixTests(TestCase):
+    """최종 검토에서 나온 것."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+
+    def test_pin_url_not_url_encoded(self):
+        """서명 주소의 & 를 %26 으로 바꾸면 R2 가 거절한다. 핀은 DOM 으로 만들고 주소를 그대로 쓴다."""
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/map.js").read_text()
+        self.assertNotIn("encodeURIComponent)", js)
+        self.assertIn("function photoPinEl", js)
+        self.assertIn("photoPinEl: photoPinEl", js)
+
+    def test_grids_use_thumbs(self):
+        for name in ("templates/couples/place_photos.html", "templates/couples/home.html"):
+            from pathlib import Path
+
+            html = (Path(__file__).resolve().parent.parent / name).read_text()
+            self.assertNotIn("p.image.url", html, name)
+
+    def test_strip_falls_back_to_original(self):
+        from datetime import date
+
+        place = Taste.objects.create(couple=self.couple, author=self.user, category=Taste.PLACE, title="장소", latitude=37.5, longitude=127.0)
+        p = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image="photos/x.jpg", place=place, taken_on=date(2026, 1, 1))
+        item = self.client.get(reverse("place_photo_strip", args=[place.pk])).json()["photos"][0]
+        self.assertEqual(item["thumb"], p.image.url)
+
+    def test_thumb_storage_error_keeps_upload(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        png = UploadStorageTests.png(self)
+        from unittest.mock import MagicMock
+
+        broken = MagicMock()
+        broken.save.side_effect = OSError("R2 down")
+        with patch("couples.thumbs.default_storage", broken):  # 작은 사진 저장만 실패
+            res = self.client.post(reverse("photo_create"), {"image": png})
+        self.assertEqual(res.status_code, 302)
+        p = Photo.objects.get()
+        self.assertFalse(p.thumb)
+
+
+class PhotoPinMinorTests(TestCase):
+    """사진 핀 작은 것들."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+
+    def photo(self, **kw):
+        from datetime import date
+
+        kw.setdefault("taken_on", date(2026, 1, 1))
+        return Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=kw.pop("image", "photos/x.jpg"), **kw)
+
+    def test_command_skips_heic_and_names_storage(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        self.photo(image="photos/a.heic")
+        out = StringIO()
+        call_command("make_photo_thumbs", stdout=out)
+        text = out.getvalue()
+        self.assertIn("HEIC 1장은 건너뛰어요", text)
+        self.assertIn("저장소:", text)
+        self.assertIn("만든 0장 · 못 만든 0장", text)
+
+    def test_big_non_jpeg_pixels_rejected(self):
+        import io
+
+        from PIL import Image
+
+        from .thumbs import make_thumb
+
+        buf = io.BytesIO()
+        Image.new("1", (7000, 7000)).save(buf, "PNG")  # 4900만 화소 PNG
+        self.assertIsNone(make_thumb(buf))
+
+    def test_strip_takes_newest_60_in_date_order(self):
+        from datetime import date, timedelta as td
+
+        place = Taste.objects.create(couple=self.couple, author=self.user, category=Taste.PLACE, title="장소", latitude=37.5, longitude=127.0)
+        for i in range(61):
+            self.photo(place=place, taken_on=date(2026, 1, 1) + td(days=i))
+        dates = [p["date"] for p in self.client.get(reverse("place_photo_strip", args=[place.pk])).json()["photos"]]
+        self.assertEqual(dates[0], "2026-01-02")
+        self.assertEqual(dates[-1], (date(2026, 1, 1) + td(days=60)).isoformat())
+        self.assertEqual(dates, sorted(dates))
+
+    def test_cluster_strip_capped(self):
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/map.js").read_text()
+        self.assertIn("STRIP_MAX = 60", js)
+
+    def test_quota_leaves_room_for_thumb(self):
+        from . import quota
+
+        with override_settings(MEDIA_QUOTA_PER_COUPLE_BYTES=1000):
+            self.assertIsNone(quota.problem(self.couple, 100, with_thumb=True))
+            self.assertIsNotNone(quota.problem(self.couple, 1000, with_thumb=True))
+            self.assertIsNone(quota.problem(self.couple, 1000))  # 취향 이미지 등 작은 사진이 없는 파일  # 원본만으로는 딱 맞아도 작은 사진 자리가 없다
+
+    def test_pin_colors_are_tokens(self):
+        from pathlib import Path
+
+        css = (Path(__file__).resolve().parent.parent / "static/css/app.css").read_text()
+        self.assertIn("--pin-ring:", css)
+        for rule in (".photo-pin {", ".wish-pin {", ".map-pin {"):
+            line = next(l for l in css.splitlines() if l.startswith(rule))
+            self.assertNotIn("#fff", line, rule)

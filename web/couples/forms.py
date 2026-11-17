@@ -274,13 +274,14 @@ class PhotoForm(forms.ModelForm):
             self.add_error("new_album", "앨범은 하나만 고를 수 있어요. 새 앨범을 만들거나 기존 앨범을 고르세요.")
         new_file = cleaned.get("image")
         if self.couple is not None and "image" in self.changed_data and new_file:
-            reason = quota.problem(self.couple, new_file.size, self.instance.size if self.instance.pk else 0)
+            reason = quota.problem(self.couple, new_file.size, self.instance.size if self.instance.pk else 0, with_thumb=True)
             if reason:
                 self.add_error("image", reason)
         return cleaned
 
     def save_for(self, couple, user):
         old_name = self.old_image_name
+        old_thumb = self.instance.thumb.name if self.instance.pk and self.instance.thumb else ""
         photo = self.save(commit=False)
         photo.couple = couple
         if photo.pk is None:
@@ -306,6 +307,13 @@ class PhotoForm(forms.ModelForm):
             photo.place_manual = False
             relink_needed = True
         photo.save()
+        if "image" in self.changed_data and self.cleaned_data.get("image"):
+            from .thumbs import attach_thumb
+
+            if old_thumb:
+                delete_file(old_thumb)
+                photo.thumb = ""
+            attach_thumb(photo, source=self.cleaned_data["image"])  # 받은 파일로 만든다 (R2 에서 다시 읽지 않음)
         if relink_needed:
             link_photo(photo)
         if old_name and old_name != photo.image.name:

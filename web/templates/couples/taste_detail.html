@@ -61,7 +61,7 @@
   </div>
   {% if place_photos %}
     <div class="photos">
-      {% for p in place_photos %}<a class="tile" href="{% url 'photo_detail' p.pk %}" aria-label="{{ p.shot_date|date:'n월 j일' }} 사진 보기"><img src="{{ p.image.url }}" loading="lazy" decoding="async" alt=""></a>{% endfor %}
+      {% for p in place_photos %}<a class="tile" href="{% url 'photo_detail' p.pk %}" aria-label="{{ p.shot_date|date:'n월 j일' }} 사진 보기"><img src="{{ p.thumb_url }}" loading="lazy" decoding="async" alt=""></a>{% endfor %}
     </div>
   {% else %}
     <p class="empty">아직 연결된 사진이 없어요. 이곳 근처에서 찍은 사진은 올리면 저절로 모여요.</p>

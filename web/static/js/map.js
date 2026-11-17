@@ -66,7 +66,22 @@
   function osmLayer(L) {
     return L.tileLayer(OSM_TILES, { maxZoom: 19, attribution: "© OpenStreetMap" });
   }
-  window.NosMap = { loadScript: loadScript, getJSON: getJSON, loadLeaflet: loadLeaflet, loadKakao: loadKakao, osmLayer: osmLayer };
+  // 사진 핀: 작은 사진 동그라미. 서명 주소(?…&X-Amz-Signature=…)를 바꾸지 않도록 DOM 으로 만든다
+  // (문자열 HTML 에 넣으며 & 를 바꾸면 R2 가 서명을 못 읽어 사진이 안 뜬다). 작은 사진이 없으면 카메라 아이콘.
+  function photoPinEl(p) {
+    var span = document.createElement("span");
+    span.className = "photo-pin";
+    if (p.thumb) {
+      var safe = String(p.thumb).replace(/["\\\n]/g, function (c) { return "\\" + c; }); // CSS 문자열 안에서만 이스케이프
+      span.style.backgroundImage = 'url("' + safe + '")';
+    } else {
+      span.classList.add("no-thumb");
+      span.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-album"/></svg>';
+    }
+    return span;
+  }
+
+  window.NosMap = { loadScript: loadScript, getJSON: getJSON, loadLeaflet: loadLeaflet, loadKakao: loadKakao, osmLayer: osmLayer, photoPinEl: photoPinEl };
 
   // ---------- 국내/해외 판정 ----------
   function features(topo) {
@@ -126,14 +141,90 @@
     var summary = root.querySelector("[data-map-summary]");
     var scopeButtons = Array.prototype.slice.call(root.querySelectorAll("[data-map-scope]"));
     var overlay = root.querySelector("[data-wish-overlay]");
-    var state = { scope: "kr", panes: {}, drawn: {}, groups: { kr: [], world: [] }, kakao: false, wishes: null, wishOn: false };
+    var photoToggle = root.querySelector("[data-photo-overlay]");
+    var state = { scope: "kr", panes: {}, drawn: {}, groups: { kr: [], world: [] }, kakao: false, wishes: null, wishOn: false, photos: null, photoOn: false };
 
     function kindOf(p) { return p.kind || (mode === "wish" ? "wish" : "record"); }
+
+    // ---------- 사진 줄: 작은 사진을 가로로, 날이 바뀌는 곳에 날짜 ----------
+    function dayText(iso) {
+      var d = iso.split("-").map(Number);
+      return d[1] + "월 " + d[2] + "일";
+    }
+    function photoStrip(photos, total, moreUrl) {
+      var strip = document.createElement("div");
+      strip.className = "photo-strip";
+      var lastDay = "";
+      photos.forEach(function (ph) {
+        if (ph.date !== lastDay) {
+          lastDay = ph.date;
+          var day = document.createElement("span");
+          day.className = "strip-day";
+          day.textContent = dayText(ph.date);
+          strip.appendChild(day);
+        }
+        var a = document.createElement("a");
+        a.className = "strip-photo";
+        a.href = ph.url;
+        a.setAttribute("aria-label", dayText(ph.date) + " 사진 보기");
+        if (ph.thumb) {
+          var img = document.createElement("img");
+          img.src = ph.thumb; img.alt = ""; img.loading = "lazy"; img.decoding = "async";
+          a.appendChild(img);
+        } else {
+          a.classList.add("no-thumb"); // 작은 사진이 없는 사진(HEIC 등): 원본은 받지 않는다
+          a.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-album"/></svg>';
+        }
+        strip.appendChild(a);
+      });
+      if (total > photos.length && moreUrl) {
+        var more = document.createElement("a");
+        more.className = "strip-more";
+        more.href = moreUrl;
+        more.textContent = "모두 보기 ›";
+        strip.appendChild(more);
+      }
+      return strip;
+    }
+    // 50m 안에 있는 사진 핀들 (사진 핀을 누르면 그 자리 사진을 함께 보여 준다)
+    function nearby(p, list) {
+      var R = 6371000, toRad = Math.PI / 180;
+      return list.filter(function (q) {
+        var dLat = (q.lat - p.lat) * toRad, dLng = (q.lng - p.lng) * toRad;
+        var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(p.lat * toRad) * Math.cos(q.lat * toRad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return 2 * R * Math.asin(Math.sqrt(a)) <= 50;
+      });
+    }
+    function byDate(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id; }
+    var STRIP_MAX = 60; // 사진 묶음을 눌러도 최근 60장만 줄로 (확대하면 나뉜다)
+
     function showCards(list) {
       cards.innerHTML = "";
-      list.forEach(function (p) {
+      var photos = list.filter(function (p) { return kindOf(p) === "photo"; });
+      var places = list.filter(function (p) { return kindOf(p) !== "photo"; });
+      if (photos.length) {
+        // 사진 핀 하나를 눌렀으면 그 자리(50m) 사진을 모두, 묶음이면 묶음 안 사진을
+        if (photos.length === 1 && state.photos) photos = nearby(photos[0], state.photos);
+        var box = document.createElement("div");
+        box.className = "place-card card photo-card";
+        var head = document.createElement("strong");
+        head.textContent = "사진 " + photos.length + "장";
+        box.appendChild(head);
+        var shown = photos.slice().sort(byDate).slice(-STRIP_MAX);
+        box.appendChild(photoStrip(shown, photos.length));
+        if (photos.length > shown.length) {
+          var note = document.createElement("small");
+          note.className = "muted";
+          note.textContent = "최근 " + STRIP_MAX + "장만 보여요. 지도를 확대하면 나눠 볼 수 있어요.";
+          box.appendChild(note);
+        }
+        cards.appendChild(box);
+      }
+      places.forEach(function (p) {
+        var card = document.createElement("div");
+        card.className = "place-card card" + (kindOf(p) !== "record" ? " is-wish" : "");
         var a = document.createElement("a");
-        a.className = "place-card card" + (kindOf(p) !== "record" ? " is-wish" : "");
+        a.className = "place-head";
         a.href = p.url + (kindOf(p) === "wish-hollow" ? "?from=record" : ""); // 겹쳐 보기 카드는 고친 뒤 기록 탭으로
         var name = document.createElement("strong");
         name.textContent = p.name;
@@ -143,9 +234,16 @@
         meta.className = "meta";
         meta.textContent = kindOf(p) === "record" ? "사진 " + p.photos + "장" : (p.visited ? "다녀옴" : "가고 싶은 곳");
         a.appendChild(name); a.appendChild(addr); a.appendChild(meta);
-        cards.appendChild(a);
+        card.appendChild(a);
+        // 장소 하나만 열었을 때 그 장소 사진 줄을 받아 붙인다
+        if (kindOf(p) === "record" && p.photos && p.strip && places.length === 1) {
+          getJSON(p.strip).then(function (data) {
+            if (data.photos.length) card.appendChild(photoStrip(data.photos, data.total, data.more_url));
+          }).catch(function () { /* 줄만 안 보일 뿐 */ });
+        }
+        cards.appendChild(card);
       });
-      cards.hidden = !list.length;
+      cards.hidden = !(photos.length || places.length);
     }
     function showSummary(scope) {
       var n = state.groups[scope].length;
@@ -156,6 +254,7 @@
     function pinHtml(p) {
       var k = kindOf(p);
       if (k === "record") return null;
+      if (k === "photo") return photoPinEl(p); // 문자열이 아니라 요소 (주소를 그대로 두려고)
       var cls = "wish-pin" + (k === "wish-hollow" ? " hollow" : "") + (p.visited ? " visited" : "");
       return '<span class="' + cls + '" style="--c: var(--' + (p.color || "peach") + ')"></span>';
     }
@@ -166,8 +265,9 @@
       osmLayer(L).addTo(map);
       var marker = function (p) {
         var html = pinHtml(p);
-        var icon = html ? L.divIcon({ className: "wish-icon", html: html, iconSize: [22, 22] }) : L.divIcon({ className: "map-pin", iconSize: [18, 18] });
-        var m = L.marker([p.lat, p.lng], { icon: icon, keyboard: true, title: p.name });
+        var size = kindOf(p) === "photo" ? [36, 36] : [22, 22];
+        var icon = html ? L.divIcon({ className: "wish-icon", html: html, iconSize: size }) : L.divIcon({ className: "map-pin", iconSize: [18, 18] });
+        var m = L.marker([p.lat, p.lng], { icon: icon, keyboard: true, title: p.name || "사진" });
         m.place = p;
         m.on("click", function () { showCards([p]); });
         return m;
@@ -205,8 +305,9 @@
         var el = document.createElement("button");
         el.type = "button";
         el.className = "wish-icon";
-        el.setAttribute("aria-label", p.name);
-        el.innerHTML = pinHtml(p);
+        el.setAttribute("aria-label", p.name || "사진");
+        var pin = pinHtml(p);
+        if (typeof pin === "string") el.innerHTML = pin; else el.appendChild(pin);
         el.addEventListener("click", function () { showCards([p]); });
         return new kakao.maps.CustomOverlay({ position: new kakao.maps.LatLng(p.lat, p.lng), content: el, yAnchor: 0.5, clickable: true });
       };
@@ -257,9 +358,30 @@
       if (pts.length) fitPoints(pts); else fallback();
     }
 
+    // 겹쳐 보이는 핀: 가고 싶은 곳(켰을 때) + 사진(켰을 때)
     function wishesFor(scope) {
-      if (!state.wishOn || !state.wishes) return [];
-      return state.wishes.filter(function (p) { return p.scope === scope; });
+      var list = [];
+      if (state.wishOn && state.wishes) list = list.concat(state.wishes.filter(function (p) { return p.scope === scope; }));
+      if (state.photoOn && state.photos) list = list.concat(state.photos.filter(function (p) { return p.scope === scope; }));
+      return list;
+    }
+
+    // 기록 지도의 "사진도 보기": 장소에 안 묶인 사진을 작은 사진 핀으로 (기기에 기억, 처음엔 켬)
+    function setPhotos(on) {
+      state.photoOn = on;
+      try { localStorage.setItem("nos.photoOverlay", on ? "1" : "0"); } catch (e) { /* 괜찮다 */ }
+      var apply = function () {
+        Object.keys(state.drawn).forEach(function (k) { state.drawn[k].setWishes(wishesFor(k)); });
+      };
+      if (!on || state.photos) return apply();
+      getJSON(root.dataset.photoUrl).then(function (data) {
+        state.photos = data.photos.map(function (p) {
+          p.kind = "photo";
+          p.scope = scopeOf(p, state.kr, state.world);
+          return p;
+        });
+        apply();
+      }).catch(function () { /* 사진 핀만 안 보일 뿐 */ });
     }
 
     function show(scope, focus) {
@@ -340,6 +462,7 @@
         if (overlay && overlay.checked) state.wishOn = true;
         show(focus ? focus.scope : state.groups.kr.length || !state.groups.world.length ? "kr" : "world", focus);
         if (state.wishOn) setOverlay(true);
+        if (photoToggle && photoToggle.checked) setPhotos(true);
       }).catch(function () {
         Object.keys(state.panes).forEach(function (k) { state.panes[k].remove(); });
         state.panes = {};
@@ -361,6 +484,13 @@
         if (state.kr) return setOverlay(overlay.checked);
         // 지도를 불러오는 중이면 기억만 해 둔다 (다 불러오면 체크 상태를 따른다)
         try { localStorage.setItem("nos.wishOverlay", overlay.checked ? "1" : "0"); } catch (e) { /* 괜찮다 */ }
+      });
+    }
+    if (photoToggle) {
+      try { photoToggle.checked = localStorage.getItem("nos.photoOverlay") !== "0"; } catch (e) { /* 없음: 켬 */ }
+      photoToggle.addEventListener("change", function () {
+        if (state.kr) return setPhotos(photoToggle.checked);
+        try { localStorage.setItem("nos.photoOverlay", photoToggle.checked ? "1" : "0"); } catch (e) { /* 괜찮다 */ }
       });
     }
     start();

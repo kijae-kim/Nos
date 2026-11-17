@@ -20,7 +20,7 @@
 {% if tab_name == "record" %}
 {# 기록: 지도 카드 하나 안에서 핀 지도(static/js/map.js) · 색칠 지도(static/js/coloring-map.js) 를 바꿔 본다 #}
 <section class="record-block" data-record-map data-coloring-map data-view="pin"
-  data-data-url="{% url 'place_map_data' %}" data-wish-url="{% url 'wish_map_data' %}"
+  data-data-url="{% url 'place_map_data' %}" data-wish-url="{% url 'wish_map_data' %}" data-photo-url="{% url 'photo_map_data' %}"
   data-region-url="{% url 'region_data' %}" data-mark-url="{% url 'region_mark' %}" data-kakao-key="{{ kakao_js_key }}"
   data-geo-kr="{% static 'geo/kr-municipalities-2018.topo.json' %}" data-geo-world="{% static 'geo/world-countries-50m.topo.json' %}"
   data-geo-seoul="{% static 'geo/seoul-dongs-2013.topo.json' %}">
@@ -42,7 +42,10 @@
   <div class="map-under">
     <p class="map-summary muted pin-only" data-map-summary aria-live="polite">지도를 불러오고 있어요…</p>
     <p class="map-summary muted color-only" data-color-summary aria-live="polite"></p>
-    <label class="overlay-chip pin-only"><input type="checkbox" data-wish-overlay> 가고 싶은 곳도 보기</label>
+    <span class="overlay-chips pin-only">
+      <label class="overlay-chip"><input type="checkbox" data-photo-overlay checked> 사진도 보기</label>
+      <label class="overlay-chip"><input type="checkbox" data-wish-overlay> 가고 싶은 곳도 보기</label>
+    </span>
   </div>
   <div class="map-cards pin-only" data-map-card hidden></div>
   <p class="hint color-only" data-color-note hidden>동 경계는 2013년 기준이라 그 뒤 새로 생긴 동은 옛 동에 칠해질 수 있어요.</p>
