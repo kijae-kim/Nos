@@ -552,9 +552,19 @@
   // 하루 종일: 켜면 시간 칸을 숨긴다
   var allDay = document.getElementById("id_all_day");
   var timeFields = document.querySelector("[data-time-fields]");
+  // 끝나는 날(여러 날 일정)을 넣으면 하루 종일로 고정한다 (서버도 같은 규칙)
+  var endDate = document.querySelector("[data-end-date]");
+  var startDate = document.getElementById("id_date");
   if (allDay && timeFields) {
-    var syncAllDay = function () { timeFields.hidden = allDay.checked; };
+    var syncAllDay = function () {
+      var multi = !!(endDate && endDate.value && startDate && endDate.value !== startDate.value);
+      if (multi) allDay.checked = true;
+      allDay.disabled = multi; // 여러 날이면 끌 수 없다 (지난 일정 잠금은 fieldset 이 따로 한다)
+      timeFields.hidden = allDay.checked;
+    };
     allDay.addEventListener("change", syncAllDay);
+    if (endDate) endDate.addEventListener("change", syncAllDay);
+    if (startDate) startDate.addEventListener("change", syncAllDay);
     syncAllDay();
   }
 

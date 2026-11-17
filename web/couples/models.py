@@ -82,6 +82,16 @@ class EventQuerySet(models.QuerySet):
             | models.Q(couple=user.couple_id, scope=Event.PERSONAL, created_by=user)
         )
 
+    def overlapping(self, start, end):
+        """[start, end] 기간에 하루라도 걸치는 일정 (여러 날 일정 포함)."""
+        return self.filter(date__lte=end).filter(
+            models.Q(end_date__gte=start) | models.Q(end_date__isnull=True, date__gte=start)
+        )
+
+    def not_past(self, today):
+        """끝나는 날이 today 이후인 일정 (진행 중인 여러 날 일정 포함)."""
+        return self.filter(models.Q(end_date__gte=today) | models.Q(end_date__isnull=True, date__gte=today))
+
 
 class Event(models.Model):
     SHARED = "shared"
@@ -93,6 +103,8 @@ class Event(models.Model):
     scope = models.CharField(max_length=10, choices=SCOPE_CHOICES, default=SHARED)
     title = models.CharField("일정", max_length=100)
     date = models.DateField("날짜")
+    # 여러 날 일정의 끝나는 날 (하루 종일만). 하루 일정은 비운다
+    end_date = models.DateField("끝나는 날", null=True, blank=True)
     start_time = models.TimeField("시작", null=True, blank=True)
     end_time = models.TimeField("끝", null=True, blank=True)
     place = models.CharField("장소", max_length=100, blank=True)
@@ -108,6 +120,25 @@ class Event(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def last_date(self):
+        return self.end_date or self.date
+
+    @property
+    def is_multi_day(self):
+        return self.end_date is not None and self.end_date > self.date
+
+    @property
+    def span_days(self):
+        return (self.last_date - self.date).days + 1
+
+    @property
+    def is_past(self):
+        """지난 일정: 끝나는 날이 오늘보다 전. 읽기 전용이고 지우기만 된다."""
+        from django.utils import timezone
+
+        return self.last_date < timezone.localdate()
 
     @property
     def categories(self):

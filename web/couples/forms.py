@@ -6,7 +6,7 @@ from config.fields import TypedDateField
 from . import quota
 from .geo import clean_coords, gps_from_image
 from .places import link_photo
-from .models import CODE_LENGTH, COLOR_CHOICES, Album, Photo, Taste, TasteComment, WishList, WishPlace
+from .models import CODE_LENGTH, COLOR_CHOICES, Album, Label, Photo, Taste, TasteComment, WishList, WishPlace
 from .storage import ImageUploadField, delete_file
 
 
@@ -51,6 +51,12 @@ class EventForm(forms.Form):
         widget=forms.TextInput(attrs={"placeholder": "무슨 일정인가요?", "autocomplete": "off"}),
     )
     date = forms.DateField(label="날짜", widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
+    end_date = forms.DateField(
+        label="끝나는 날 (여러 날이면)",
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date", "data-end-date": ""}, format="%Y-%m-%d"),
+        help_text="여행처럼 며칠 이어지면 넣어 주세요. 여러 날 일정은 하루 종일로 저장돼요.",
+    )
     all_day = forms.BooleanField(label="하루 종일", required=False)
     start_time = forms.TimeField(label="시작", required=False, widget=forms.TimeInput(attrs={"type": "time", "step": 900}, format="%H:%M"))
     end_time = forms.TimeField(label="끝", required=False, widget=forms.TimeInput(attrs={"type": "time", "step": 900}, format="%H:%M"))
@@ -73,6 +79,16 @@ class EventForm(forms.Form):
             title, _ = split_text(text)
             if not title:
                 self.add_error("text", "이름표만 적으면 일정 이름이 없어요. 일정 이름을 먼저 적어 주세요.")
+        start_day, end_day = cleaned.get("date"), cleaned.get("end_date")
+        if start_day and end_day:
+            if end_day == start_day:
+                cleaned["end_date"] = None  # 같은 날이면 하루 일정
+            elif end_day < start_day:
+                self.add_error("end_date", "끝나는 날은 시작하는 날보다 뒤여야 해요.")
+            elif (end_day - start_day).days > 59:
+                self.add_error("end_date", "여러 날 일정은 60일까지 넣을 수 있어요.")
+            else:
+                cleaned["all_day"] = True  # 여러 날 일정은 하루 종일만
         if cleaned.get("all_day"):
             cleaned["start_time"] = cleaned["end_time"] = None
         start, end = cleaned.get("start_time"), cleaned.get("end_time")
@@ -375,3 +391,53 @@ class WishPlaceForm(forms.ModelForm):
             lists.append(lst)
         wish.lists.set(lists)
         return wish
+
+
+class LabelForm(forms.ModelForm):
+    """이름표(@카테고리 #태그) 만들기·고치기. 고칠 때는 종류를 바꾸지 않는다.
+
+    고칠 때 같은 종류에 같은 이름이 이미 있으면 오류가 아니라 합치기(뷰에서)로 처리하므로 `merge_into` 에 담는다.
+    """
+
+    class Meta:
+        model = Label
+        fields = ["kind", "name", "color"]
+        widgets = {
+            "kind": forms.RadioSelect,
+            "name": forms.TextInput(attrs={"placeholder": "예: 데이트, 성수, 기념일", "maxlength": 20}),
+            "color": forms.RadioSelect,
+        }
+        labels = {"kind": "종류", "name": "이름", "color": "색"}
+
+    def __init__(self, *args, couple=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.couple = couple
+        self.merge_into = None
+        self.fields["kind"].choices = [(Label.CATEGORY, "@ 카테고리"), (Label.TAG, "# 태그")]
+        self.fields["kind"].initial = Label.TAG
+        self.fields["color"].choices = COLOR_CHOICES
+        if self.instance.pk:
+            del self.fields["kind"]
+
+    def clean_name(self):
+        name = self.cleaned_data["name"].strip()
+        if not name or any(ch.isspace() for ch in name) or "@" in name or "#" in name:
+            raise forms.ValidationError("이름표에는 띄어쓰기와 @·# 를 넣을 수 없어요.")
+        return name
+
+    def clean(self):
+        cleaned = super().clean()
+        name = cleaned.get("name")
+        kind = self.instance.kind if self.instance.pk else cleaned.get("kind")
+        if name and kind:
+            same = Label.objects.filter(couple=self.couple, kind=kind, name=name).exclude(pk=self.instance.pk).first()
+            if same and not self.instance.pk:
+                self.add_error("name", "이미 있는 이름표예요.")
+            self.merge_into = same if self.instance.pk else None
+        return cleaned
+
+    def _post_clean(self):
+        # 합칠 때는 모델 유일 제약 검사를 건너뛴다 (뷰가 합친다)
+        if self.merge_into is None:
+            super()._post_clean()
+

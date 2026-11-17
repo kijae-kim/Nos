@@ -1846,3 +1846,418 @@ class WishVisitedTests(TestCase):
         html = self.client.get(reverse("tastes") + "?tab=record").content.decode()
         self.assertIn(reverse("wishes"), html)
         self.assertIn("가고 싶은 곳 · 2곳", html)
+
+
+class MultiDayEventTests(TestCase):
+    """여러 날 일정 (하루 종일만)."""
+
+    setUp = ScreenTests.setUp
+    event_form = ScreenTests.event_form
+
+    def make(self, start, end=None, title="여행", user=None, scope=Event.SHARED):
+        return Event.objects.create(couple=self.couple, created_by=user or self.a, title=title, date=start, end_date=end, scope=scope)
+
+    def test_create_multi_day_clears_times(self):
+        day = timezone.localdate()
+        self.client.post(reverse("event_create"), self.event_form(date=day.isoformat(), end_date=(day + timedelta(days=2)).isoformat()))
+        e = Event.objects.get()
+        self.assertEqual(e.end_date, day + timedelta(days=2))
+        self.assertEqual((e.start_time, e.end_time), (None, None))
+        self.assertTrue(e.is_multi_day)
+        self.assertEqual(e.span_days, 3)
+
+    def test_end_date_same_day_is_single(self):
+        day = timezone.localdate()
+        self.client.post(reverse("event_create"), self.event_form(end_date=day.isoformat()))
+        e = Event.objects.get()
+        self.assertIsNone(e.end_date)
+        self.assertFalse(e.is_multi_day)
+        self.assertIsNotNone(e.start_time)
+
+    def test_end_date_before_start_rejected(self):
+        day = timezone.localdate()
+        res = self.client.post(reverse("event_create"), self.event_form(end_date=(day - timedelta(days=1)).isoformat()))
+        self.assertContains(res, "끝나는 날은 시작하는 날보다 뒤여야 해요.")
+        self.assertFalse(Event.objects.exists())
+
+    def test_longer_than_60_days_rejected(self):
+        day = timezone.localdate()
+        res = self.client.post(reverse("event_create"), self.event_form(end_date=(day + timedelta(days=60)).isoformat()))
+        self.assertContains(res, "여러 날 일정은 60일까지 넣을 수 있어요.")
+        self.client.post(reverse("event_create"), self.event_form(end_date=(day + timedelta(days=59)).isoformat()))
+        self.assertEqual(Event.objects.get().span_days, 60)
+
+    def test_month_shows_event_started_last_month(self):
+        first = timezone.localdate().replace(day=1)
+        start = first - timedelta(days=4)
+        e = self.make(start, first + timedelta(days=1))
+        res = self.client.get(reverse("calendar") + f"?month={first:%Y-%m}&day={first + timedelta(days=1):%Y-%m-%d}")
+        cells = {c["date"]: c for week in res.context["weeks"] for c in week}
+        self.assertIn(e, cells[first]["events"])
+        self.assertIn(e, cells[first + timedelta(days=1)]["events"])
+        self.assertNotIn(e, cells[first + timedelta(days=2)]["events"])
+        if first + timedelta(days=1) != timezone.localdate():
+            self.assertIn(e, res.context["day_events"])
+
+    def test_ongoing_trip_upcoming_and_editable(self):
+        today = timezone.localdate()
+        trip = self.make(today - timedelta(days=1), today + timedelta(days=1))
+        done = self.make(today - timedelta(days=2), today - timedelta(days=1), title="끝난 여행")
+        self.assertIn(trip, list(self.client.get(reverse("calendar")).context["upcoming"]))
+        self.assertIn(trip, list(self.client.get(reverse("home")).context["events"]))
+        self.assertFalse(trip.is_past)
+        self.assertTrue(done.is_past)
+        page = self.client.get(reverse("event_update", args=[trip.pk]))
+        self.assertNotContains(page, "지난 일정은 고칠 수 없어요")
+        self.client.post(reverse("event_update", args=[trip.pk]), self.event_form(
+            text="부산 여행", date=trip.date.isoformat(), end_date=trip.end_date.isoformat()))
+        trip.refresh_from_db()
+        self.assertEqual(trip.title, "부산 여행")
+        self.assertContains(self.client.get(reverse("event_update", args=[done.pk])), "지난 일정은 고칠 수 없어요")
+
+    def test_edit_form_prefills_end_date(self):
+        today = timezone.localdate()
+        trip = self.make(today, today + timedelta(days=2))
+        page = self.client.get(reverse("event_update", args=[trip.pk]))
+        self.assertEqual(page.context["form"].initial["end_date"], trip.end_date)
+
+    def test_ics_multi_day_all_day(self):
+        from .models import CalendarFeed
+
+        today = timezone.localdate()
+        self.make(today + timedelta(days=3), today + timedelta(days=5))
+        feed, _ = CalendarFeed.objects.get_or_create(user=self.a)
+        text = self.client.get(reverse("calendar_feed", args=[feed.token])).content.decode()
+        self.assertIn(f"DTSTART;VALUE=DATE:{today + timedelta(days=3):%Y%m%d}", text)
+        self.assertIn(f"DTEND;VALUE=DATE:{today + timedelta(days=6):%Y%m%d}", text)
+
+    def test_event_item_shows_range(self):
+        today = timezone.localdate()
+        start, end = today + timedelta(days=1), today + timedelta(days=3)
+        self.make(start, end)
+        res = self.client.get(reverse("calendar"))
+        self.assertContains(res, f"{start.month}. {start.day}. – {end.month}. {end.day}. · 하루 종일")
+
+    def test_label_past_uses_last_date(self):
+        today = timezone.localdate()
+        label = Label.objects.create(couple=self.couple, kind=Label.TAG, name="부산")
+        trip = self.make(today - timedelta(days=1), today + timedelta(days=1))
+        trip.labels.add(label)
+        res = self.client.get(reverse("calendar") + f"?label={label.pk}")
+        self.assertIn(trip, res.context["label_upcoming"])
+        self.assertNotIn(trip, res.context["label_past"])
+
+
+class CalendarLaneTests(TestCase):
+    """큰 달력: 여러 날 막대 조각과 줄(lane)."""
+
+    setUp = ScreenTests.setUp
+
+    def week(self):
+        # 다음 주 일요일부터 7일 (오늘과 상관없이 미래)
+        today = timezone.localdate()
+        sunday = today + timedelta(days=(6 - today.weekday()) % 7 + 7)
+        return [sunday + timedelta(days=i) for i in range(7)]
+
+    def make(self, start, end=None, title="일정"):
+        return Event.objects.create(couple=self.couple, created_by=self.a, title=title, date=start, end_date=end)
+
+    def lanes(self, week, events):
+        from .views import calendar_lanes
+
+        return calendar_lanes(week, events)
+
+    def test_multi_day_keeps_lane_start_end_title(self):
+        w = self.week()
+        single = self.make(w[1], title="하루")
+        trip = self.make(w[1], w[3], title="여행")
+        days = self.lanes(w, [single, trip])
+        pieces = {i: [p for p in day if p["event"] == trip] for i, day in enumerate(days)}
+        self.assertEqual({i: [p["lane"] for p in ps] for i, ps in pieces.items() if ps}, {1: [0], 2: [0], 3: [0]})
+        self.assertEqual([(p["start"], p["end"], p["title"]) for i in (1, 2, 3) for p in pieces[i]],
+                         [(True, False, True), (False, False, False), (False, True, False)])
+        self.assertEqual([p["lane"] for p in days[1] if p["event"] == single], [1])
+
+    def test_title_on_week_first_cell(self):
+        w = self.week()
+        trip = self.make(w[0] - timedelta(days=2), w[1])
+        days = self.lanes(w, [trip])
+        self.assertEqual([(p["start"], p["title"], p["end"]) for p in days[0]], [(False, True, False)])
+        self.assertEqual([(p["start"], p["title"], p["end"]) for p in days[1]], [(False, False, True)])
+
+    def test_cells_overflow_and_hole(self):
+        w = self.week()
+        a = self.make(w[2], w[3], "가")
+        b = self.make(w[3], w[4], "나")
+        c = self.make(w[3], title="다")
+        res = self.client.get(reverse("calendar") + f"?month={w[3]:%Y-%m}")
+        cells = {cell["date"]: cell for week in res.context["weeks"] for cell in week}
+        self.assertEqual(cells[w[3]]["more"], 1)
+        self.assertEqual([p["event"] for p in cells[w[3]]["pieces"]], [a, b])
+        # 4번째 날(w[4])은 줄 0 이 비고 줄 1 에 '나'
+        self.assertIsNone(cells[w[4]]["pieces"][0])
+        self.assertEqual(cells[w[4]]["pieces"][1]["event"], b)
+        self.assertContains(res, 'class="piece multi s')
+
+    def test_time_fields_fit(self):
+        self.assertContains(self.client.get(reverse("event_create")), 'class="time-row"')
+
+
+class EventMoveTests(TestCase):
+    """큰 달력에서 끌어서 옮기기 (event_move)."""
+
+    setUp = ScreenTests.setUp
+
+    def make(self, start, end=None, user=None, scope=Event.SHARED, **kw):
+        return Event.objects.create(couple=self.couple, created_by=user or self.a, title="일정", date=start, end_date=end, scope=scope, **kw)
+
+    def move(self, event, day, raw=None):
+        import json
+
+        body = raw if raw is not None else json.dumps({"date": day.isoformat() if hasattr(day, "isoformat") else day})
+        return self.client.post(reverse("event_move", args=[event.pk]), body, content_type="application/json")
+
+    def test_move_single_keeps_time(self):
+        from datetime import time
+
+        today = timezone.localdate()
+        e = self.make(today + timedelta(days=1), start_time=time(14), end_time=time(16))
+        res = self.move(e, today + timedelta(days=5))
+        self.assertEqual(res.json(), {"ok": True, "date": (today + timedelta(days=5)).isoformat(), "end_date": None})
+        e.refresh_from_db()
+        self.assertEqual((e.date, e.start_time, e.end_time), (today + timedelta(days=5), time(14), time(16)))
+
+    def test_move_multi_day_keeps_length_across_month(self):
+        from datetime import date
+
+        e = self.make(date(2027, 11, 29), date(2027, 12, 2))
+        self.move(e, date(2027, 12, 27))
+        e.refresh_from_db()
+        self.assertEqual((e.date, e.end_date), (date(2027, 12, 27), date(2027, 12, 30)))
+
+    def test_ongoing_trip_can_be_pushed_but_not_into_past(self):
+        today = timezone.localdate()
+        trip = self.make(today - timedelta(days=1), today + timedelta(days=1))
+        self.assertEqual(self.move(trip, today).status_code, 200)
+        trip.refresh_from_db()
+        self.assertEqual((trip.date, trip.end_date), (today, today + timedelta(days=2)))
+        res = self.move(trip, today - timedelta(days=5))
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.json(), {"ok": False, "error": "지난 날로는 옮길 수 없어요."})
+
+    def test_past_event_cannot_move(self):
+        today = timezone.localdate()
+        e = self.make(today - timedelta(days=3))
+        res = self.move(e, today + timedelta(days=1))
+        self.assertEqual(res.json(), {"ok": False, "error": "지난 일정은 옮길 수 없어요."})
+        e.refresh_from_db()
+        self.assertEqual(e.date, today - timedelta(days=3))
+
+    def test_partner_personal_and_other_couple_404(self):
+        today = timezone.localdate()
+        theirs = self.make(today + timedelta(days=1), user=self.b, scope=Event.PERSONAL)
+        self.assertEqual(self.move(theirs, today + timedelta(days=2)).status_code, 404)
+        other = Couple.objects.create()
+        u = User.objects.create_user("c", password="pw", couple=other)
+        foreign = Event.objects.create(couple=other, created_by=u, title="남", date=today + timedelta(days=1))
+        self.assertEqual(self.move(foreign, today + timedelta(days=2)).status_code, 404)
+
+    def test_bad_input(self):
+        e = self.make(timezone.localdate() + timedelta(days=1))
+        self.assertEqual(self.client.get(reverse("event_move", args=[e.pk])).status_code, 405)
+        for raw in ('"x"', "x", '{"date": "2026-13-01"}', "{}"):
+            res = self.move(e, None, raw=raw)
+            self.assertEqual(res.status_code, 400, raw)
+            self.assertEqual(res.json()["error"], "옮기지 못했어요. 잠시 뒤 다시 해 볼까요?")
+
+    def test_message_and_undo_button(self):
+        today = timezone.localdate()
+        e = self.make(today + timedelta(days=1))
+        new = today + timedelta(days=4)
+        self.move(e, new)
+        page = self.client.get(reverse("calendar") + f"?month={new:%Y-%m}")
+        self.assertContains(page, f"{new.month}월 {new.day}일로 옮겼어요.")
+        self.assertContains(page, f'data-undo-event="{e.pk}"')
+        self.assertContains(page, f'data-undo-date="{today + timedelta(days=1):%Y-%m-%d}"')
+        # 한 번만 보인다
+        self.assertNotContains(self.client.get(reverse("calendar")), "로 옮겼어요.")
+
+    def test_undo_hidden_when_it_would_be_past(self):
+        """옮긴 그날은 되돌려도 지난 일정이 아니다. 자정이 지나 옛 날짜가 지난 날이 되면 되돌리기를 감춘다."""
+        today = timezone.localdate()
+        e = self.make(today)
+        self.move(e, today + timedelta(days=3))
+        with patch("django.utils.timezone.localdate", return_value=today + timedelta(days=1)):
+            page = self.client.get(reverse("calendar"))
+        self.assertContains(page, "로 옮겼어요.")
+        self.assertNotContains(page, "data-undo-event")
+
+    def test_drag_attributes_on_big_calendar(self):
+        today = timezone.localdate()
+        e = self.make(today + timedelta(days=1))
+        page = self.client.get(reverse("calendar") + f"?month={e.date:%Y-%m}")
+        self.assertContains(page, f'data-drop-date="{e.date:%Y-%m-%d}"')
+        self.assertContains(page, 'draggable="true"')
+        self.assertContains(page, "calendar-drag.js")
+
+    def test_far_date_is_400_not_500(self):
+        today = timezone.localdate()
+        e = self.make(today + timedelta(days=1), today + timedelta(days=3))
+        res = self.move(e, "9999-12-31")
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.json()["error"], "옮기지 못했어요. 잠시 뒤 다시 해 볼까요?")
+
+    def test_old_notice_is_dropped(self):
+        """옮긴 지 오래된 안내(다시 불러오기가 끊긴 경우 등)는 나중에 보이지 않는다."""
+        from datetime import datetime
+
+        today = timezone.localdate()
+        e = self.make(today + timedelta(days=1))
+        self.move(e, today + timedelta(days=2))
+        later = timezone.now() + timedelta(minutes=11)
+        with patch("django.utils.timezone.now", return_value=later):
+            page = self.client.get(reverse("calendar"))
+        self.assertNotContains(page, "로 옮겼어요.")
+
+    def test_undo_says_reverted_without_button(self):
+        import json
+
+        today = timezone.localdate()
+        e = self.make(today + timedelta(days=1))
+        self.move(e, today + timedelta(days=4))
+        self.client.post(reverse("event_move", args=[e.pk]), json.dumps({"date": (today + timedelta(days=1)).isoformat(), "undo": True}), content_type="application/json")
+        page = self.client.get(reverse("calendar"))
+        self.assertContains(page, "되돌렸어요.")
+        self.assertNotContains(page, "data-undo-event")
+
+    def test_big_calendar_has_server_today(self):
+        page = self.client.get(reverse("calendar"))
+        self.assertContains(page, f'data-today="{timezone.localdate():%Y-%m-%d}"')
+
+    def test_login_required(self):
+        e = self.make(timezone.localdate() + timedelta(days=1))
+        self.client.logout()
+        self.assertEqual(self.move(e, timezone.localdate()).status_code, 302)
+
+
+class LabelManageTests(TestCase):
+    """이름표(@카테고리 #태그) 관리 화면."""
+
+    setUp = ScreenTests.setUp
+    event_form = ScreenTests.event_form
+
+    def label(self, name, kind=Label.TAG, color="sky", couple=None):
+        return Label.objects.create(couple=couple or self.couple, kind=kind, name=name, color=color)
+
+    def event(self, *labels, user=None, scope=Event.SHARED):
+        e = Event.objects.create(couple=self.couple, created_by=user or self.a, title="일정", date=timezone.localdate() + timedelta(days=1), scope=scope)
+        e.labels.add(*labels)
+        return e
+
+    def test_create_without_event_and_list(self):
+        res = self.client.post(reverse("label_create"), {"kind": "tag", "name": "카페", "color": "rose"})
+        self.assertRedirects(res, reverse("labels"))
+        lab = Label.objects.get(name="카페")
+        self.assertEqual((lab.kind, lab.color), (Label.TAG, "rose"))
+        page = self.client.get(reverse("labels"))
+        self.assertContains(page, "#카페")
+        self.assertEqual([l.count for l in page.context["tags"] if l.pk == lab.pk], [0])
+        self.assertNotIn("counts", page.context)
+
+    def test_create_duplicate_and_bad_names(self):
+        self.label("카페")
+        res = self.client.post(reverse("label_create"), {"kind": "tag", "name": " 카페 ", "color": "rose"})
+        self.assertContains(res, "이미 있는 이름표예요.")
+        for bad in ("동네 카페", "@카페", "#카페", ""):
+            res = self.client.post(reverse("label_create"), {"kind": "category", "name": bad, "color": "rose"})
+            self.assertEqual(res.status_code, 200, bad)
+        self.assertContains(self.client.post(reverse("label_create"), {"kind": "tag", "name": "동네 카페", "color": "sky"}),
+                            "이름표에는 띄어쓰기와 @·# 를 넣을 수 없어요.")
+        # 종류가 다르면 같은 이름도 된다
+        self.client.post(reverse("label_create"), {"kind": "category", "name": "카페", "color": "sky"})
+        self.assertEqual(Label.objects.filter(name="카페").count(), 2)
+
+    def test_rename_and_recolor_shows_in_event_text(self):
+        lab = self.label("성수")
+        e = self.event(lab)
+        self.client.post(reverse("label_update", args=[lab.pk]), {"name": "성수동", "color": "lav"})
+        lab.refresh_from_db()
+        self.assertEqual((lab.name, lab.color), ("성수동", "lav"))
+        page = self.client.get(reverse("event_update", args=[e.pk]))
+        self.assertIn("#성수동", page.context["form"].initial["text"])
+
+    def test_rename_to_existing_merges(self):
+        old = self.label("성수", color="sky")
+        target = self.label("성수동", color="rose")
+        only_old = self.event(old)
+        both = self.event(old, target)
+        res = self.client.post(reverse("label_update", args=[old.pk]), {"name": "성수동", "color": "lav"}, follow=True)
+        self.assertContains(res, "#성수동에 합쳤어요.")
+        self.assertFalse(Label.objects.filter(pk=old.pk).exists())
+        target.refresh_from_db()
+        self.assertEqual(target.color, "rose")
+        self.assertEqual(list(only_old.labels.all()), [target])
+        self.assertEqual(list(both.labels.all()), [target])
+
+    def test_delete_keeps_events(self):
+        lab = self.label("성수")
+        e = self.event(lab)
+        self.client.post(reverse("label_delete", args=[lab.pk]))
+        self.assertFalse(Label.objects.filter(pk=lab.pk).exists())
+        self.assertTrue(Event.objects.filter(pk=e.pk).exists())
+        self.assertEqual(e.labels.count(), 0)
+
+    def test_other_couple_404(self):
+        other = Couple.objects.create()
+        lab = self.label("남의것", couple=other)
+        self.assertEqual(self.client.get(reverse("label_update", args=[lab.pk])).status_code, 404)
+        self.assertEqual(self.client.post(reverse("label_delete", args=[lab.pk])).status_code, 404)
+        self.assertNotContains(self.client.get(reverse("labels")), "남의것")
+
+    def test_counts_hide_partner_personal(self):
+        lab = self.label("운동")
+        self.event(lab)
+        self.event(lab, user=self.b, scope=Event.PERSONAL)
+        self.assertEqual([l.count for l in self.client.get(reverse("labels")).context["tags"] if l.pk == lab.pk], [1])
+
+    def test_calendar_links(self):
+        self.assertContains(self.client.get(reverse("calendar")), reverse("labels"))
+        lab = self.label("성수")
+        self.event(lab)
+        self.assertContains(self.client.get(reverse("calendar")), "이름표 관리")
+
+    def test_merge_queries_do_not_grow_with_events(self):
+        """합치기는 일정 수와 상관없이 같은 수의 쿼리로."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        def merge(n, suffix):
+            old, target = self.label("가" + suffix), self.label("나" + suffix)
+            for _ in range(n):
+                self.event(old)
+            with CaptureQueriesContext(connection) as ctx:
+                self.client.post(reverse("label_update", args=[old.pk]), {"name": "나" + suffix, "color": "sky"})
+            self.assertEqual(target.events.count(), n)
+            return len(ctx)
+
+        self.assertEqual(merge(1, "1"), merge(6, "2"))
+
+    def test_merge_message_vowel_ending(self):
+        """받침 없는 이름도 어색하지 않게 ('#데이트 과' 가 아니라 '#데이트에')."""
+        old = self.label("데이투")
+        self.label("데이트")
+        res = self.client.post(reverse("label_update", args=[old.pk]), {"name": "데이트", "color": "sky"}, follow=True)
+        self.assertContains(res, "#데이트에 합쳤어요.")
+
+    def test_calendar_sets_csrf_cookie_for_drag(self):
+        """끌어서 옮기기는 csrftoken 쿠키를 읽으므로 캘린더가 쿠키를 꼭 준다."""
+        from django.test import Client
+
+        c = Client(enforce_csrf_checks=True)
+        c.force_login(self.a)
+        res = c.get(reverse("calendar"))
+        self.assertIn("csrftoken", res.cookies)
+
+    def test_login_required(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("labels")).status_code, 302)

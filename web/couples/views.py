@@ -1,7 +1,7 @@
 import calendar as month_calendar
 import json
 from collections import defaultdict
-from datetime import date
+from datetime import date, time, timedelta
 
 from django.conf import settings
 from django.contrib import messages
@@ -14,6 +14,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
 from anniversaries import services as anniversary_services
@@ -21,9 +22,9 @@ from anniversaries import services as anniversary_services
 from . import ics, linkpreview, places, placesearch, quota, services
 from .storage import MAX_IMAGE_BYTES, delete_file
 from .forms import (
-    AlbumForm, CreateForm, EventForm, JoinForm, MomentForm, PhotoForm, PlaceForm, ProfileForm, TasteCommentForm, WishListForm, WishPlaceForm,
+    AlbumForm, CreateForm, EventForm, JoinForm, LabelForm, MomentForm, PhotoForm, PlaceForm, ProfileForm, TasteCommentForm, WishListForm, WishPlaceForm,
 )
-from .models import Album, CalendarFeed, Couple, Event, Photo, RegionMark, Taste, TasteComment, TasteLike, WishList, WishPlace
+from .models import Album, CalendarFeed, Couple, Event, Label, Photo, RegionMark, Taste, TasteComment, TasteLike, WishList, WishPlace
 
 
 def _render_connect(request, create_form=None, join_form=None):
@@ -104,7 +105,7 @@ def home(request):
             "next_item": upcoming[0] if upcoming else None,
             "anniversaries": upcoming[:3],
             # 공통 일정과 내 개인 일정만 보인다 (캘린더와 같은 규칙)
-            "events": Event.objects.visible_to(user).filter(date__gte=today).select_related("created_by").prefetch_related("labels")[:3],
+            "events": Event.objects.visible_to(user).not_past(today).select_related("created_by").prefetch_related("labels")[:3],
             "tastes": Taste.objects.filter(couple=couple).select_related("author")[:3],
             "photos": Photo.objects.filter(couple=couple)[:4],
         },
@@ -152,7 +153,34 @@ def _calendar_url(day):
     return f"{reverse('calendar')}?month={day:%Y-%m}&day={day:%Y-%m-%d}"
 
 
+def calendar_lanes(week, events):
+    """큰 달력 한 주의 막대 조각. 같은 일정은 그 주 안에서 같은 줄(lane)에 둔다.
+
+    돌려주는 것: 날마다 [{"event", "lane", "start", "end", "title"}] (lane 순).
+    start/end = 그 조각이 일정의 첫날/끝날인지, title = 제목을 쓸 조각(첫날이거나 주의 첫 칸).
+    """
+    first, last = week[0], week[-1]
+    inside = [e for e in events if e.date <= last and e.last_date >= first]
+    # 여러 날 먼저, 일찍 시작하는 것, 긴 것, 시작 시간, 만든 순
+    inside.sort(key=lambda e: (not e.is_multi_day, e.date, -e.span_days, e.start_time is not None, e.start_time or time.min, e.pk))
+    taken = [set() for _ in week]  # 날마다 쓰인 줄
+    days = [[] for _ in week]
+    for e in inside:
+        idx = [i for i, d in enumerate(week) if e.date <= d <= e.last_date]
+        lane = 0
+        while any(lane in taken[i] for i in idx):
+            lane += 1
+        for i in idx:
+            taken[i].add(lane)
+            d = week[i]
+            days[i].append({"event": e, "lane": lane, "start": d == e.date, "end": d == e.last_date, "title": d == e.date or i == 0})
+    for day in days:
+        day.sort(key=lambda p: p["lane"])
+    return days
+
+
 @login_required
+@ensure_csrf_cookie  # 끌어서 옮기기(calendar-drag.js)가 csrftoken 쿠키를 읽는다
 def calendar(request):
     user = request.user
     today = timezone.localdate()
@@ -168,25 +196,40 @@ def calendar(request):
     weeks = month_calendar.Calendar(firstweekday=6).monthdatescalendar(first.year, first.month)
     visible = Event.objects.visible_to(user).select_related("created_by").prefetch_related("labels")
     by_date = defaultdict(list)
-    for event in visible.filter(date__gte=weeks[0][0], date__lte=weeks[-1][-1]):
-        by_date[event.date].append(event)
+    grid_start, grid_end = weeks[0][0], weeks[-1][-1]
+    # 여러 날 일정은 걸친 날마다 넣는다 (달력 범위 안만)
+    for event in visible.overlapping(grid_start, grid_end):
+        d = max(event.date, grid_start)
+        while d <= min(event.last_date, grid_end):
+            by_date[d].append(event)
+            d += timedelta(days=1)
 
-    grid = [
-        [
-            {
+    grid = []
+    for week in weeks:
+        week_events = list({e.pk: e for d in week for e in by_date.get(d, [])}.values())
+        lanes = calendar_lanes(week, week_events)
+        row = []
+        for i, d in enumerate(week):
+            # 큰 달력 칸은 줄 0·1 만 보인다. 빈 줄은 None 자리로 높이를 맞춘다
+            shown = [None, None]
+            for p in lanes[i]:
+                if p["lane"] < 2:
+                    shown[p["lane"]] = p
+            while shown and shown[-1] is None:
+                shown.pop()
+            row.append({
                 "date": d,
                 "day": d.day,
                 "in_month": d.month == first.month,
                 "is_today": d == today,
                 "is_selected": d == selected,
                 "events": by_date.get(d, []),
-            }
-            for d in week
-        ]
-        for week in weeks
-    ]
+                "pieces": shown,
+                "more": sum(1 for p in lanes[i] if p["lane"] >= 2),
+            })
+        grid.append(row)
 
-    upcoming = list(visible.filter(date__gte=today)[:3])
+    upcoming = list(visible.not_past(today)[:3])
     day_events = by_date.get(selected, [])
     list_title = "다가오는 일정" if selected == today else f"{selected.month}월 {selected.day}일"
     if selected == today:
@@ -200,8 +243,8 @@ def calendar(request):
         label = user.couple.labels.filter(pk=int(label_id)).first()
     if label:
         tagged = visible.filter(labels=label)
-        label_upcoming = list(tagged.filter(date__gte=today))
-        label_past = list(tagged.filter(date__lt=today).order_by("-date", "-start_time"))
+        label_upcoming = list(tagged.not_past(today))
+        label_past = list(tagged.exclude(pk__in=[e.pk for e in label_upcoming]).order_by("-date", "-start_time"))
 
     anniversaries, _ = anniversary_services.build(user.couple)
     return render(
@@ -225,8 +268,71 @@ def calendar(request):
             "label_upcoming": label_upcoming,
             "label_past": label_past,
             "month_param": f"{first:%Y-%m}",
+            "last_move": _last_move(request, today),
         },
     )
+
+
+@login_required
+def labels(request):
+    """이름표 관리: @카테고리와 #태그, 각각 붙은 일정 수 (내가 볼 수 있는 일정만 센다)."""
+    user = request.user
+    all_labels = list(user.couple.labels.all())
+    counts = {l.pk: 0 for l in all_labels}
+    visible = Event.objects.visible_to(user)
+    for row in Label.events.through.objects.filter(event__in=visible, label__in=all_labels).values("label_id").annotate(n=Count("id")):
+        counts[row["label_id"]] = row["n"]
+    for l in all_labels:
+        l.count = counts[l.pk]
+    return render(request, "couples/labels.html", {
+        "categories": [l for l in all_labels if l.kind == Label.CATEGORY],
+        "tags": [l for l in all_labels if l.kind == Label.TAG],
+    })
+
+
+@login_required
+def label_create(request):
+    form = LabelForm(request.POST or None, couple=request.user.couple)
+    if request.method == "POST" and form.is_valid():
+        label = form.save(commit=False)
+        label.couple = request.user.couple
+        label.save()
+        messages.success(request, f"{label.token} 이름표를 만들었어요.")
+        return redirect("labels")
+    return render(request, "couples/label_form.html", {"form": form, "label": None})
+
+
+@login_required
+def label_update(request, pk):
+    label = get_object_or_404(Label, pk=pk, couple=request.user.couple)
+    form = LabelForm(request.POST or None, instance=label, couple=request.user.couple)
+    if request.method == "POST" and form.is_valid():
+        target = form.merge_into
+        if target:
+            # 같은 이름이 이미 있으면 합친다: 일정을 그 이름표로 옮기고 이것은 지운다 (색은 원래 있던 것)
+            with transaction.atomic():
+                through = Label.events.through
+                have = set(through.objects.filter(label=target).values_list("event_id", flat=True))
+                through.objects.bulk_create(
+                    [through(event_id=eid, label=target) for eid in label.events.values_list("pk", flat=True) if eid not in have]
+                )
+                label.delete()
+            messages.success(request, f"{target.token}에 합쳤어요.")  # '에' 는 받침과 상관없이 자연스럽다
+        else:
+            form.save()
+            messages.success(request, "이름표를 고쳤어요.")
+        return redirect("labels")
+    return render(request, "couples/label_form.html", {"form": form, "label": label})
+
+
+@login_required
+@require_POST
+def label_delete(request, pk):
+    """이름표만 지운다. 붙어 있던 일정은 그대로 남는다."""
+    label = get_object_or_404(Label, pk=pk, couple=request.user.couple)
+    label.delete()
+    messages.success(request, "이름표를 지웠어요. 일정은 그대로 남아 있어요.")
+    return redirect("labels")
 
 
 @login_required
@@ -291,7 +397,7 @@ def event_update(request, pk):
     event = _event_for_user(request, pk)
     couple = request.user.couple
     # 지난 일정(오늘보다 전)은 보기만 한다. 지우기는 따로(event_delete) 된다
-    locked = event.date < timezone.localdate()
+    locked = event.is_past
     if locked and request.method == "POST":
         messages.error(request, "지난 일정은 고칠 수 없어요.")
         return redirect(_calendar_url(event.date))
@@ -308,6 +414,63 @@ def event_update(request, pk):
     })
 
 
+MOVE_NOTE_SECONDS = 600
+
+
+def _last_move(request, today):
+    """옮긴 뒤 한 번 보이는 안내. 되돌리면 지난 일정이 되는 경우(자정이 지난 뒤 등)는 되돌리기를 뺀다."""
+    note = request.session.pop("last_move", None)
+    if not note:
+        return None
+    # 다시 불러오기가 끊겨 한참 뒤에 보이는 안내는 버린다 (10분)
+    if timezone.now().timestamp() - note.get("at", 0) > MOVE_NOTE_SECONDS:
+        return None
+    if note.get("undo_last", "") < today.isoformat():
+        note["undo_date"] = None
+    return note
+
+
+@login_required
+@require_POST
+def event_move(request, pk):
+    """큰 달력에서 끌어서 옮기기. JSON {"date": 새 시작일}. 날짜만 바뀌고 여러 날 일정은 길이를 유지한다."""
+    event = _event_for_user(request, pk)
+    fail = "옮기지 못했어요. 잠시 뒤 다시 해 볼까요?"
+    try:
+        data = json.loads(request.body or b"{}")
+        new_start = date.fromisoformat(data["date"]) if isinstance(data, dict) and isinstance(data.get("date"), str) else None
+    except (ValueError, UnicodeDecodeError):
+        new_start = None
+    if new_start is None:
+        return JsonResponse({"ok": False, "error": fail}, status=400)
+    today = timezone.localdate()
+    if event.is_past:
+        return JsonResponse({"ok": False, "error": "지난 일정은 옮길 수 없어요."}, status=400)
+    shift = new_start - event.date
+    try:
+        new_last = event.last_date + shift
+    except OverflowError:  # 9999년을 넘는 날짜 (손으로 만든 요청)
+        return JsonResponse({"ok": False, "error": fail}, status=400)
+    if new_last < today:
+        return JsonResponse({"ok": False, "error": "지난 날로는 옮길 수 없어요."}, status=400)
+    undoing = data.get("undo") is True
+    old_start = event.date
+    event.date = new_start
+    if event.end_date:
+        event.end_date += shift
+    event.save(update_fields=["date", "end_date"])
+    # 다음에 그려지는 캘린더 위쪽에 한 번 보여 줄 안내와 되돌리기 (되돌려도 지난 일정이 안 될 때만)
+    # 되돌리기로 온 요청이면 "되돌렸어요" 만 (또 되돌리기 버튼은 없다)
+    request.session["last_move"] = {
+        "event": event.pk,
+        "text": "되돌렸어요." if undoing else f"{new_start.month}월 {new_start.day}일로 옮겼어요.",
+        "undo_date": None if undoing else old_start.isoformat(),
+        "undo_last": (event.last_date - shift).isoformat(),  # 되돌리면 끝나는 날
+        "at": timezone.now().timestamp(),
+    }
+    return JsonResponse({"ok": True, "date": event.date.isoformat(), "end_date": event.end_date.isoformat() if event.end_date else None})
+
+
 @login_required
 @require_POST
 def event_delete(request, pk):
@@ -322,6 +485,7 @@ def _event_initial(event):
     return {
         "text": services.label_text(event),
         "date": event.date,
+        "end_date": event.end_date,
         "all_day": event.start_time is None,
         "start_time": event.start_time,
         "end_time": event.end_time,

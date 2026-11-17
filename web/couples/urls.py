@@ -14,7 +14,12 @@ urlpatterns = [
     path("calendar/events/new/", views.event_create, name="event_create"),
     path("calendar/events/<int:pk>/", views.event_update, name="event_update"),
     path("calendar/events/<int:pk>/delete/", views.event_delete, name="event_delete"),
+    path("calendar/events/<int:pk>/move/", views.event_move, name="event_move"),
     path("calendar/subscribe/", views.calendar_subscribe, name="calendar_subscribe"),
+    path("calendar/labels/", views.labels, name="labels"),
+    path("calendar/labels/new/", views.label_create, name="label_create"),
+    path("calendar/labels/<int:pk>/edit/", views.label_update, name="label_update"),
+    path("calendar/labels/<int:pk>/delete/", views.label_delete, name="label_delete"),
     path("calendar/feed/<str:token>.ics", views.calendar_feed, name="calendar_feed"),
     # 취향
     path("tastes/", views.taste, name="tastes"),

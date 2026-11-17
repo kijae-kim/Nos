@@ -38,6 +38,7 @@ def save_event(event, couple, data):
     event.couple = couple
     event.title = title
     event.date = data["date"]
+    event.end_date = data.get("end_date")
     event.start_time = data.get("start_time")
     event.end_time = data.get("end_time")
     event.place = data.get("place", "")
