@@ -287,7 +287,6 @@ def labels(request):
     return render(request, "couples/labels.html", {
         "categories": [l for l in all_labels if l.kind == Label.CATEGORY],
         "tags": [l for l in all_labels if l.kind == Label.TAG],
-        "counts": counts,
     })
 
 
@@ -312,8 +311,11 @@ def label_update(request, pk):
         if target:
             # 같은 이름이 이미 있으면 합친다: 일정을 그 이름표로 옮기고 이것은 지운다 (색은 원래 있던 것)
             with transaction.atomic():
-                for event in label.events.all():
-                    event.labels.add(target)
+                through = Label.events.through
+                have = set(through.objects.filter(label=target).values_list("event_id", flat=True))
+                through.objects.bulk_create(
+                    [through(event_id=eid, label=target) for eid in label.events.values_list("pk", flat=True) if eid not in have]
+                )
                 label.delete()
             messages.success(request, f"{target.token}에 합쳤어요.")  # '에' 는 받침과 상관없이 자연스럽다
         else:
@@ -412,10 +414,18 @@ def event_update(request, pk):
     })
 
 
+MOVE_NOTE_SECONDS = 600
+
+
 def _last_move(request, today):
     """옮긴 뒤 한 번 보이는 안내. 되돌리면 지난 일정이 되는 경우(자정이 지난 뒤 등)는 되돌리기를 뺀다."""
     note = request.session.pop("last_move", None)
-    if note and note.get("undo_last", "") < today.isoformat():
+    if not note:
+        return None
+    # 다시 불러오기가 끊겨 한참 뒤에 보이는 안내는 버린다 (10분)
+    if timezone.now().timestamp() - note.get("at", 0) > MOVE_NOTE_SECONDS:
+        return None
+    if note.get("undo_last", "") < today.isoformat():
         note["undo_date"] = None
     return note
 
@@ -437,19 +447,26 @@ def event_move(request, pk):
     if event.is_past:
         return JsonResponse({"ok": False, "error": "지난 일정은 옮길 수 없어요."}, status=400)
     shift = new_start - event.date
-    if event.last_date + shift < today:
+    try:
+        new_last = event.last_date + shift
+    except OverflowError:  # 9999년을 넘는 날짜 (손으로 만든 요청)
+        return JsonResponse({"ok": False, "error": fail}, status=400)
+    if new_last < today:
         return JsonResponse({"ok": False, "error": "지난 날로는 옮길 수 없어요."}, status=400)
+    undoing = data.get("undo") is True
     old_start = event.date
     event.date = new_start
     if event.end_date:
         event.end_date += shift
     event.save(update_fields=["date", "end_date"])
     # 다음에 그려지는 캘린더 위쪽에 한 번 보여 줄 안내와 되돌리기 (되돌려도 지난 일정이 안 될 때만)
+    # 되돌리기로 온 요청이면 "되돌렸어요" 만 (또 되돌리기 버튼은 없다)
     request.session["last_move"] = {
         "event": event.pk,
-        "text": f"{new_start.month}월 {new_start.day}일로 옮겼어요.",
-        "undo_date": old_start.isoformat(),
+        "text": "되돌렸어요." if undoing else f"{new_start.month}월 {new_start.day}일로 옮겼어요.",
+        "undo_date": None if undoing else old_start.isoformat(),
         "undo_last": (event.last_date - shift).isoformat(),  # 되돌리면 끝나는 날
+        "at": timezone.now().timestamp(),
     }
     return JsonResponse({"ok": True, "date": event.date.isoformat(), "end_date": event.end_date.isoformat() if event.end_date else None})
 

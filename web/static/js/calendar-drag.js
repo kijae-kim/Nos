@@ -16,17 +16,20 @@
   function dayStr(n) {
     return new Date(n * DAY).toISOString().slice(0, 10);
   }
+  // 오늘은 서버(서울) 기준 날짜를 쓴다. 없으면 브라우저 날짜
   function localToday() {
+    var box = document.querySelector(".big-days[data-today]");
+    if (box) return dayNum(box.dataset.today);
     var d = new Date();
     return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY;
   }
 
-  function move(id, newStart) {
+  function move(id, newStart, undo) {
     return fetch("/calendar/events/" + id + "/move/", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-      body: JSON.stringify({ date: newStart }),
+      body: JSON.stringify({ date: newStart, undo: !!undo }),
     }).then(function (r) {
       return r.json().catch(function () { return { ok: false }; });
     });
@@ -114,7 +117,7 @@
   var undo = document.querySelector("[data-undo-event]");
   if (undo) undo.addEventListener("click", function () {
     undo.disabled = true;
-    move(undo.dataset.undoEvent, undo.dataset.undoDate).then(function (data) {
+    move(undo.dataset.undoEvent, undo.dataset.undoDate, true).then(function (data) {
       if (data.ok) reloadAt(data.date);
       else { undo.disabled = false; say(data.error || "되돌리지 못했어요. 잠시 뒤 다시 해 볼까요?"); }
     }).catch(function () { undo.disabled = false; say("되돌리지 못했어요. 잠시 뒤 다시 해 볼까요?"); });

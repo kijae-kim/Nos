@@ -2100,6 +2100,40 @@ class EventMoveTests(TestCase):
         self.assertContains(page, 'draggable="true"')
         self.assertContains(page, "calendar-drag.js")
 
+    def test_far_date_is_400_not_500(self):
+        today = timezone.localdate()
+        e = self.make(today + timedelta(days=1), today + timedelta(days=3))
+        res = self.move(e, "9999-12-31")
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.json()["error"], "옮기지 못했어요. 잠시 뒤 다시 해 볼까요?")
+
+    def test_old_notice_is_dropped(self):
+        """옮긴 지 오래된 안내(다시 불러오기가 끊긴 경우 등)는 나중에 보이지 않는다."""
+        from datetime import datetime
+
+        today = timezone.localdate()
+        e = self.make(today + timedelta(days=1))
+        self.move(e, today + timedelta(days=2))
+        later = timezone.now() + timedelta(minutes=11)
+        with patch("django.utils.timezone.now", return_value=later):
+            page = self.client.get(reverse("calendar"))
+        self.assertNotContains(page, "로 옮겼어요.")
+
+    def test_undo_says_reverted_without_button(self):
+        import json
+
+        today = timezone.localdate()
+        e = self.make(today + timedelta(days=1))
+        self.move(e, today + timedelta(days=4))
+        self.client.post(reverse("event_move", args=[e.pk]), json.dumps({"date": (today + timedelta(days=1)).isoformat(), "undo": True}), content_type="application/json")
+        page = self.client.get(reverse("calendar"))
+        self.assertContains(page, "되돌렸어요.")
+        self.assertNotContains(page, "data-undo-event")
+
+    def test_big_calendar_has_server_today(self):
+        page = self.client.get(reverse("calendar"))
+        self.assertContains(page, f'data-today="{timezone.localdate():%Y-%m-%d}"')
+
     def test_login_required(self):
         e = self.make(timezone.localdate() + timedelta(days=1))
         self.client.logout()
@@ -2127,7 +2161,8 @@ class LabelManageTests(TestCase):
         self.assertEqual((lab.kind, lab.color), (Label.TAG, "rose"))
         page = self.client.get(reverse("labels"))
         self.assertContains(page, "#카페")
-        self.assertEqual(page.context["counts"][lab.pk], 0)
+        self.assertEqual([l.count for l in page.context["tags"] if l.pk == lab.pk], [0])
+        self.assertNotIn("counts", page.context)
 
     def test_create_duplicate_and_bad_names(self):
         self.label("카페")
@@ -2183,13 +2218,29 @@ class LabelManageTests(TestCase):
         lab = self.label("운동")
         self.event(lab)
         self.event(lab, user=self.b, scope=Event.PERSONAL)
-        self.assertEqual(self.client.get(reverse("labels")).context["counts"][lab.pk], 1)
+        self.assertEqual([l.count for l in self.client.get(reverse("labels")).context["tags"] if l.pk == lab.pk], [1])
 
     def test_calendar_links(self):
         self.assertContains(self.client.get(reverse("calendar")), reverse("labels"))
         lab = self.label("성수")
         self.event(lab)
         self.assertContains(self.client.get(reverse("calendar")), "이름표 관리")
+
+    def test_merge_queries_do_not_grow_with_events(self):
+        """합치기는 일정 수와 상관없이 같은 수의 쿼리로."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        def merge(n, suffix):
+            old, target = self.label("가" + suffix), self.label("나" + suffix)
+            for _ in range(n):
+                self.event(old)
+            with CaptureQueriesContext(connection) as ctx:
+                self.client.post(reverse("label_update", args=[old.pk]), {"name": "나" + suffix, "color": "sky"})
+            self.assertEqual(target.events.count(), n)
+            return len(ctx)
+
+        self.assertEqual(merge(1, "1"), merge(6, "2"))
 
     def test_merge_message_vowel_ending(self):
         """받침 없는 이름도 어색하지 않게 ('#데이트 과' 가 아니라 '#데이트에')."""
