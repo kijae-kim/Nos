@@ -18,43 +18,44 @@
 </nav>
 
 {% if tab_name == "record" %}
-{# 기록: 핀 지도(static/js/map.js) · 색칠 지도(static/js/coloring-map.js) 와 장소 목록 #}
-<div class="segment two record-views" role="group" aria-label="지도 보기">
-  <i class="thumb"></i>
-  <button type="button" class="on" data-record-view="pin" aria-pressed="true">핀 지도</button>
-  <button type="button" data-record-view="color" aria-pressed="false">색칠 지도</button>
-</div>
-<section class="record-map" data-record-map
-  data-data-url="{% url 'place_map_data' %}" data-kakao-key="{{ kakao_js_key }}"
-  data-geo-kr="{% static 'geo/kr-municipalities-2018.topo.json' %}" data-geo-world="{% static 'geo/world-countries-50m.topo.json' %}">
-  <div class="segment two map-scope" role="tablist" aria-label="국내와 해외">
-    <i class="thumb"></i>
-    <button type="button" class="on" data-map-scope="kr">국내</button>
-    <button type="button" data-map-scope="world">해외</button>
+{# 기록: 지도 카드 하나 안에서 핀 지도(static/js/map.js) · 색칠 지도(static/js/coloring-map.js) 를 바꿔 본다 #}
+<section class="record-block" data-record-map data-coloring-map data-view="pin"
+  data-data-url="{% url 'place_map_data' %}" data-wish-url="{% url 'wish_map_data' %}"
+  data-region-url="{% url 'region_data' %}" data-mark-url="{% url 'region_mark' %}" data-kakao-key="{{ kakao_js_key }}"
+  data-geo-kr="{% static 'geo/kr-municipalities-2018.topo.json' %}" data-geo-world="{% static 'geo/world-countries-50m.topo.json' %}"
+  data-geo-seoul="{% static 'geo/seoul-dongs-2013.topo.json' %}">
+  <div class="map-frame card">
+    <div class="map-bar">
+      <div class="scope-chips pin-only" role="group" aria-label="국내와 해외">
+        <button type="button" class="on" data-map-scope="kr" aria-pressed="true">국내</button>
+        <button type="button" data-map-scope="world" aria-pressed="false">해외</button>
+      </div>
+      <nav class="color-crumbs color-only" data-crumbs aria-label="지도 단계"></nav>
+      <div class="view-btns" role="group" aria-label="지도 보기">
+        <button type="button" class="icon-btn on" data-record-view="pin" aria-pressed="true" aria-label="핀 지도" title="핀 지도"><svg class="i"><use href="#i-pin"/></svg></button>
+        <button type="button" class="icon-btn" data-record-view="color" aria-pressed="false" aria-label="색칠 지도" title="색칠 지도"><svg class="i"><use href="#i-brush"/></svg></button>
+      </div>
+    </div>
+    <div class="map-canvas pin-only" data-map-canvas></div>
+    <div class="color-canvas color-only"><svg data-color-svg role="group" aria-label="다녀온 곳 색칠 지도"></svg></div>
   </div>
-  <p class="map-summary muted" data-map-summary aria-live="polite">지도를 불러오고 있어요…</p>
-  <div class="map-canvas card" data-map-canvas></div>
-  <div class="map-cards" data-map-card hidden></div>
+  <div class="map-under">
+    <p class="map-summary muted pin-only" data-map-summary aria-live="polite">지도를 불러오고 있어요…</p>
+    <p class="map-summary muted color-only" data-color-summary aria-live="polite"></p>
+    <label class="overlay-chip pin-only"><input type="checkbox" data-wish-overlay> 가고 싶은 곳도 보기</label>
+  </div>
+  <div class="map-cards pin-only" data-map-card hidden></div>
+  <p class="hint color-only" data-color-note hidden>동 경계는 2013년 기준이라 그 뒤 새로 생긴 동은 옛 동에 칠해질 수 있어요.</p>
+  <div class="region-panel card color-only" data-region-panel hidden aria-live="polite"></div>
 </section>
-
-<section class="coloring-map" data-coloring-map hidden
-  data-data-url="{% url 'region_data' %}" data-mark-url="{% url 'region_mark' %}"
-  data-geo-kr="{% static 'geo/kr-municipalities-2018.topo.json' %}" data-geo-seoul="{% static 'geo/seoul-dongs-2013.topo.json' %}">
-  <nav class="color-crumbs" data-crumbs aria-label="지도 단계"></nav>
-  <p class="map-summary muted" data-color-summary aria-live="polite"></p>
-  <div class="color-canvas card"><svg data-color-svg role="group" aria-label="다녀온 곳 색칠 지도"></svg></div>
-  <p class="hint" data-color-note hidden>동 경계는 2013년 기준이라 그 뒤 새로 생긴 동은 옛 동에 칠해질 수 있어요.</p>
-  <div class="region-panel card" data-region-panel hidden aria-live="polite"></div>
-</section>
-{# 마지막에 고른 보기를 지도 스크립트보다 먼저 적용한다 (숨은 칸에서 지도를 그리지 않게) #}
+{# 마지막에 고른 보기를 지도 스크립트보다 먼저 적용한다 (보이지 않는 칸에서 지도를 그리지 않게) #}
 <script>
   (function () {
     var v = null;
     try { v = localStorage.getItem("nos.recordView"); } catch (e) {}
     // "지도에서 보기"(?focus=…)로 왔으면 그 위치를 보여 줘야 하니 핀 지도로
     if (v === "color" && !/[?&]focus=/.test(location.search)) {
-      document.querySelector("[data-record-map]").hidden = true;
-      document.querySelector("[data-coloring-map]").hidden = false;
+      document.querySelector("[data-record-map]").dataset.view = "color";
     }
   })();
 </script>

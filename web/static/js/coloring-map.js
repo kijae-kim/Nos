@@ -311,7 +311,7 @@
     started = true;
     summary.textContent = "지도를 불러오고 있어요…";
     Promise.all([
-      M.getJSON(root.dataset.dataUrl),
+      M.getJSON(root.dataset.regionUrl),
       M.getJSON(root.dataset.geoKr),
       M.getJSON(root.dataset.geoSeoul),
       window.topojson ? Promise.resolve() : M.loadScript(G.topojsonUrl),
@@ -325,7 +325,6 @@
   }
 
   // ---------- 핀 지도 · 색칠 지도 전환 ----------
-  var pinBox = document.querySelector("[data-record-map]");
   var toggles = Array.prototype.slice.call(document.querySelectorAll("[data-record-view]"));
   function setView(view) {
     toggles.forEach(function (b, i) {
@@ -335,8 +334,8 @@
       var thumb = b.parentElement.querySelector(".thumb");
       if (on && thumb) thumb.style.transform = "translateX(" + i * 100 + "%)";
     });
-    root.hidden = view !== "color";
-    if (pinBox) pinBox.hidden = view !== "pin";
+    // 핀 지도와 색칠 지도는 같은 지도 카드 안에서 data-view 로 바꿔 보인다 (CSS 의 .pin-only / .color-only)
+    root.dataset.view = view;
     try { localStorage.setItem("nos.recordView", view); } catch (e) { /* 저장 못 해도 괜찮다 */ }
     document.dispatchEvent(new CustomEvent("nos:record-view", { detail: view }));
     if (view === "color") { start(); if (data) draw(); }

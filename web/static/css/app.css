@@ -865,12 +865,30 @@ a.label-chip:active { transform: scale(.94); }
 .open-link svg.i { width: 15px; height: 15px; }
 
 /* ---------- 추억 › 기록 지도, 장소 (static/js/map.js, place-picker.js) ---------- */
-.record-map { display: grid; }
-.map-scope { margin: 10px 0 8px; }
-.map-summary { font-size: 13px; margin: 0 2px 10px; }
+/* 기록 지도 블록: 지도 카드 하나 안에서 핀 지도·색칠 지도를 data-view 로 바꿔 보인다 */
+.record-block { display: grid; gap: 8px; margin-top: 12px; }
+.record-block[data-view="pin"] .color-only, .record-block[data-view="color"] .pin-only { display: none !important; }
+.map-frame { display: grid; gap: 8px; padding: 8px; border-radius: 22px; }
+.map-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 0 2px; }
+.scope-chips { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: color-mix(in srgb, var(--track) 60%, transparent); }
+.scope-chips button { min-height: 32px; padding: 0 14px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.scope-chips button.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.view-btns { display: flex; gap: 6px; margin-left: auto; }
+.icon-btn { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: var(--tile); color: var(--muted); }
+.icon-btn svg.i { width: 20px; height: 20px; }
+.icon-btn.on { background: var(--primary); color: #fff; }
+.map-under { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
+.map-summary { font-size: 13px; margin: 0 2px; }
+.overlay-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); padding: 6px 12px; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow); cursor: pointer; }
+.overlay-chip input { width: 16px; height: 16px; accent-color: var(--primary); }
+/* 가고 싶은 곳 핀: 목록 색 원, 다녀옴은 체크, 겹쳐 보기는 테두리만 */
+.wish-icon { background: none; border: 0; padding: 0; display: grid; place-items: center; cursor: pointer; }
+.wish-pin { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--c); border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .3); }
+.wish-pin.hollow { background: var(--surface); border-color: var(--c); border-width: 4px; }
+.wish-pin.visited::after { content: ""; width: 8px; height: 4px; border: 2px solid #fff; border-top: 0; border-right: 0; transform: translateY(-1px) rotate(-45deg); }
 /* 지도 라이브러리의 층(z-index)이 하단 탭 위로 올라오지 않게 가둔다 */
 .map-canvas, .mini-map { position: relative; padding: 0; overflow: hidden; isolation: isolate; z-index: 0; border-radius: 22px; }
-.map-canvas { height: 46vh; min-height: 300px; }
+.map-canvas { height: 44vh; min-height: 280px; border-radius: 16px; }
 .mini-map { height: 200px; margin: 6px 0 2px; box-shadow: var(--shadow); background: var(--tile); }
 .map-canvas[hidden], .mini-map[hidden], .map-cards[hidden] { display: none; }
 .map-pane { position: absolute; inset: 0; }
@@ -928,12 +946,10 @@ a.label-chip:active { transform: scale(.94); }
 .pick-photo-form .btn.primary { margin-top: 16px; }
 
 /* ---------- 색칠 지도 (static/js/coloring-map.js) ---------- */
-.record-views { margin: 10px 0 4px; }
-.record-map[hidden], .coloring-map[hidden], .region-panel[hidden], [data-color-note][hidden] { display: none; }
-.coloring-map { display: grid; gap: 8px; margin-top: 8px; }
-.color-crumbs { font-size: 14px; font-weight: 600; color: var(--muted); }
+.region-panel[hidden], [data-color-note][hidden] { display: none; }
+.color-crumbs { font-size: 14px; font-weight: 600; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .color-crumbs .link-btn { font-size: 14px; }
-.color-canvas { padding: 10px; border-radius: 22px; }
+.color-canvas { padding: 2px; }
 .color-canvas svg { display: block; width: 100%; height: auto; max-height: 70vh; }
 .color-canvas .region {
   /* 안 칠한 곳: 글자색을 조금 섞어 라이트·다크 모두 카드 바탕과 구분되게, 경계는 카드 바탕색 선 */
@@ -952,3 +968,26 @@ a.label-chip:active { transform: scale(.94); }
 .region-panel .region-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 .region-panel .chip-btn.on { background: var(--primary); color: #fff; }
 .region-panel .btn { margin: 4px 0 0; }
+
+/* ---------- 가고 싶은 곳 (couples/wishes.html) ---------- */
+.wish-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-top: 6px; color: var(--text); }
+.wish-card .main { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.wish-card small { font-size: 12px; color: var(--muted); }
+.wish-cats { margin-bottom: 4px; }
+.list-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.list-dot.big { width: 14px; height: 14px; margin: 0; flex: none; }
+.cat-add { color: var(--primary); }
+.wish-list { display: grid; gap: 10px; margin-top: 8px; }
+.wish-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+.wish-row.visited { opacity: .75; }
+.wish-main { flex: 1; display: flex; align-items: center; gap: 12px; min-width: 0; color: var(--text); }
+.wish-main .main { display: grid; gap: 3px; min-width: 0; }
+.wish-main small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wish-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.wish-tags em { font-style: normal; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--c) 35%, var(--surface)); color: var(--text); }
+.visited-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: var(--primary); flex: none; }
+.visited-badge svg.i { width: 16px; height: 16px; }
+.visit-form { flex: none; }
+.visit-form .chip-btn { padding: 8px 12px; }
+.wish-list-pick { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.wish-list-pick .choice { border-left: 4px solid var(--c); }

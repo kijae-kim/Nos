@@ -19,7 +19,23 @@
 </nav>
 {% if current %}<a class="add-link" href="{% url 'wishlist_update' current.pk %}">목록 고치기</a>{% endif %}
 
-{% block wish_map %}{% endblock %}
+{# 가고 싶은 곳 지도 (static/js/map.js 의 wish 모드: 목록 색 핀, 다녀옴은 체크) #}
+<section class="record-block" data-record-map data-mode="wish" data-view="pin"
+  data-data-url="{% url 'wish_map_data' %}{% if current %}?list={{ current.pk }}{% endif %}" data-kakao-key="{{ kakao_js_key }}"
+  data-geo-kr="{% static 'geo/kr-municipalities-2018.topo.json' %}" data-geo-world="{% static 'geo/world-countries-50m.topo.json' %}">
+  <div class="map-frame card">
+    <div class="map-bar">
+      <div class="scope-chips" role="group" aria-label="국내와 해외">
+        <button type="button" class="on" data-map-scope="kr" aria-pressed="true">국내</button>
+        <button type="button" data-map-scope="world" aria-pressed="false">해외</button>
+      </div>
+    </div>
+    <div class="map-canvas" data-map-canvas></div>
+  </div>
+  <div class="map-under"><p class="map-summary muted" data-map-summary aria-live="polite">지도를 불러오고 있어요…</p></div>
+  <div class="map-cards" data-map-card hidden></div>
+</section>
+<script src="{% static 'js/map.js' %}" defer></script>
 
 <a class="btn primary" href="{% url 'wish_create' %}">가고 싶은 곳 저장</a>
 
