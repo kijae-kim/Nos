@@ -1,0 +1,69 @@
+{% extends "layout_app.html" %}
+{% load static %}
+{% block head_title %}가고 싶은 곳 · {{ APP_NAME }}{% endblock %}
+{% block extra_head %}<meta name="referrer" content="strict-origin-when-cross-origin">{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'tastes' %}?tab=record" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">가고 싶은 곳</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<nav class="cats wish-cats" aria-label="목록">
+  <a class="cat{% if not current %} on{% endif %}" href="{% url 'wishes' %}">전체</a>
+  {% for l in lists %}
+    <a class="cat{% if current and current.pk == l.pk %} on{% endif %}" href="?list={{ l.pk }}"><i class="list-dot" style="background: var(--{{ l.color }})"></i>{{ l.name }}</a>
+  {% endfor %}
+  <a class="cat cat-add" href="{% url 'wishlist_create' %}">+ 새 목록</a>
+</nav>
+{% if current %}<a class="add-link" href="{% url 'wishlist_update' current.pk %}">목록 고치기</a>{% endif %}
+
+{# 가고 싶은 곳 지도 (static/js/map.js 의 wish 모드: 목록 색 핀, 다녀옴은 체크) #}
+<section class="record-block" data-record-map data-mode="wish" data-view="pin"
+  data-data-url="{% url 'wish_map_data' %}{% if current %}?list={{ current.pk }}{% endif %}" data-kakao-key="{{ kakao_js_key }}"
+  data-geo-kr="{% static 'geo/kr-municipalities-2018.topo.json' %}" data-geo-world="{% static 'geo/world-countries-50m.topo.json' %}">
+  <div class="map-frame card">
+    <div class="map-bar">
+      <div class="scope-chips" role="group" aria-label="국내와 해외">
+        <button type="button" class="on" data-map-scope="kr" aria-pressed="true">국내</button>
+        <button type="button" data-map-scope="world" aria-pressed="false">해외</button>
+      </div>
+    </div>
+    <div class="map-canvas" data-map-canvas></div>
+  </div>
+  <div class="map-under"><p class="map-summary muted" data-map-summary aria-live="polite">지도를 불러오고 있어요…</p></div>
+  <div class="map-cards" data-map-card hidden></div>
+</section>
+<script src="{% static 'js/map.js' %}" defer></script>
+
+<a class="btn primary" href="{% url 'wish_create' %}">가고 싶은 곳 저장</a>
+
+<ul class="place-list wish-list">
+  {% for w in places %}
+    <li class="wish-row card{% if w.is_visited %} visited{% endif %}">
+      <a class="wish-main" href="{% url 'wish_update' w.pk %}">
+        <i class="list-dot big" style="background: var(--{{ w.color }})"></i>
+        <span class="main">
+          <strong>{{ w.name }}</strong>
+          <small>{{ w.address|default:"고른 위치" }}{% if w.memo %} · {{ w.memo }}{% endif %}</small>
+          {% if w.lists.all %}<span class="wish-tags">{% for l in w.lists.all %}<em style="--c: var(--{{ l.color }})">{{ l.name }}</em>{% endfor %}</span>{% endif %}
+        </span>
+      </a>
+      {% if w.is_visited %}
+        {% if w.visited_place_id %}<a class="visited-badge" href="{% url 'taste_detail' w.visited_place_id %}"><svg class="i"><use href="#i-check"/></svg>다녀옴</a>
+        {% else %}
+          {# 다녀온 기록 장소를 지웠으면 다시 기록할 수 있다 #}
+          <form method="post" action="{% url 'wish_visited' w.pk %}" class="visit-form">{% csrf_token %}<button type="submit" class="chip-btn">다시 기록하기</button></form>
+        {% endif %}
+      {% else %}
+        <form method="post" action="{% url 'wish_visited' w.pk %}" class="visit-form" data-confirm="다녀왔나요? 이 장소를 기록으로 옮길게요." data-confirm-ok="다녀왔어요">
+          {% csrf_token %}<button type="submit" class="chip-btn">다녀왔어요</button>
+        </form>
+      {% endif %}
+    </li>
+  {% empty %}
+    <li class="empty">{% if current %}이 목록은 아직 비어 있어요.{% else %}가고 싶은 곳을 저장해 두면 데이트 계획을 세울 때 꺼내 볼 수 있어요.{% endif %}</li>
+  {% endfor %}
+</ul>
+{% endblock %}

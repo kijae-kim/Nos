@@ -1,0 +1,23 @@
+{% extends "layout_app.html" %}
+{% block head_title %}{% if wish_list %}목록 고치기{% else %}새 목록{% endif %} · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'wishes' %}{% if wish_list %}?list={{ wish_list.pk }}{% endif %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">{% if wish_list %}목록 고치기{% else %}새 목록{% endif %}</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<form method="post" class="card form-card">
+  {% csrf_token %}
+  {% include "_field.html" with field=form.name %}
+  {% include "_choices.html" with field=form.color swatch=True %}
+  <button type="submit" class="btn primary">{% if wish_list %}저장{% else %}만들기{% endif %}</button>
+</form>
+{% if wish_list %}
+  <form method="post" action="{% url 'wishlist_delete' wish_list.pk %}" class="danger-form" data-confirm="이 목록을 지울까요? 안에 있던 장소는 그대로 남아요.">
+    {% csrf_token %}
+    <button type="submit" class="btn danger">목록 지우기</button>
+  </form>
+{% endif %}
+{% endblock %}

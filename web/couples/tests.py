@@ -1627,3 +1627,198 @@ class RegionMapTests(TestCase):
         self.client.logout()
         self.assertEqual(self.client.get(reverse("region_data")).status_code, 302)
         self.assertEqual(self.mark({"level": "dong", "code": "1104065", "state": "on"}).status_code, 302)
+
+
+class WishlistTests(TestCase):
+    """가고 싶은 곳과 목록."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+
+    def make_list(self, name="맛집", color="rose", couple=None):
+        from .models import WishList
+
+        return WishList.objects.create(couple=couple or self.couple, name=name, color=color)
+
+    def wish_data(self, **extra):
+        data = {"name": "성수 카페", "latitude": "37.5446", "longitude": "127.0559", "address": "서울 성동구", "memo": "브런치"}
+        data.update(extra)
+        return data
+
+    def test_list_create_and_duplicate(self):
+        from .models import WishList
+
+        self.client.post(reverse("wishlist_create"), {"name": "맛집", "color": "rose"})
+        res = self.client.post(reverse("wishlist_create"), {"name": "맛집", "color": "sky"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(WishList.objects.count(), 1)
+
+    def test_wish_save_with_lists_and_merge_new_list(self):
+        from .models import WishPlace
+
+        food, trip = self.make_list("맛집"), self.make_list("여행", "sky")
+        res = self.client.post(reverse("wish_create"), self.wish_data(lists=[food.pk, trip.pk], new_list=" 맛집 "))
+        wish = WishPlace.objects.get()
+        self.assertRedirects(res, reverse("wishes"))
+        self.assertEqual((wish.latitude, wish.longitude, wish.memo), (37.5446, 127.0559, "브런치"))
+        self.assertEqual(sorted(l.name for l in wish.lists.all()), ["맛집", "여행"])
+        self.client.post(reverse("wish_create"), self.wish_data(name="부산", new_list="부산 여행"))
+        self.assertEqual(WishPlace.objects.get(name="부산").lists.get().name, "부산 여행")
+
+    def test_deleted_list_choice_shows_error(self):
+        """고르는 사이에 상대가 목록을 지우면 왜 저장이 안 됐는지 보여 준다."""
+        gone = self.make_list("카페")
+        pk = gone.pk
+        gone.delete()
+        res = self.client.post(reverse("wish_create"), self.wish_data(lists=[pk]))
+        self.assertContains(res, "목록이 바뀌었어요. 다시 골라 주세요.")
+
+    def test_wish_needs_location(self):
+        from .models import WishPlace
+
+        for coords in ({"latitude": "", "longitude": ""}, {"latitude": "0", "longitude": "0"}):
+            res = self.client.post(reverse("wish_create"), self.wish_data(**coords))
+            self.assertContains(res, "위치를 골라 주세요.")
+        self.assertFalse(WishPlace.objects.exists())
+
+    def test_other_couple_list_and_wish(self):
+        from .models import WishPlace
+
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("z", password="pw", couple=other)
+        theirs = self.make_list("남의 목록", couple=other)
+        self.client.post(reverse("wish_create"), self.wish_data(lists=[theirs.pk]))
+        self.assertFalse(WishPlace.objects.exists())
+        their_wish = WishPlace.objects.create(couple=other, name="남의 곳", latitude=35, longitude=129, created_by=stranger)
+        self.assertEqual(self.client.get(reverse("wish_update", args=[their_wish.pk])).status_code, 404)
+        self.assertEqual(self.client.post(reverse("wish_delete", args=[their_wish.pk])).status_code, 404)
+        self.assertEqual(self.client.post(reverse("wishlist_delete", args=[theirs.pk])).status_code, 404)
+
+    def test_list_delete_keeps_places(self):
+        from .models import WishList, WishPlace
+
+        food = self.make_list("맛집")
+        self.client.post(reverse("wish_create"), self.wish_data(lists=[food.pk]))
+        self.client.post(reverse("wishlist_delete", args=[food.pk]))
+        self.assertFalse(WishList.objects.exists())
+        self.assertEqual(WishPlace.objects.get().lists.count(), 0)
+
+    def test_page_filter_and_order(self):
+        from django.utils import timezone as tz
+
+        from .models import WishPlace
+
+        food = self.make_list("맛집")
+        done = WishPlace.objects.create(couple=self.couple, name="다녀온 곳", latitude=37.5, longitude=127, visited_at=tz.now())
+        todo = WishPlace.objects.create(couple=self.couple, name="갈 곳", latitude=37.5, longitude=127)
+        other = WishPlace.objects.create(couple=self.couple, name="다른 곳", latitude=37.5, longitude=127)
+        todo.lists.add(food); done.lists.add(food)
+        html = self.client.get(reverse("wishes")).content.decode()
+        self.assertLess(html.index("갈 곳"), html.index("다녀온 곳"))
+        html = self.client.get(reverse("wishes") + f"?list={food.pk}").content.decode()
+        self.assertIn("갈 곳", html)
+        self.assertNotIn("다른 곳", html)
+
+    def test_edit_from_record_map_goes_back_there(self):
+        """기록 지도 겹쳐 보기에서 들어온 고치기 화면은 기록 탭으로 돌아간다."""
+        from .models import WishPlace
+
+        w = WishPlace.objects.create(couple=self.couple, name="성수 카페", latitude=37.5, longitude=127)
+        back = reverse("tastes") + "?tab=record"
+        url = reverse("wish_update", args=[w.pk])
+        self.assertContains(self.client.get(url + "?from=record"), f'href="{back}"')
+        self.assertNotContains(self.client.get(url), f'href="{back}"')
+        self.assertRedirects(self.client.post(url + "?from=record", self.wish_data()), back, fetch_redirect_response=False)
+        self.assertRedirects(self.client.post(url + "?from=evil", self.wish_data()), reverse("wishes"))
+
+    def test_recent_visits_first(self):
+        """다녀온 곳끼리는 최근에 다녀온 곳이 먼저."""
+        from datetime import timedelta
+
+        from django.utils import timezone as tz
+
+        from .models import WishPlace
+
+        now = tz.now()
+        WishPlace.objects.create(couple=self.couple, name="예전에 간 곳", latitude=37.5, longitude=127, visited_at=now - timedelta(days=30))
+        WishPlace.objects.create(couple=self.couple, name="어제 간 곳", latitude=37.5, longitude=127, visited_at=now - timedelta(days=1))
+        WishPlace.objects.create(couple=self.couple, name="아직 갈 곳", latitude=37.5, longitude=127)
+        names = list(WishPlace.objects.values_list("name", flat=True))
+        self.assertEqual(names, ["아직 갈 곳", "어제 간 곳", "예전에 간 곳"])
+
+    def test_login_required(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("wishes")).status_code, 302)
+
+
+class WishVisitedTests(TestCase):
+    """다녀왔어요 → 기록 장소, 지도 데이터, 기록 탭 카드."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def wish(self, couple=None, **fields):
+        from .models import WishPlace
+
+        data = {"name": "성수 카페", "latitude": 37.5446, "longitude": 127.0559, "address": "서울 성동구", "place_url": "https://place.map.kakao.com/1"}
+        data.update(fields)
+        return WishPlace.objects.create(couple=couple or self.couple, **data)
+
+    def test_visited_creates_one_record(self):
+        w = self.wish()
+        photo = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png(), latitude=37.5447, longitude=127.0559)
+        res = self.client.post(reverse("wish_visited", args=[w.pk]))
+        place = Taste.objects.get(category="장소")
+        self.assertRedirects(res, reverse("taste_detail", args=[place.pk]))
+        self.assertEqual((place.title, place.latitude, place.address, place.author), ("성수 카페", 37.5446, "서울 성동구", self.user))
+        w.refresh_from_db(); photo.refresh_from_db()
+        self.assertTrue(w.is_visited)
+        self.assertEqual((w.visited_place, photo.place), (place, place))
+        res = self.client.post(reverse("wish_visited", args=[w.pk]))
+        self.assertRedirects(res, reverse("taste_detail", args=[place.pk]))
+        self.assertEqual(Taste.objects.filter(category="장소").count(), 1)
+
+    def test_visited_again_after_record_deleted(self):
+        w = self.wish()
+        self.client.post(reverse("wish_visited", args=[w.pk]))
+        w.refresh_from_db()
+        first_at = w.visited_at
+        w.visited_place.delete()
+        self.client.post(reverse("wish_visited", args=[w.pk]))
+        w.refresh_from_db()
+        self.assertEqual(Taste.objects.filter(category="장소").count(), 1)
+        self.assertIsNotNone(w.visited_place)
+        self.assertEqual(w.visited_at, first_at)
+
+    def test_visited_other_couple_and_get(self):
+        other = Couple.objects.create()
+        theirs = self.wish(couple=other)
+        self.assertEqual(self.client.post(reverse("wish_visited", args=[theirs.pk])).status_code, 404)
+        self.assertEqual(self.client.get(reverse("wish_visited", args=[self.wish().pk])).status_code, 405)
+
+    def test_map_data(self):
+        from django.utils import timezone as tz
+
+        from .models import WishList
+
+        food = WishList.objects.create(couple=self.couple, name="맛집", color="rose")
+        todo = self.wish(name="갈 곳")
+        todo.lists.add(food)
+        self.wish(name="다녀온 곳", visited_at=tz.now())
+        self.wish(couple=Couple.objects.create(), name="남의 곳")
+        data = self.client.get(reverse("wish_map_data")).json()["places"]
+        self.assertEqual(sorted(p["name"] for p in data), ["갈 곳", "다녀온 곳"])
+        self.assertEqual(set(data[0]), {"id", "name", "lat", "lng", "color", "visited", "url", "address", "photos"})
+        got = {p["name"]: p for p in data}
+        self.assertEqual((got["갈 곳"]["color"], got["다녀온 곳"]["color"]), ("rose", "peach"))
+        self.assertEqual([p["name"] for p in self.client.get(reverse("wish_map_data") + "?open=1").json()["places"]], ["갈 곳"])
+        self.assertEqual([p["name"] for p in self.client.get(reverse("wish_map_data") + f"?list={food.pk}").json()["places"]], ["갈 곳"])
+
+    def test_record_tab_card_counts_open(self):
+        from django.utils import timezone as tz
+
+        self.wish(name="a"); self.wish(name="b"); self.wish(name="c", visited_at=tz.now())
+        html = self.client.get(reverse("tastes") + "?tab=record").content.decode()
+        self.assertIn(reverse("wishes"), html)
+        self.assertIn("가고 싶은 곳 · 2곳", html)

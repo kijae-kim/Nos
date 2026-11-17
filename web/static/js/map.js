@@ -119,55 +119,74 @@
 
   // ---------- 기록 지도 ----------
   function recordMap(root) {
+    // mode: record(기록 장소 핀) | wish(가고 싶은 곳 화면: 목록 색 핀, 다녀옴 체크)
+    var mode = root.dataset.mode || "record";
     var canvas = root.querySelector("[data-map-canvas]");
     var cards = root.querySelector("[data-map-card]");
     var summary = root.querySelector("[data-map-summary]");
-    var scopeBox = root.querySelector(".map-scope");
     var scopeButtons = Array.prototype.slice.call(root.querySelectorAll("[data-map-scope]"));
-    var state = { scope: "kr", panes: {}, drawn: {}, groups: { kr: [], world: [] }, kakao: false };
+    var overlay = root.querySelector("[data-wish-overlay]");
+    var state = { scope: "kr", panes: {}, drawn: {}, groups: { kr: [], world: [] }, kakao: false, wishes: null, wishOn: false };
 
+    function kindOf(p) { return p.kind || (mode === "wish" ? "wish" : "record"); }
     function showCards(list) {
       cards.innerHTML = "";
       list.forEach(function (p) {
         var a = document.createElement("a");
-        a.className = "place-card card";
-        a.href = p.url;
+        a.className = "place-card card" + (kindOf(p) !== "record" ? " is-wish" : "");
+        a.href = p.url + (kindOf(p) === "wish-hollow" ? "?from=record" : ""); // 겹쳐 보기 카드는 고친 뒤 기록 탭으로
         var name = document.createElement("strong");
         name.textContent = p.name;
         var addr = document.createElement("small");
         addr.textContent = p.address || "";
-        var count = document.createElement("span");
-        count.className = "meta";
-        count.textContent = "사진 " + p.photos + "장";
-        a.appendChild(name); a.appendChild(addr); a.appendChild(count);
+        var meta = document.createElement("span");
+        meta.className = "meta";
+        meta.textContent = kindOf(p) === "record" ? "사진 " + p.photos + "장" : (p.visited ? "다녀옴" : "가고 싶은 곳");
+        a.appendChild(name); a.appendChild(addr); a.appendChild(meta);
         cards.appendChild(a);
       });
       cards.hidden = !list.length;
     }
     function showSummary(scope) {
       var n = state.groups[scope].length;
-      summary.textContent = n ? n + "곳" : (scope === "kr" ? "아직 기록한 국내 장소가 없어요." : "아직 기록한 해외 장소가 없어요.");
+      var none = mode === "wish" ? "아직 저장한 " : "아직 기록한 ";
+      summary.textContent = n ? n + "곳" : none + (scope === "kr" ? "국내 장소가 없어요." : "해외 장소가 없어요.");
+    }
+    // 핀 모양: 기록은 기본 핀, 가고 싶은 곳은 목록 색 원(다녀옴은 체크), 겹쳐 보기는 테두리만
+    function pinHtml(p) {
+      var k = kindOf(p);
+      if (k === "record") return null;
+      var cls = "wish-pin" + (k === "wish-hollow" ? " hollow" : "") + (p.visited ? " visited" : "");
+      return '<span class="' + cls + '" style="--c: var(--' + (p.color || "peach") + ')"></span>';
     }
 
     function drawLeaflet(pane, scope, focus) {
       var L = window.L;
       var map = L.map(pane, { zoomControl: true, worldCopyJump: true });
       osmLayer(L).addTo(map);
-      var icon = L.divIcon({ className: "map-pin", iconSize: [18, 18] });
-      var cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
-      state.groups[scope].forEach(function (p) {
+      var marker = function (p) {
+        var html = pinHtml(p);
+        var icon = html ? L.divIcon({ className: "wish-icon", html: html, iconSize: [22, 22] }) : L.divIcon({ className: "map-pin", iconSize: [18, 18] });
         var m = L.marker([p.lat, p.lng], { icon: icon, keyboard: true, title: p.name });
         m.place = p;
         m.on("click", function () { showCards([p]); });
-        cluster.addLayer(m);
-      });
+        return m;
+      };
+      var cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
+      state.groups[scope].forEach(function (p) { cluster.addLayer(marker(p)); });
       cluster.on("clusterclick", function (e) {
         showCards(e.layer.getAllChildMarkers().map(function (m) { return m.place; }));
       });
       map.addLayer(cluster);
+      var wishMarkers = []; // 겹쳐 보기 핀도 같은 묶음에 넣는다
       var view = {
         setFocus: function (lat, lng) { map.setView([lat, lng], 15); },
         resize: function () { map.invalidateSize(); },
+        setWishes: function (list) {
+          cluster.removeLayers(wishMarkers);
+          wishMarkers = list.map(marker);
+          cluster.addLayers(wishMarkers);
+        },
       };
       view.refit = function () {
         fit(view, scope, focus, function (pts) { map.fitBounds(pts, { padding: [28, 28], maxZoom: 14 }); },
@@ -181,22 +200,44 @@
       var kakao = window.kakao;
       var map = new kakao.maps.Map(pane, { center: new kakao.maps.LatLng(36.4, 127.8), level: 13 });
       map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
+      // 가고 싶은 곳 핀은 카카오 기본 마커 대신 같은 모양의 커스텀 오버레이로
+      var overlayPin = function (p) {
+        var el = document.createElement("button");
+        el.type = "button";
+        el.className = "wish-icon";
+        el.setAttribute("aria-label", p.name);
+        el.innerHTML = pinHtml(p);
+        el.addEventListener("click", function () { showCards([p]); });
+        return new kakao.maps.CustomOverlay({ position: new kakao.maps.LatLng(p.lat, p.lng), content: el, yAnchor: 0.5, clickable: true });
+      };
+      // 기록 핀(Marker)과 가고 싶은 곳 핀(CustomOverlay)을 한 묶음(클러스터러)에 넣는다
       var byMarker = [];
-      var markers = state.groups[scope].map(function (p) {
-        var m = new kakao.maps.Marker({ position: new kakao.maps.LatLng(p.lat, p.lng), title: p.name });
+      var pinOf = function (p) {
+        var m;
+        if (kindOf(p) !== "record") m = overlayPin(p);
+        else {
+          m = new kakao.maps.Marker({ position: new kakao.maps.LatLng(p.lat, p.lng), title: p.name });
+          kakao.maps.event.addListener(m, "click", function () { showCards([p]); });
+        }
         byMarker.push({ marker: m, place: p });
-        kakao.maps.event.addListener(m, "click", function () { showCards([p]); });
         return m;
-      });
+      };
       var clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 6 });
-      clusterer.addMarkers(markers);
+      clusterer.addMarkers(state.groups[scope].map(pinOf));
       kakao.maps.event.addListener(clusterer, "clusterclick", function (c) {
         var inside = c.getMarkers();
         showCards(byMarker.filter(function (x) { return inside.indexOf(x.marker) !== -1; }).map(function (x) { return x.place; }));
       });
+      var wishOverlays = [];
       var view = {
         setFocus: function (lat, lng) { map.setLevel(3); map.setCenter(new kakao.maps.LatLng(lat, lng)); },
         resize: function () { map.relayout(); },
+        setWishes: function (list) {
+          clusterer.removeMarkers(wishOverlays);
+          byMarker = byMarker.filter(function (x) { return wishOverlays.indexOf(x.marker) === -1; });
+          wishOverlays = list.map(pinOf);
+          clusterer.addMarkers(wishOverlays);
+        },
       };
       view.refit = function () {
         fit(view, scope, focus, function (pts) {
@@ -216,12 +257,17 @@
       if (pts.length) fitPoints(pts); else fallback();
     }
 
+    function wishesFor(scope) {
+      if (!state.wishOn || !state.wishes) return [];
+      return state.wishes.filter(function (p) { return p.scope === scope; });
+    }
+
     function show(scope, focus) {
       state.scope = scope;
-      scopeButtons.forEach(function (b, i) {
+      scopeButtons.forEach(function (b) {
         var on = b.dataset.mapScope === scope;
         b.classList.toggle("on", on);
-        if (on) scopeBox.querySelector(".thumb").style.transform = "translateX(" + i * 100 + "%)";
+        b.setAttribute("aria-pressed", on ? "true" : "false");
       });
       Object.keys(state.panes).forEach(function (k) { state.panes[k].hidden = k !== scope; });
       showCards([]);
@@ -235,6 +281,7 @@
       if (scope === "kr" && state.kakao) {
         try {
           state.drawn[scope] = drawKakao(pane, scope, focus);
+          state.drawn[scope].setWishes(wishesFor(scope));
           return;
         } catch (e) {
           state.kakao = false; // 카카오맵이 실렸어도 지도를 못 만들면(도메인 미등록 등) Leaflet 으로
@@ -242,6 +289,25 @@
         }
       }
       state.drawn[scope] = drawLeaflet(pane, scope, focus);
+      state.drawn[scope].setWishes(wishesFor(scope));
+    }
+
+    // 기록 지도의 "가고 싶은 곳도 보기": 아직 안 다녀온 곳을 테두리 핀으로 겹친다 (기기에 기억)
+    function setOverlay(on) {
+      state.wishOn = on;
+      try { localStorage.setItem("nos.wishOverlay", on ? "1" : "0"); } catch (e) { /* 괜찮다 */ }
+      var apply = function () {
+        Object.keys(state.drawn).forEach(function (k) { state.drawn[k].setWishes(wishesFor(k)); });
+      };
+      if (!on || state.wishes) return apply();
+      getJSON(root.dataset.wishUrl + "?open=1").then(function (data) {
+        state.wishes = data.places.map(function (p) {
+          p.kind = "wish-hollow";
+          p.scope = scopeOf(p, state.kr, state.world);
+          return p;
+        });
+        apply();
+      }).catch(function () { /* 겹쳐 보기만 안 될 뿐 */ });
     }
 
     function start() {
@@ -263,6 +329,7 @@
       ]).then(function (r) {
         state.kakao = r[5];
         var kr = features(r[1]), world = features(r[2]);
+        state.kr = kr; state.world = world;
         r[0].places.forEach(function (p) { state.groups[scopeOf(p, kr, world)].push(p); });
         var focus = null;
         var raw = new URLSearchParams(location.search).get("focus");
@@ -270,7 +337,9 @@
           var parts = raw.split(",").map(Number);
           if (parts.length === 2 && !parts.some(isNaN)) focus = { lat: parts[0], lng: parts[1], scope: scopeOf({ lat: parts[0], lng: parts[1] }, kr, world) };
         }
+        if (overlay && overlay.checked) state.wishOn = true;
         show(focus ? focus.scope : state.groups.kr.length || !state.groups.world.length ? "kr" : "world", focus);
+        if (state.wishOn) setOverlay(true);
       }).catch(function () {
         Object.keys(state.panes).forEach(function (k) { state.panes[k].remove(); });
         state.panes = {};
@@ -286,6 +355,14 @@
     scopeButtons.forEach(function (b) {
       b.addEventListener("click", function () { if (Object.keys(state.panes).length) show(b.dataset.mapScope); });
     });
+    if (overlay) {
+      try { overlay.checked = localStorage.getItem("nos.wishOverlay") === "1"; } catch (e) { /* 없음 */ }
+      overlay.addEventListener("change", function () {
+        if (state.kr) return setOverlay(overlay.checked);
+        // 지도를 불러오는 중이면 기억만 해 둔다 (다 불러오면 체크 상태를 따른다)
+        try { localStorage.setItem("nos.wishOverlay", overlay.checked ? "1" : "0"); } catch (e) { /* 괜찮다 */ }
+      });
+    }
     start();
   }
 
@@ -324,7 +401,7 @@
   // 기록 지도는 보일 때 그린다 (색칠 지도를 보고 있으면 핀 지도로 바꿀 때 그린다: 숨은 칸에서 그리면 크기가 0)
   var record = document.querySelector("[data-record-map]");
   if (record) {
-    if (!record.hidden) recordMap(record);
+    if (record.dataset.view !== "color") recordMap(record);
     else document.addEventListener("nos:record-view", function first(e) {
       if (e.detail !== "pin") return;
       document.removeEventListener("nos:record-view", first);

@@ -1,0 +1,46 @@
+{% extends "layout_app.html" %}
+{% load static %}
+{% block head_title %}{% if wish %}가고 싶은 곳 고치기{% else %}가고 싶은 곳 저장{% endif %} · {{ APP_NAME }}{% endblock %}
+{% block extra_head %}<meta name="referrer" content="strict-origin-when-cross-origin">{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{{ back_url }}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">{% if wish %}가고 싶은 곳 고치기{% else %}가고 싶은 곳 저장{% endif %}</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<form method="post" class="card form-card">
+  {% csrf_token %}
+  {{ form.latitude }}{{ form.longitude }}{{ form.address }}{{ form.place_url }}
+  <input type="hidden" name="from_photo" value="">
+  {% for e in form.non_field_errors %}<p class="error">{{ e }}</p>{% endfor %}
+  {% for f in form.hidden_fields %}{% for e in f.errors %}<p class="error">위치 정보를 저장하지 못했어요. 위치를 다시 골라 주세요.</p>{% endfor %}{% endfor %}
+  {% include "couples/_place_picker.html" with with_photo=False %}
+  {% include "_field.html" with field=form.name %}
+  <div class="field">
+    <span class="field-label">목록</span>
+    {% if form.lists.field.queryset %}
+      <div class="chips wish-list-pick">
+        {% for cb in form.lists %}
+          <label class="choice" style="--c: var(--{{ cb.data.value.instance.color|default:"peach" }})">{{ cb.tag }} <span>{{ cb.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% if form.lists.errors %}<p class="error">목록이 바뀌었어요. 다시 골라 주세요.</p>{% endif %}
+    {{ form.new_list }}
+    {% for e in form.new_list.errors %}<p class="error">{{ e }}</p>{% endfor %}
+  </div>
+  {% include "_field.html" with field=form.link %}
+  {% include "_field.html" with field=form.memo %}
+  <button type="submit" class="btn primary">{% if wish %}저장{% else %}가고 싶은 곳에 저장{% endif %}</button>
+</form>
+{% if wish %}
+  <form method="post" action="{% url 'wish_delete' wish.pk %}" class="danger-form" data-confirm="가고 싶은 곳에서 지울까요?">
+    {% csrf_token %}
+    <button type="submit" class="btn danger">지우기</button>
+  </form>
+{% endif %}
+<script src="{% static 'js/map.js' %}" defer></script>
+<script src="{% static 'js/place-picker.js' %}" defer></script>
+{% endblock %}

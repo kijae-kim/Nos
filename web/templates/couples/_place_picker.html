@@ -1,0 +1,25 @@
+{% load static %}
+  {# 위치 고르기: 이름 검색(기본), 지도에서 찍기, (장소 기록만) 사진에서. static/js/place-picker.js. include 할 때 with_photo #}
+  <section class="field place-picker" data-place-picker
+    data-search-url="{% url 'place_search' %}" data-photos-url="{% url 'place_photo_choices' %}" data-kakao-key="{{ kakao_js_key }}"
+    data-geo-kr="{% static 'geo/kr-municipalities-2018.topo.json' %}" data-geo-world="{% static 'geo/world-countries-50m.topo.json' %}">
+    <span class="field-label">위치</span>
+    <p class="picked" data-picked{% if not form.initial.latitude and not form.latitude.value %} hidden{% endif %}>
+      <svg class="i" aria-hidden="true"><use href="#i-pin"/></svg>
+      <span data-picked-text>{% if form.address.value %}{{ form.address.value }}{% else %}고른 위치{% endif %}</span>
+      <button type="button" class="link-btn" data-pick-reset>바꾸기</button>
+    </p>
+    <div class="pick-search" data-pick-search>
+      <input type="search" placeholder="장소 이름이나 주소로 찾기" aria-label="장소 검색" data-search-input enterkeyhint="search">
+      <button type="button" class="btn" data-search-go>찾기</button>
+    </div>
+    <div class="chips pick-ways">
+      <button type="button" class="chip-btn" data-pick-map>지도에서 찍기</button>
+      {% if with_photo %}<button type="button" class="chip-btn" data-pick-photo>사진에서</button>{% endif %}
+    </div>
+    <p class="hint" data-pick-msg hidden role="status" aria-live="polite"></p>
+    <ul class="pick-results" data-search-results hidden></ul>
+    <div class="pick-photos" data-pick-photos hidden></div>
+    <div class="mini-map pick-map" data-pick-mapbox hidden></div>
+    <button type="button" class="btn primary" data-pick-here hidden>여기로</button>
+  </section>

@@ -113,8 +113,9 @@
     setPicked({ lat: +c.lat.toFixed(6), lng: +c.lng.toFixed(6), label: "지도에서 고른 위치" });
   });
 
-  // ---------- 사진에서 ----------
-  $("[data-pick-photo]").addEventListener("click", function () {
+  // ---------- 사진에서 (장소 기록만, 가고 싶은 곳에는 버튼이 없다) ----------
+  var photoBtn = $("[data-pick-photo]");
+  if (photoBtn) photoBtn.addEventListener("click", function () {
     closePanels();
     say("사진을 불러오고 있어요…");
     window.NosMap.getJSON(box.dataset.photosUrl).then(function (data) {

@@ -20,8 +20,10 @@ from anniversaries import services as anniversary_services
 
 from . import ics, linkpreview, places, placesearch, quota, services
 from .storage import MAX_IMAGE_BYTES, delete_file
-from .forms import AlbumForm, CreateForm, EventForm, JoinForm, MomentForm, PhotoForm, PlaceForm, ProfileForm, TasteCommentForm
-from .models import Album, CalendarFeed, Couple, Event, Photo, RegionMark, Taste, TasteComment, TasteLike
+from .forms import (
+    AlbumForm, CreateForm, EventForm, JoinForm, MomentForm, PhotoForm, PlaceForm, ProfileForm, TasteCommentForm, WishListForm, WishPlaceForm,
+)
+from .models import Album, CalendarFeed, Couple, Event, Photo, RegionMark, Taste, TasteComment, TasteLike, WishList, WishPlace
 
 
 def _render_connect(request, create_form=None, join_form=None):
@@ -337,7 +339,8 @@ def taste(request):
             .annotate(photo_count=Count("place_photos", distinct=True))
             .order_by(F("latitude").asc(nulls_last=True), "-created_at", "-pk")
         )
-        return render(request, "couples/taste.html", {**common, "places": places})
+        wish_open_count = WishPlace.objects.filter(couple=couple, visited_at__isnull=True).count()
+        return render(request, "couples/taste.html", {**common, "places": places, "wish_open_count": wish_open_count})
 
     partner = user.partner
     category = request.GET.get("cat", "전체")
@@ -387,6 +390,145 @@ def place_map_data(request):
             ]
         }
     )
+
+# ---------- 가고 싶은 곳 ----------
+
+@login_required
+def wishes(request):
+    """가고 싶은 곳. 목록 칩으로 거르고, 아직 안 다녀온 곳 먼저."""
+    couple = request.user.couple
+    lists = couple.wish_lists.all()
+    current = None
+    places = couple.wish_places.prefetch_related("lists")
+    list_id = request.GET.get("list", "")
+    if list_id.isdigit():
+        current = lists.filter(pk=int(list_id)).first()
+        if current:
+            places = places.filter(lists=current)
+    return render(
+        request,
+        "couples/wishes.html",
+        {"lists": lists, "current": current, "places": places, "kakao_js_key": settings.KAKAO_JS_KEY},
+    )
+
+
+def _wish_back(request):
+    """돌아갈 곳: 기록 지도 겹쳐 보기에서 왔으면(?from=record) 기록 탭, 아니면 가고 싶은 곳 화면."""
+    if request.GET.get("from") == "record":
+        return f"{reverse('tastes')}?tab=record"
+    return reverse("wishes")
+
+
+def _wish_form_page(request, form, wish):
+    return render(request, "couples/wish_form.html", {
+        "form": form, "wish": wish, "kakao_js_key": settings.KAKAO_JS_KEY, "back_url": _wish_back(request),
+    })
+
+
+@login_required
+def wish_create(request):
+    form = WishPlaceForm(request.POST or None, couple=request.user.couple)
+    if request.method == "POST" and form.is_valid():
+        form.save_for(request.user.couple, request.user)
+        messages.success(request, "가고 싶은 곳에 저장했어요.")
+        return redirect("wishes")
+    return _wish_form_page(request, form, None)
+
+
+@login_required
+def wish_update(request, pk):
+    wish = get_object_or_404(WishPlace, pk=pk, couple=request.user.couple)
+    form = WishPlaceForm(request.POST or None, instance=wish, couple=request.user.couple)
+    if request.method == "POST" and form.is_valid():
+        form.save_for(request.user.couple, request.user)
+        messages.success(request, "고쳤어요.")
+        return redirect(_wish_back(request))
+    return _wish_form_page(request, form, wish)
+
+
+@login_required
+@require_POST
+def wish_delete(request, pk):
+    get_object_or_404(WishPlace, pk=pk, couple=request.user.couple).delete()
+    messages.success(request, "가고 싶은 곳에서 지웠어요.")
+    return redirect("wishes")
+
+
+@login_required
+@require_POST
+def wish_visited(request, pk):
+    """다녀왔어요: 기록 장소를 만들고 가고 싶은 곳에는 다녀옴으로 남긴다 (커플이 함께 본다).
+    행을 잠가 두 사람이 동시에 눌러도 기록은 하나만 생긴다."""
+    couple = request.user.couple
+    with transaction.atomic():
+        wish = get_object_or_404(WishPlace.objects.select_for_update(), pk=pk, couple=couple)
+        if wish.visited_place_id:
+            return redirect("taste_detail", pk=wish.visited_place_id)
+        place = Taste.objects.create(
+            couple=couple, author=request.user, category=Taste.PLACE, title=wish.name,
+            latitude=wish.latitude, longitude=wish.longitude, address=wish.address,
+            place_url=wish.place_url, link=wish.link,
+        )
+        wish.visited_place = place
+        if wish.visited_at is None:
+            wish.visited_at = timezone.now()
+        wish.save(update_fields=["visited_place", "visited_at"])
+    places.relink(couple)
+    messages.success(request, "기록으로 옮겼어요. 사진은 근처에서 찍은 것이 저절로 모여요.")
+    return redirect("taste_detail", pk=place.pk)
+
+
+@login_required
+def wish_map_data(request):
+    """가고 싶은 곳 지도용. ?list= 로 거르고, ?open=1 이면 아직 안 다녀온 곳만 (기록 지도에 겹쳐 볼 때)."""
+    wishes_qs = request.user.couple.wish_places.prefetch_related("lists")
+    list_id = request.GET.get("list", "")
+    if list_id.isdigit():
+        wishes_qs = wishes_qs.filter(lists__pk=int(list_id))
+    if request.GET.get("open") == "1":
+        wishes_qs = wishes_qs.filter(visited_at__isnull=True)
+    return JsonResponse(
+        {
+            "places": [
+                {"id": w.pk, "name": w.name, "lat": w.latitude, "lng": w.longitude, "color": w.color,
+                 "visited": w.is_visited, "url": reverse("wish_update", args=[w.pk]), "address": w.address, "photos": 0}
+                for w in wishes_qs.distinct()
+            ]
+        }
+    )
+
+
+@login_required
+def wishlist_create(request):
+    form = WishListForm(request.POST or None, couple=request.user.couple)
+    if request.method == "POST" and form.is_valid():
+        lst = form.save(commit=False)
+        lst.couple, lst.created_by = request.user.couple, request.user
+        lst.save()
+        messages.success(request, "목록을 만들었어요.")
+        return redirect(f"{reverse('wishes')}?list={lst.pk}")
+    return render(request, "couples/wishlist_form.html", {"form": form, "wish_list": None})
+
+
+@login_required
+def wishlist_update(request, pk):
+    lst = get_object_or_404(WishList, pk=pk, couple=request.user.couple)
+    form = WishListForm(request.POST or None, instance=lst, couple=request.user.couple)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "목록을 고쳤어요.")
+        return redirect(f"{reverse('wishes')}?list={lst.pk}")
+    return render(request, "couples/wishlist_form.html", {"form": form, "wish_list": lst})
+
+
+@login_required
+@require_POST
+def wishlist_delete(request, pk):
+    """목록만 지운다. 그 안의 가고 싶은 곳은 남는다."""
+    get_object_or_404(WishList, pk=pk, couple=request.user.couple).delete()
+    messages.success(request, "목록을 지웠어요. 장소는 그대로 남아 있어요.")
+    return redirect("wishes")
+
 
 @login_required
 def region_data(request):

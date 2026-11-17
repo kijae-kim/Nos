@@ -306,3 +306,53 @@ class RegionMark(models.Model):
 
     def __str__(self):
         return f"{self.level}:{self.code}={self.state}"
+
+
+class WishList(models.Model):
+    """가고 싶은 곳 목록 (여행·맛집·카페·○○ 데이트…). 두 사람이 함께 만들고 쓴다."""
+
+    couple = models.ForeignKey(Couple, on_delete=models.CASCADE, related_name="wish_lists")
+    name = models.CharField("목록 이름", max_length=20)
+    color = models.CharField("색", max_length=10, choices=COLOR_CHOICES, default="peach")
+    created_by = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [models.UniqueConstraint(fields=["couple", "name"], name="unique_wish_list_name")]
+
+    def __str__(self):
+        return self.name
+
+
+class WishPlace(models.Model):
+    """가고 싶은 곳. 다녀오면 기록 장소(Taste 장소)를 만들고 여기에는 다녀옴으로 남는다 (커플이 함께 본다)."""
+
+    couple = models.ForeignKey(Couple, on_delete=models.CASCADE, related_name="wish_places")
+    name = models.CharField("이름", max_length=100)
+    latitude = models.FloatField("위도")
+    longitude = models.FloatField("경도")
+    address = models.CharField("주소", max_length=200, blank=True)
+    place_url = models.URLField("장소 페이지", blank=True)
+    link = models.URLField("링크", blank=True)
+    memo = models.CharField("한 줄 메모", max_length=300, blank=True)
+    lists = models.ManyToManyField(WishList, blank=True, related_name="places")
+    created_by = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    visited_at = models.DateTimeField(null=True, blank=True)
+    visited_place = models.ForeignKey("Taste", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        ordering = [models.F("visited_at").desc(nulls_first=True), "-created_at", "-pk"]
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def is_visited(self):
+        return self.visited_at is not None
+
+    @property
+    def color(self):
+        first = sorted(self.lists.all(), key=lambda l: l.name)
+        return first[0].color if first else "peach"
