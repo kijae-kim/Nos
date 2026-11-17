@@ -956,6 +956,30 @@ class EventMemoAndAlbumTabTests(TestCase):
         event.refresh_from_db()
         self.assertEqual(event.memo, "")
 
+    def test_past_event_is_read_only_but_deletable(self):
+        """지난 일정(오늘보다 전)은 보기만, 지우기는 된다."""
+        yesterday = timezone.localdate() - timedelta(days=1)
+        event = Event.objects.create(couple=self.couple, created_by=self.a, title="지난 전시", date=yesterday)
+        url = reverse("event_update", args=[event.pk])
+        page = self.client.get(url)
+        self.assertContains(page, "지난 일정은 고칠 수 없어요")
+        self.assertContains(page, "<fieldset disabled")
+        self.assertNotContains(page, '<button type="submit" class="btn primary">')
+        res = self.client.post(url, self.event_form(text="바꾼 이름", date=timezone.localdate().isoformat()))
+        event.refresh_from_db()
+        self.assertEqual((event.title, event.date), ("지난 전시", yesterday))
+        self.assertEqual(res.status_code, 302)
+        self.client.post(reverse("event_delete", args=[event.pk]))
+        self.assertFalse(Event.objects.exists())
+
+    def test_today_event_still_editable(self):
+        event = Event.objects.create(couple=self.couple, created_by=self.a, title="오늘 일정", date=timezone.localdate())
+        page = self.client.get(reverse("event_update", args=[event.pk]))
+        self.assertNotContains(page, "지난 일정은 고칠 수 없어요")
+        self.client.post(reverse("event_update", args=[event.pk]), self.event_form(text="바꾼 오늘 일정"))
+        event.refresh_from_db()
+        self.assertEqual(event.title, "바꾼 오늘 일정")
+
     def test_event_memo_too_long_rejected(self):
         res = self.client.post(reverse("event_create"), self.event_form(memo="가" * 1001))
         self.assertEqual(res.status_code, 200)

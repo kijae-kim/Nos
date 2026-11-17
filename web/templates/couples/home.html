@@ -26,7 +26,7 @@
         {% if next_item.days_left == 0 %}오늘이에요
         {% else %}
           <span class="t-boat">{{ next_item.title }}까지 {{ next_item.days_left }}일</span>
-          <span class="t-journey">다음 오아시스 {{ next_item.title }}까지 {{ next_item.days_left }}일</span>
+          <span class="t-journey">{{ next_item.title }}까지 {{ next_item.days_left }}일 더 걸어요</span>
         {% endif %}
       </span>
     {% endif %}

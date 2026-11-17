@@ -290,6 +290,11 @@ def event_create(request):
 def event_update(request, pk):
     event = _event_for_user(request, pk)
     couple = request.user.couple
+    # 지난 일정(오늘보다 전)은 보기만 한다. 지우기는 따로(event_delete) 된다
+    locked = event.date < timezone.localdate()
+    if locked and request.method == "POST":
+        messages.error(request, "지난 일정은 고칠 수 없어요.")
+        return redirect(_calendar_url(event.date))
     if request.method == "POST":
         form = EventForm(request.POST)
     else:
@@ -298,7 +303,9 @@ def event_update(request, pk):
         services.save_event(event, couple, form.cleaned_data)
         messages.success(request, "일정을 바꿨어요.")
         return redirect(_calendar_url(event.date))
-    return render(request, "couples/event_form.html", {"form": form, "labels": couple.labels.all(), "event": event})
+    return render(request, "couples/event_form.html", {
+        "form": form, "labels": [] if locked else couple.labels.all(), "event": event, "locked": locked,
+    })
 
 
 @login_required

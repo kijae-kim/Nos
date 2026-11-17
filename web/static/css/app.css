@@ -103,6 +103,9 @@ input:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visibl
 .group { font-size: 13px; font-weight: 600; color: var(--muted); margin: 6px 4px -6px; }
 .label { font-size: 13px; font-weight: 600; color: var(--muted); }
 .notice { background: var(--accent-soft); color: var(--text); border-radius: 14px; padding: 10px 14px; font-size: 14px; }
+/* 폼 칸 묶음(지난 일정 막기용). 상자 모양 없이 안의 칸이 폼 간격을 그대로 따른다 */
+.plain-fieldset { display: contents; }
+.plain-fieldset:disabled input, .plain-fieldset:disabled textarea, .plain-fieldset:disabled button, .plain-fieldset:disabled label { opacity: .7; cursor: default; }
 .error { color: var(--accent); font-size: 13px; }
 
 /* 카드 · 빈 상태 */
@@ -641,10 +644,11 @@ a.label-chip:active { transform: scale(.94); }
   position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; padding: 0; box-shadow: none; border: 0; z-index: 1;
 }
 .dropzone-body { display: grid; place-items: center; gap: 8px; padding: 12px; min-height: 120px; text-align: center; color: var(--muted); font-size: 13px; font-weight: 600; }
-.dropzone-preview { width: 100%; max-height: 220px; object-fit: cover; border-radius: 16px; display: block; }
+/* 올린 사진은 자르지 않고 원래 비율로 (세로 포스터도 다 보이게). 남는 칸은 바탕색 */
+.dropzone-preview { width: 100%; height: auto; max-height: 260px; object-fit: contain; background: var(--tile); border-radius: 16px; display: block; }
 .dropzone-preview[hidden] { display: none; }
-.taste-photo { width: 100%; max-height: 300px; object-fit: cover; border-radius: 20px; display: block; }
-.taste-thumb { width: 100%; height: 150px; object-fit: cover; border-radius: 18px; display: block; margin-bottom: 4px; }
+.taste-photo { width: 100%; height: auto; max-height: 70dvh; object-fit: contain; background: var(--tile); border-radius: 20px; display: block; }
+.taste-thumb { width: 100%; height: auto; max-height: 220px; object-fit: contain; background: var(--tile); border-radius: 18px; display: block; margin-bottom: 4px; }
 
 /* ---------- 로고: 배 ---------- */
 .logo-boat { width: 26px; height: 28px; flex: none; }
