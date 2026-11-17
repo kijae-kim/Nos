@@ -578,7 +578,9 @@ def _photo_day(qs):
 
 
 def _photo_item(p, with_coords=False):
-    item = {"id": p.pk, "thumb": p.thumb.url if p.thumb else None,
+    # 핀(with_coords)은 작은 사진이 없으면 null (핀에 원본을 받지 않는다), 사진 줄은 원본으로 대신한다
+    thumb = p.thumb.url if p.thumb else (None if with_coords else p.image.url)
+    item = {"id": p.pk, "thumb": thumb,
             "url": reverse("photo_detail", args=[p.pk]), "date": p.day.isoformat()}
     if with_coords:
         item.update(lat=p.latitude, lng=p.longitude)

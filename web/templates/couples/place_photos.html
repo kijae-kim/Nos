@@ -15,7 +15,7 @@
     {% for p in photos %}
       <label class="tile pick-tile">
         <input type="checkbox" name="photos" value="{{ p.pk }}"{% if p.place_id == place.pk %} checked{% endif %}>
-        <img src="{{ p.image.url }}" loading="lazy" decoding="async" alt="{{ p.shot_date|date:'n월 j일' }} 사진">
+        <img src="{{ p.thumb_url }}" loading="lazy" decoding="async" alt="{{ p.shot_date|date:'n월 j일' }} 사진">
         <i class="pick-mark" aria-hidden="true"><svg class="i"><use href="#i-check"/></svg></i>
       </label>
     {% empty %}

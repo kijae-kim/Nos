@@ -71,10 +71,12 @@ def attach_thumb(photo, source=None):
         photo.thumb, photo.thumb_size = "", 0
         photo.save(update_fields=["thumb", "thumb_size"])
         return False
-    name = thumb_name(photo.image.name)
-    if default_storage.exists(name):
-        default_storage.delete(name)
-    saved = default_storage.save(name, ContentFile(data))
+    try:
+        saved = default_storage.save(thumb_name(photo.image.name), ContentFile(data))
+    except Exception:  # 저장소 오류(R2 연결 등): 작은 사진 없이 둔다. 사진 올리기는 성공해야 한다
+        photo.thumb, photo.thumb_size = "", 0
+        photo.save(update_fields=["thumb", "thumb_size"])
+        return False
     photo.thumb.name, photo.thumb_size = saved, len(data)
     photo.save(update_fields=["thumb", "thumb_size"])
     return True

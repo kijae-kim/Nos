@@ -2462,3 +2462,48 @@ class PhotoPinScreenTests(TestCase):
         self.assertContains(page, "data-photo-overlay")
         self.assertContains(page, f'data-photo-url="{reverse("photo_map_data")}"')
         self.assertContains(page, "사진도 보기")
+
+
+class PhotoPinReviewFixTests(TestCase):
+    """최종 검토에서 나온 것."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+
+    def test_pin_url_not_url_encoded(self):
+        """서명 주소의 & 를 %26 으로 바꾸면 R2 가 거절한다. 핀은 DOM 으로 만들고 주소를 그대로 쓴다."""
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/map.js").read_text()
+        self.assertNotIn("encodeURIComponent)", js)
+        self.assertIn("function photoPinEl", js)
+        self.assertIn("photoPinEl: photoPinEl", js)
+
+    def test_grids_use_thumbs(self):
+        for name in ("templates/couples/place_photos.html", "templates/couples/home.html"):
+            from pathlib import Path
+
+            html = (Path(__file__).resolve().parent.parent / name).read_text()
+            self.assertNotIn("p.image.url", html, name)
+
+    def test_strip_falls_back_to_original(self):
+        from datetime import date
+
+        place = Taste.objects.create(couple=self.couple, author=self.user, category=Taste.PLACE, title="장소", latitude=37.5, longitude=127.0)
+        p = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image="photos/x.jpg", place=place, taken_on=date(2026, 1, 1))
+        item = self.client.get(reverse("place_photo_strip", args=[place.pk])).json()["photos"][0]
+        self.assertEqual(item["thumb"], p.image.url)
+
+    def test_thumb_storage_error_keeps_upload(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        png = UploadStorageTests.png(self)
+        from unittest.mock import MagicMock
+
+        broken = MagicMock()
+        broken.save.side_effect = OSError("R2 down")
+        with patch("couples.thumbs.default_storage", broken):  # 작은 사진 저장만 실패
+            res = self.client.post(reverse("photo_create"), {"image": png})
+        self.assertEqual(res.status_code, 302)
+        p = Photo.objects.get()
+        self.assertFalse(p.thumb)

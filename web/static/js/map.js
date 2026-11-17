@@ -66,7 +66,22 @@
   function osmLayer(L) {
     return L.tileLayer(OSM_TILES, { maxZoom: 19, attribution: "© OpenStreetMap" });
   }
-  window.NosMap = { loadScript: loadScript, getJSON: getJSON, loadLeaflet: loadLeaflet, loadKakao: loadKakao, osmLayer: osmLayer };
+  // 사진 핀: 작은 사진 동그라미. 서명 주소(?…&X-Amz-Signature=…)를 바꾸지 않도록 DOM 으로 만든다
+  // (문자열 HTML 에 넣으며 & 를 바꾸면 R2 가 서명을 못 읽어 사진이 안 뜬다). 작은 사진이 없으면 카메라 아이콘.
+  function photoPinEl(p) {
+    var span = document.createElement("span");
+    span.className = "photo-pin";
+    if (p.thumb) {
+      var safe = String(p.thumb).replace(/["\\\n]/g, function (c) { return "\\" + c; }); // CSS 문자열 안에서만 이스케이프
+      span.style.backgroundImage = 'url("' + safe + '")';
+    } else {
+      span.classList.add("no-thumb");
+      span.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-album"/></svg>';
+    }
+    return span;
+  }
+
+  window.NosMap = { loadScript: loadScript, getJSON: getJSON, loadLeaflet: loadLeaflet, loadKakao: loadKakao, osmLayer: osmLayer, photoPinEl: photoPinEl };
 
   // ---------- 국내/해외 판정 ----------
   function features(topo) {
@@ -231,11 +246,7 @@
     function pinHtml(p) {
       var k = kindOf(p);
       if (k === "record") return null;
-      if (k === "photo") {
-        // 작은 사진 동그라미. 작은 사진이 없으면 카메라 아이콘 (원본은 받지 않는다)
-        if (!p.thumb) return '<span class="photo-pin no-thumb"><svg class="i" aria-hidden="true"><use href="#i-album"/></svg></span>';
-        return '<span class="photo-pin" style="background-image:url(&quot;' + String(p.thumb).replace(/["'<>&]/g, encodeURIComponent) + '&quot;)"></span>';
-      }
+      if (k === "photo") return photoPinEl(p); // 문자열이 아니라 요소 (주소를 그대로 두려고)
       var cls = "wish-pin" + (k === "wish-hollow" ? " hollow" : "") + (p.visited ? " visited" : "");
       return '<span class="' + cls + '" style="--c: var(--' + (p.color || "peach") + ')"></span>';
     }
@@ -287,7 +298,8 @@
         el.type = "button";
         el.className = "wish-icon";
         el.setAttribute("aria-label", p.name || "사진");
-        el.innerHTML = pinHtml(p);
+        var pin = pinHtml(p);
+        if (typeof pin === "string") el.innerHTML = pin; else el.appendChild(pin);
         el.addEventListener("click", function () { showCards([p]); });
         return new kakao.maps.CustomOverlay({ position: new kakao.maps.LatLng(p.lat, p.lng), content: el, yAnchor: 0.5, clickable: true });
       };
