@@ -2363,3 +2363,91 @@ class PhotoThumbTests(TestCase):
     def test_album_grid_uses_thumb(self):
         p = self.upload()
         self.assertContains(self.client.get(reverse("albums")), p.thumb.url)
+
+
+class PhotoMapDataTests(TestCase):
+    """사진 핀(photo_map_data)과 장소 사진 줄(place_photo_strip)."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+
+    def photo(self, lat=37.5, lng=127.0, place=None, couple=None, taken=None, thumb=True):
+        from datetime import date
+
+        p = Photo.objects.create(couple=couple or self.couple, uploaded_by=self.user, image="photos/x.jpg", latitude=lat, longitude=lng,
+                                 place=place, taken_on=taken or date(2026, 11, 8))
+        if thumb:
+            p.thumb = f"photos/x-{p.pk}-thumb.jpg"
+            p.save(update_fields=["thumb"])
+        return p
+
+    def place(self, lat=37.5, lng=127.0, couple=None):
+        return Taste.objects.create(couple=couple or self.couple, author=self.user, category=Taste.PLACE, title="장소", latitude=lat, longitude=lng)
+
+    def data(self):
+        return {p["id"]: p for p in self.client.get(reverse("photo_map_data")).json()["photos"]}
+
+    def test_which_photos_get_pins(self):
+        free = self.photo()
+        linked = self.photo(place=self.place())
+        no_coord_place = Taste.objects.create(couple=self.couple, author=self.user, category=Taste.PLACE, title="위치 없음")
+        manual = self.photo(place=no_coord_place)
+        no_loc = self.photo(lat=None, lng=None)
+        other = Couple.objects.create()
+        foreign = self.photo(couple=other)
+        ids = set(self.data())
+        self.assertIn(free.pk, ids)
+        self.assertIn(manual.pk, ids)
+        self.assertFalse({linked.pk, no_loc.pk, foreign.pk} & ids)
+
+    def test_pin_fields_and_missing_thumb(self):
+        from datetime import date
+
+        p = self.photo(taken=date(2026, 11, 8))
+        q = self.photo(thumb=False, taken=None)
+        Photo.objects.filter(pk=q.pk).update(taken_on=None)
+        d = self.data()
+        self.assertEqual(set(d[p.pk]), {"id", "lat", "lng", "thumb", "url", "date"})
+        self.assertEqual(d[p.pk]["date"], "2026-11-08")
+        self.assertEqual(d[p.pk]["url"], reverse("photo_detail", args=[p.pk]))
+        self.assertIsNotNone(d[p.pk]["thumb"])
+        self.assertIsNone(d[q.pk]["thumb"])
+        self.assertEqual(d[q.pk]["date"], timezone.localdate().isoformat())
+
+    def test_pins_capped_at_500_newest(self):
+        from datetime import date, timedelta as td
+
+        base = date(2025, 1, 1)
+        Photo.objects.bulk_create([
+            Photo(couple=self.couple, uploaded_by=self.user, image="photos/x.jpg", latitude=37.5, longitude=127.0, taken_on=base + td(days=i))
+            for i in range(501)
+        ])
+        photos = self.client.get(reverse("photo_map_data")).json()["photos"]
+        self.assertEqual(len(photos), 500)
+        self.assertEqual(photos[0]["date"], (base + td(days=500)).isoformat())
+        self.assertNotIn(base.isoformat(), {p["date"] for p in photos})
+
+    def test_place_strip(self):
+        from datetime import date, timedelta as td
+
+        pl = self.place()
+        Photo.objects.bulk_create([
+            Photo(couple=self.couple, uploaded_by=self.user, image="photos/x.jpg", latitude=37.5, longitude=127.0, place=pl, taken_on=date(2026, 1, 1) + td(days=i))
+            for i in range(61)
+        ])
+        res = self.client.get(reverse("place_photo_strip", args=[pl.pk])).json()
+        self.assertEqual(len(res["photos"]), 60)
+        self.assertEqual(res["total"], 61)
+        self.assertEqual(res["photos"][0]["date"], "2026-01-01")
+        self.assertEqual(res["more_url"], reverse("taste_detail", args=[pl.pk]))
+        other = self.place(couple=Couple.objects.create())
+        self.assertEqual(self.client.get(reverse("place_photo_strip", args=[other.pk])).status_code, 404)
+
+    def test_place_data_has_strip_url(self):
+        pl = self.place()
+        places = self.client.get(reverse("place_map_data")).json()["places"]
+        self.assertEqual(places[0]["strip"], reverse("place_photo_strip", args=[pl.pk]))
+
+    def test_login_required(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("photo_map_data")).status_code, 302)
