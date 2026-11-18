@@ -2629,16 +2629,23 @@ class WishOnRecordTabTests(TestCase):
         item = next(p for p in self.client.get(reverse("wish_map_data")).json()["places"] if p["id"] == w.pk)
         self.assertEqual(item["lists"], [{"name": "맛집", "color": "rose"}, {"name": "부산여행", "color": "sky"}])
 
-    def test_record_tab_expands_wishes_inline(self):
+    def test_record_tab_expands_wish_lists_inline(self):
+        """가고 싶은 곳 카드를 누르면 장소가 아니라 목록(태그)이 펼쳐진다. 누르면 그 목록의 가고 싶은 곳 화면."""
+        from .models import WishList
+
         w, done = self.make()
+        busan = WishList.objects.get(name="부산여행")
+        done.lists.add(busan)
         html = self.client.get(reverse("tastes") + "?tab=record").content.decode()
         self.assertIn('<button type="button" class="wish-card card" aria-expanded="false" aria-controls="wish-inline"', html)
         inline = html.split('id="wish-inline"')[1].split("</ul>")[0]
-        self.assertIn("해운대", inline)
         self.assertIn("부산여행", inline)
-        self.assertIn(reverse("wish_update", args=[w.pk]) + "?from=record", inline)
-        self.assertNotIn("다녀온 곳", inline)  # 아직 안 다녀온 곳만 (카드 숫자와 같게)
-        self.assertIn(reverse("wishes"), inline)
+        self.assertIn("맛집", inline)
+        self.assertIn(f'{reverse("wishes")}?list={busan.pk}', inline)
+        self.assertNotIn("해운대", inline)  # 장소 이름은 나오지 않는다
+        self.assertIn("1곳", inline)  # 다녀온 곳은 세지 않는다 (부산여행: 해운대만)
+        self.assertIn(reverse("wishlist_create"), inline)
+        self.assertIn(f'href="{reverse("wishes")}"', inline)
 
     def test_overlay_pins_not_clustered_with_records(self):
         from pathlib import Path

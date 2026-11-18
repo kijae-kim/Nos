@@ -517,10 +517,13 @@ def taste(request):
             .annotate(photo_count=Count("place_photos", distinct=True))
             .order_by(F("latitude").asc(nulls_last=True), "-created_at", "-pk")
         )
-        # 가고 싶은 곳 카드를 누르면 바로 아래에 펼쳐 보이는 목록 (아직 안 다녀온 곳, 카드 숫자와 같게)
-        wishes_open = list(WishPlace.objects.filter(couple=couple, visited_at__isnull=True).prefetch_related("lists"))
+        # 가고 싶은 곳 카드를 누르면 바로 아래에 펼쳐 보이는 목록(태그)들. 숫자는 아직 안 다녀온 곳
+        from django.db.models import Q
+
+        wish_lists = couple.wish_lists.annotate(open_count=Count("places", filter=Q(places__visited_at__isnull=True)))
+        wish_open_count = WishPlace.objects.filter(couple=couple, visited_at__isnull=True).count()
         return render(request, "couples/taste.html", {
-            **common, "places": places, "wish_open_count": len(wishes_open), "wishes_open": wishes_open,
+            **common, "places": places, "wish_open_count": wish_open_count, "wish_lists": wish_lists,
         })
 
     partner = user.partner

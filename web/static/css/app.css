@@ -1010,7 +1010,7 @@ a.label-chip:active { transform: scale(.94); }
 .wish-card[aria-expanded="true"] .chev { transform: rotate(90deg); }
 .wish-inline[hidden] { display: none; }
 .wish-inline .label-chips { margin-top: 4px; }
-.wish-all { justify-content: center; }
+.wish-inline-links { display: flex; justify-content: space-between; gap: 8px; padding: 0 4px; }
 /* 지도 카드: 가고 싶은 곳이 든 목록 이름 */
 .place-head .wish-lists { grid-column: 1 / 3; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .wish-card .main { flex: 1; display: grid; gap: 2px; min-width: 0; }
