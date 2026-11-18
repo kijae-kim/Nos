@@ -918,6 +918,13 @@ a.label-chip:active { transform: scale(.94); }
 .map-pane { position: absolute; inset: 0; }
 .map-pane[hidden] { display: none; }
 .map-pin { background: var(--primary); border: 3px solid var(--pin-ring); border-radius: 50%; box-shadow: var(--pin-shadow); }
+/* 겹쳐 보기 중 가고 싶은 곳과 같은 자리의 기록 핀: 그 목록 색 */
+.map-pin.c-sky { background: var(--sky); }
+.map-pin.c-rose { background: var(--rose); }
+.map-pin.c-sand { background: var(--sand); }
+.map-pin.c-lav { background: var(--lav); }
+.map-pin.c-sage { background: var(--sage); }
+.map-pin.c-peach { background: var(--peach); }
 .map-canvas .marker-cluster { background: color-mix(in srgb, var(--primary) 30%, transparent); border-radius: 50%; }
 .map-canvas .marker-cluster div { background: var(--primary); color: #fff; font: 700 12px/30px var(--font); width: 30px; height: 30px; margin: 5px; border-radius: 50%; text-align: center; }
 .map-cards { display: grid; gap: 8px; margin-top: 10px; }

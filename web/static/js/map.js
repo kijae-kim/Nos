@@ -142,7 +142,17 @@
     var scopeButtons = Array.prototype.slice.call(root.querySelectorAll("[data-map-scope]"));
     var overlay = root.querySelector("[data-wish-overlay]");
     var photoToggle = root.querySelector("[data-photo-overlay]");
-    var state = { scope: "kr", panes: {}, drawn: {}, groups: { kr: [], world: [] }, kakao: false, wishes: null, wishOn: false, photos: null, photoOn: false };
+    var state = { scope: "kr", panes: {}, drawn: {}, groups: { kr: [], world: [] }, kakao: false, wishes: null, wishOn: false, photos: null, photoOn: false, matched: {} };
+    // 겹쳐 보기를 켰을 때, 가고 싶은 곳과 같은 자리(100m)의 기록 장소는 그 가고 싶은 곳 색으로 (핀 하나로 보이게)
+    function wishAt(p) { return kindOf(p) === "record" && state.wishOn ? state.matched[p.id] : null; }
+    // 카카오 기본 핀과 같은 모양을 색만 바꿔 그린 이미지 (CSS 변수는 이미지에 못 쓰므로 지금 색 값을 읽는다)
+    function pinImageUrl(color) {
+      var hex = getComputedStyle(document.documentElement).getPropertyValue("--" + color).trim() || "#3396ff";
+      var svg = "<svg xmlns='http://www.w3.org/2000/svg' width='28' height='38' viewBox='0 0 28 38'>" +
+        "<path d='M14 1C6.8 1 1 6.6 1 13.6 1 23 14 37 14 37s13-14 13-23.4C27 6.6 21.2 1 14 1z' fill='" + hex + "' stroke='#fff' stroke-width='2'/>" +
+        "<circle cx='14' cy='13.5' r='4.5' fill='#fff'/></svg>";
+      return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    }
 
     function kindOf(p) { return p.kind || (mode === "wish" ? "wish" : "record"); }
 
@@ -234,11 +244,13 @@
         meta.className = "meta";
         meta.textContent = kindOf(p) === "record" ? "사진 " + p.photos + "장" : (p.visited ? "다녀옴" : "가고 싶은 곳");
         a.appendChild(name); a.appendChild(addr); a.appendChild(meta);
-        // 가고 싶은 곳: 들어 있는 목록 이름 (예: 부산여행)
-        if (kindOf(p) !== "record" && p.lists && p.lists.length) {
+        // 가고 싶은 곳: 들어 있는 목록 이름 (예: 부산여행). 같은 자리 기록 장소도 겹쳐 보기 중이면 함께
+        var wish = wishAt(p);
+        var listItems = kindOf(p) !== "record" ? p.lists : (wish ? [{ name: "가고 싶은 곳 · " + wish.name, color: wish.color }].concat(wish.lists) : null);
+        if (listItems && listItems.length) {
           var lists = document.createElement("span");
           lists.className = "wish-lists";
-          p.lists.forEach(function (l) {
+          listItems.forEach(function (l) {
             var chip = document.createElement("span");
             chip.className = "label-chip";
             chip.style.setProperty("--c", "var(--" + l.color + ")");
@@ -279,14 +291,17 @@
       var marker = function (p) {
         var html = pinHtml(p);
         var size = kindOf(p) === "photo" ? [36, 36] : [22, 22];
-        var icon = html ? L.divIcon({ className: "wish-icon", html: html, iconSize: size }) : L.divIcon({ className: "map-pin", iconSize: [18, 18] });
+        var wish = wishAt(p);
+        var icon = html ? L.divIcon({ className: "wish-icon", html: html, iconSize: size })
+          : L.divIcon({ className: "map-pin" + (wish ? " c-" + wish.color : ""), iconSize: [18, 18] });
         var m = L.marker([p.lat, p.lng], { icon: icon, keyboard: true, title: p.name || "사진" });
         m.place = p;
         m.on("click", function () { showCards([p]); });
         return m;
       };
       var cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
-      state.groups[scope].forEach(function (p) { cluster.addLayer(marker(p)); });
+      var recordMarkers = state.groups[scope].map(marker);
+      cluster.addLayers(recordMarkers);
       cluster.on("clusterclick", function (e) {
         showCards(e.layer.getAllChildMarkers().map(function (m) { return m.place; }));
       });
@@ -304,6 +319,11 @@
         setFocus: function (lat, lng) { map.setView([lat, lng], 15); },
         resize: function () { map.invalidateSize(); },
         setWishes: function (list) {
+          // 같은 자리 가고 싶은 곳이 있는 기록 핀은 색을 바꾸고, 겹쳐 보기를 끄면 되돌린다
+          recordMarkers.forEach(function (m) {
+            var wish = wishAt(m.place);
+            m.setIcon(L.divIcon({ className: "map-pin" + (wish ? " c-" + wish.color : ""), iconSize: [18, 18] }));
+          });
           overlayCluster.clearLayers();
           overlayLayer.clearLayers();
           wishMarkers = list.map(marker);
@@ -341,7 +361,11 @@
         var m;
         if (kindOf(p) !== "record") m = overlayPin(p);
         else {
-          m = new kakao.maps.Marker({ position: new kakao.maps.LatLng(p.lat, p.lng), title: p.name });
+          var wish = wishAt(p);
+          var opts = { position: new kakao.maps.LatLng(p.lat, p.lng), title: p.name };
+          if (wish) opts.image = new kakao.maps.MarkerImage(pinImageUrl(wish.color), new kakao.maps.Size(28, 38), { offset: new kakao.maps.Point(14, 37) });
+          m = new kakao.maps.Marker(opts);
+          m.wishColor = wish ? wish.color : "";
           kakao.maps.event.addListener(m, "click", function () { showCards([p]); });
         }
         byMarker.push({ marker: m, place: p });
@@ -360,6 +384,15 @@
         setFocus: function (lat, lng) { map.setLevel(3); map.setCenter(new kakao.maps.LatLng(lat, lng)); },
         resize: function () { map.relayout(); },
         setWishes: function (list) {
+          // 기록 핀 색: 같은 자리 가고 싶은 곳 색이 바뀐 핀만 새로 만들어 바꿔 끼운다
+          byMarker.slice().forEach(function (x) {
+            if (kindOf(x.place) !== "record") return;
+            var wish = wishAt(x.place);
+            if ((wish ? wish.color : "") === x.marker.wishColor) return;
+            clusterer.removeMarker(x.marker);
+            byMarker.splice(byMarker.indexOf(x), 1);
+            clusterer.addMarker(pinOf(x.place));
+          });
           overlayClusterer.clear();
           wishOverlays.forEach(function (o) { o.setMap(null); });
           byMarker = byMarker.filter(function (x) { return wishOverlays.indexOf(x.marker) === -1; });
@@ -454,6 +487,8 @@
       };
       if (!on || state.wishes) return apply();
       getJSON(root.dataset.wishUrl + "?open=1").then(function (data) {
+        state.matched = {};
+        (data.matched || []).forEach(function (m) { state.matched[m.place] = m; });
         state.wishes = data.places.map(function (p) {
           p.kind = "wish-hollow";
           p.scope = scopeOf(p, state.kr, state.world);

@@ -2678,8 +2678,12 @@ class WishOverlayNearRecordTests(TestCase):
         Taste.objects.create(couple=self.couple, author=self.a, category=Taste.PLACE, title="광안리", latitude=35.1532, longitude=129.1187)
         same = WishPlace.objects.create(couple=self.couple, name="광안리 카페", latitude=35.1535, longitude=129.1189)  # 약 40m
         far = WishPlace.objects.create(couple=self.couple, name="해운대", latitude=35.1587, longitude=129.1604)
-        ids = {p["id"] for p in self.client.get(reverse("wish_map_data") + "?open=1").json()["places"]}
+        data = self.client.get(reverse("wish_map_data") + "?open=1").json()
+        ids = {p["id"] for p in data["places"]}
         self.assertEqual(ids, {far.pk})
+        # 빠진 가고 싶은 곳은 그 자리 기록 장소에 색·목록으로 알려 준다 (기록 핀을 그 색으로)
+        rec = Taste.objects.get(title="광안리")
+        self.assertEqual(data["matched"], [{"place": rec.pk, "color": same.color, "name": "광안리 카페", "lists": []}])
         # 가고 싶은 곳 화면(open 없음)에서는 그대로 보인다
         all_ids = {p["id"] for p in self.client.get(reverse("wish_map_data")).json()["places"]}
         self.assertEqual(all_ids, {same.pk, far.pk})
