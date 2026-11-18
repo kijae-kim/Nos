@@ -723,18 +723,27 @@ def wish_map_data(request):
     if list_id.isdigit():
         wishes_qs = wishes_qs.filter(lists__pk=int(list_id))
     wishes = list(wishes_qs.distinct())
+    matched = []
     if request.GET.get("open") == "1":
-        # 기록 지도에 겹쳐 볼 때: 아직 안 다녀온 곳만, 그리고 이미 기록한 장소 100m 안의 곳은 뺀다
-        # (기록 핀이 그 자리를 보여 주므로 겹쳐 찍히지 않게)
-        records = Taste.objects.filter(couple=request.user.couple, category=Taste.PLACE,
-                                       latitude__isnull=False, longitude__isnull=False).values_list("latitude", "longitude")
-        records = list(records)
-        wishes = [
-            w for w in wishes
-            if not w.is_visited and not any(places.distance_m(w.latitude, w.longitude, lat, lng) <= WISH_NEAR_RECORD_M for lat, lng in records)
-        ]
+        # 기록 지도에 겹쳐 볼 때: 아직 안 다녀온 곳만, 그리고 이미 기록한 장소 100m 안의 곳은 핀을 따로 찍지 않고
+        # 그 기록 장소에 색·목록을 알려 준다 (기록 핀을 가고 싶은 곳 색으로 바꿔 한 핀으로 보이게)
+        records = list(Taste.objects.filter(couple=request.user.couple, category=Taste.PLACE,
+                                            latitude__isnull=False, longitude__isnull=False).values_list("pk", "latitude", "longitude"))
+        kept = []
+        for w in wishes:
+            if w.is_visited:
+                continue
+            near = [(places.distance_m(w.latitude, w.longitude, lat, lng), pk) for pk, lat, lng in records]
+            near = [x for x in near if x[0] <= WISH_NEAR_RECORD_M]
+            if near:
+                matched.append({"place": min(near)[1], "color": w.color, "name": w.name,
+                                "lists": [{"name": l.name, "color": l.color} for l in sorted(w.lists.all(), key=lambda l: l.name)]})
+            else:
+                kept.append(w)
+        wishes = kept
     return JsonResponse(
         {
+            "matched": matched,
             "places": [
                 {"id": w.pk, "name": w.name, "lat": w.latitude, "lng": w.longitude, "color": w.color,
                  "visited": w.is_visited, "url": reverse("wish_update", args=[w.pk]), "address": w.address, "photos": 0,
