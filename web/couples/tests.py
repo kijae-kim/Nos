@@ -2722,3 +2722,19 @@ class ClusterAndLabelDimTests(TestCase):
         self.assertNotIn("dim", piece(tagged))
         plain = self.client.get(reverse("calendar") + f"?month={day:%Y-%m}").content.decode()
         self.assertNotIn(" dim", plain.split('class="big-days"')[1])
+
+
+class WideAlbumGridTests(TestCase):
+    """넓은 화면에서 앨범 사진 칸이 너무 크지 않게."""
+
+    def test_wide_grid_rules(self):
+        import re
+        from pathlib import Path
+
+        css = (Path(__file__).resolve().parent.parent / "static/css/app.css").read_text()
+        wide = css[css.index("/* 넓은 화면 사진 칸 */"):]
+        self.assertRegex(wide, r"\.photos \{ grid-template-columns: repeat\(5, 1fr\)")
+        self.assertRegex(wide, r"\.photos\.recent \{ grid-template-columns: repeat\(4, 1fr\)")
+        self.assertRegex(wide, r"\.albums \{ grid-template-columns: repeat\(4, 1fr\)")
+        home = (Path(__file__).resolve().parent.parent / "templates/couples/home.html").read_text()
+        self.assertIn('class="photos recent"', home)
