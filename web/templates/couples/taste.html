@@ -71,19 +71,21 @@
   <svg class="i chev" aria-hidden="true"><use href="#i-right"/></svg>
 </button>
 <ul class="place-list wish-inline" id="wish-inline" hidden>
-  {% for w in wishes_open %}
+  {% for l in wish_lists %}
     <li>
-      <a class="place-row card" href="{% url 'wish_update' w.pk %}?from=record">
-        <span class="icon-tile" style="background:var(--{{ w.color }})"><svg class="i"><use href="#i-heart"/></svg></span>
-        <span class="main"><strong>{{ w.name }}</strong><small>{{ w.address }}</small>
-          {% if w.lists.all %}<span class="label-chips">{% for l in w.lists.all %}<span class="label-chip" style="--c: var(--{{ l.color }})">{{ l.name }}</span>{% endfor %}</span>{% endif %}
-        </span>
+      <a class="place-row card" href="{% url 'wishes' %}?list={{ l.pk }}">
+        <span class="icon-tile" style="background:var(--{{ l.color }})"><svg class="i"><use href="#i-heart"/></svg></span>
+        <span class="main"><strong>{{ l.name }}</strong></span>
+        <span class="meta">{{ l.open_count }}곳</span>
       </a>
     </li>
   {% empty %}
-    <li class="empty">아직 저장한 곳이 없어요.</li>
+    <li class="empty">아직 만든 목록이 없어요. 여행·맛집처럼 목록을 만들어 모아 볼까요?</li>
   {% endfor %}
-  <li><a class="add-link wish-all" href="{% url 'wishes' %}">가고 싶은 곳 화면에서 보기·저장하기<svg class="i"><use href="#i-right"/></svg></a></li>
+  <li class="wish-inline-links">
+    <a class="add-link" href="{% url 'wishes' %}"><svg class="i"><use href="#i-heart"/></svg>전체 보기</a>
+    <a class="add-link" href="{% url 'wishlist_create' %}"><svg class="i"><use href="#i-plus"/></svg>새 목록</a>
+  </li>
 </ul>
 
 <ul class="place-list">
