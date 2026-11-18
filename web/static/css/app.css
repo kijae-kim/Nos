@@ -639,6 +639,7 @@ a.label-chip:active { transform: scale(.94); }
   /* 일정 조각. 여러 날 일정은 칸 안쪽 여백까지 늘려 옆 칸과 이어져 보이게 (끝만 둥글게) */
   .cell .piece { background: color-mix(in srgb, var(--c) 60%, var(--surface)); min-height: 21px; flex: none; }
   .cell .piece.hole { visibility: hidden; }
+  .cell .piece.dim { opacity: .28; } /* 이름표로 거를 때 다른 일정 */
   .cell .piece.multi:not(.s) { margin-left: -6px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
   .cell .piece.multi:not(.e) { margin-right: -6px; border-top-right-radius: 0; border-bottom-right-radius: 0; }
   /* 끌어서 옮기기 */

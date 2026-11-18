@@ -272,6 +272,8 @@ def calendar(request):
             "next_item": anniversaries[0] if anniversaries else None,
             "labels": user.couple.labels.filter(events__in=visible).distinct(),
             "label": label,
+            # 이름표로 거를 때 큰 달력에서 그 이름표가 없는 일정은 흐리게
+            "label_event_ids": set(visible.filter(labels=label).values_list("pk", flat=True)) if label else set(),
             "label_upcoming": label_upcoming,
             "label_past": label_past,
             "month_param": f"{first:%Y-%m}",

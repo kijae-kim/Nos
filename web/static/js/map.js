@@ -371,14 +371,19 @@
         byMarker.push({ marker: m, place: p });
         return m;
       };
-      var clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 6 });
-      clusterer.addMarkers(state.groups[scope].map(pinOf));
-      kakao.maps.event.addListener(clusterer, "clusterclick", function (c) {
+      // 묶음 숫자를 누르면: 그 안의 장소·사진을 카드로 보여 주고 한 단계 확대한다
+      // (카카오는 disableClickZoom 을 켜야 clusterclick 이 온다)
+      var onCluster = function (c) {
         var inside = c.getMarkers();
         showCards(byMarker.filter(function (x) { return inside.indexOf(x.marker) !== -1; }).map(function (x) { return x.place; }));
-      });
+        map.setLevel(Math.max(1, map.getLevel() - 1), { anchor: c.getCenter(), animate: true });
+      };
+      var clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 6, disableClickZoom: true });
+      clusterer.addMarkers(state.groups[scope].map(pinOf));
+      kakao.maps.event.addListener(clusterer, "clusterclick", onCluster);
       // 겹쳐 보기 핀은 기록 묶음과 따로: 사진은 사진끼리만 묶고, 가고 싶은 곳은 묶지 않고 바로 지도에
-      var overlayClusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 6, gridSize: 40 });
+      var overlayClusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 6, gridSize: 40, disableClickZoom: true });
+      kakao.maps.event.addListener(overlayClusterer, "clusterclick", onCluster);
       var wishOverlays = [];
       var view = {
         setFocus: function (lat, lng) { map.setLevel(3); map.setCenter(new kakao.maps.LatLng(lat, lng)); },
