@@ -2653,3 +2653,43 @@ class WishOnRecordTabTests(TestCase):
         js = (Path(__file__).resolve().parent.parent / "static/js/map.js").read_text()
         self.assertIn("overlayClusterer", js)
         self.assertIn("overlayCluster", js)
+
+
+class WishAllLinkIconTests(TestCase):
+    setUp = ScreenTests.setUp
+
+    def test_all_link_uses_list_icon(self):
+        html = self.client.get(reverse("tastes") + "?tab=record").content.decode()
+        links = html.split('class="wish-inline-links"')[1].split("</li>")[0]
+        all_link = links.split("전체 보기")[0]
+        self.assertIn("#i-list", all_link)
+        self.assertNotIn("#i-heart", all_link)
+        self.assertIn('id="i-list"', html)
+
+
+class WishOverlayNearRecordTests(TestCase):
+    """기록 지도 겹쳐 보기(?open=1): 이미 기록한 장소 100m 안의 가고 싶은 곳은 빼서 핀이 겹치지 않게."""
+
+    setUp = ScreenTests.setUp
+
+    def test_open_overlay_skips_wishes_at_recorded_places(self):
+        from .models import WishPlace
+
+        Taste.objects.create(couple=self.couple, author=self.a, category=Taste.PLACE, title="광안리", latitude=35.1532, longitude=129.1187)
+        same = WishPlace.objects.create(couple=self.couple, name="광안리 카페", latitude=35.1535, longitude=129.1189)  # 약 40m
+        far = WishPlace.objects.create(couple=self.couple, name="해운대", latitude=35.1587, longitude=129.1604)
+        ids = {p["id"] for p in self.client.get(reverse("wish_map_data") + "?open=1").json()["places"]}
+        self.assertEqual(ids, {far.pk})
+        # 가고 싶은 곳 화면(open 없음)에서는 그대로 보인다
+        all_ids = {p["id"] for p in self.client.get(reverse("wish_map_data")).json()["places"]}
+        self.assertEqual(all_ids, {same.pk, far.pk})
+
+    def test_other_couple_places_do_not_hide(self):
+        from .models import WishPlace
+
+        other = Couple.objects.create()
+        u = User.objects.create_user("c", password="pw", couple=other)
+        Taste.objects.create(couple=other, author=u, category=Taste.PLACE, title="남의 장소", latitude=35.1532, longitude=129.1187)
+        mine = WishPlace.objects.create(couple=self.couple, name="광안리 카페", latitude=35.1535, longitude=129.1189)
+        ids = {p["id"] for p in self.client.get(reverse("wish_map_data") + "?open=1").json()["places"]}
+        self.assertEqual(ids, {mine.pk})
