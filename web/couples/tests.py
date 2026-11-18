@@ -2653,3 +2653,15 @@ class WishOnRecordTabTests(TestCase):
         js = (Path(__file__).resolve().parent.parent / "static/js/map.js").read_text()
         self.assertIn("overlayClusterer", js)
         self.assertIn("overlayCluster", js)
+
+
+class WishAllLinkIconTests(TestCase):
+    setUp = ScreenTests.setUp
+
+    def test_all_link_uses_list_icon(self):
+        html = self.client.get(reverse("tastes") + "?tab=record").content.decode()
+        links = html.split('class="wish-inline-links"')[1].split("</li>")[0]
+        all_link = links.split("전체 보기")[0]
+        self.assertIn("#i-list", all_link)
+        self.assertNotIn("#i-heart", all_link)
+        self.assertIn('id="i-list"', html)
