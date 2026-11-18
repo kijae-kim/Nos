@@ -1177,4 +1177,15 @@
       r.addEventListener("change", function () { face.style.setProperty("--c", "var(--" + r.value + ")"); });
     });
   }
+
+  // ---------- 펼치기 버튼 (aria-controls 가 가리키는 칸을 열고 닫는다) ----------
+  document.querySelectorAll("[data-expand][aria-controls]").forEach(function (b) {
+    var box = document.getElementById(b.getAttribute("aria-controls"));
+    if (!box) return;
+    b.addEventListener("click", function () {
+      var open = b.getAttribute("aria-expanded") !== "true";
+      b.setAttribute("aria-expanded", open ? "true" : "false");
+      box.hidden = !open;
+    });
+  });
 })();
