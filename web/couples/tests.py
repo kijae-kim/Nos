@@ -2697,3 +2697,28 @@ class WishOverlayNearRecordTests(TestCase):
         mine = WishPlace.objects.create(couple=self.couple, name="광안리 카페", latitude=35.1535, longitude=129.1189)
         ids = {p["id"] for p in self.client.get(reverse("wish_map_data") + "?open=1").json()["places"]}
         self.assertEqual(ids, {mine.pk})
+
+
+class ClusterAndLabelDimTests(TestCase):
+    """카카오 묶음 숫자를 누르면 카드, 넓은 화면 큰 달력은 이름표로 거르면 나머지를 흐리게."""
+
+    setUp = ScreenTests.setUp
+
+    def test_kakao_cluster_click_shows_cards(self):
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/map.js").read_text()
+        self.assertGreaterEqual(js.count("disableClickZoom: true"), 2)  # 기록 묶음, 사진 묶음
+
+    def test_big_calendar_dims_other_events_when_filtered(self):
+        day = timezone.localdate() + timedelta(days=1)
+        tag = Label.objects.create(couple=self.couple, kind=Label.TAG, name="성수")
+        tagged = Event.objects.create(couple=self.couple, created_by=self.a, title="성수 산책", date=day)
+        tagged.labels.add(tag)
+        other = Event.objects.create(couple=self.couple, created_by=self.a, title="다른 일정", date=day)
+        html = self.client.get(reverse("calendar") + f"?label={tag.pk}&month={day:%Y-%m}").content.decode()
+        piece = lambda e: html.split(f'data-event-id="{e.pk}"')[0].rsplit("<span", 1)[1]
+        self.assertIn("dim", piece(other))
+        self.assertNotIn("dim", piece(tagged))
+        plain = self.client.get(reverse("calendar") + f"?month={day:%Y-%m}").content.decode()
+        self.assertNotIn(" dim", plain.split('class="big-days"')[1])

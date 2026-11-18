@@ -98,7 +98,7 @@
            href="?month={{ cell.date|date:'Y-m' }}&amp;day={{ cell.date|date:'Y-m-d' }}">
           <b>{{ cell.day }}</b>
           {# 칸 높이를 고정하므로 줄 0·1 만, 나머지는 개수로. 여러 날 일정은 같은 줄에 조각으로 이어진다 #}
-          {% for p in cell.pieces %}{% if p %}<span class="piece{% if p.event.is_multi_day %} multi{% if p.start %} s{% endif %}{% if p.end %} e{% endif %}{% endif %}" style="--c: var(--{{ p.event.color }})" data-event-id="{{ p.event.pk }}"{% if p.event.is_past %} data-past{% elif p.title %} draggable="true" data-grab-date="{{ cell.date|date:'Y-m-d' }}" data-start="{{ p.event.date|date:'Y-m-d' }}" data-span="{{ p.event.span_days }}"{% endif %}{% if not p.title %} aria-hidden="true"{% endif %}>{% if p.title %}{{ p.event.title }}{% endif %}</span>{% else %}<span class="piece hole" aria-hidden="true"></span>{% endif %}{% endfor %}
+          {% for p in cell.pieces %}{% if p %}<span class="piece{% if p.event.is_multi_day %} multi{% if p.start %} s{% endif %}{% if p.end %} e{% endif %}{% endif %}{% if label and p.event.pk not in label_event_ids %} dim{% endif %}" style="--c: var(--{{ p.event.color }})" data-event-id="{{ p.event.pk }}"{% if p.event.is_past %} data-past{% elif p.title %} draggable="true" data-grab-date="{{ cell.date|date:'Y-m-d' }}" data-start="{{ p.event.date|date:'Y-m-d' }}" data-span="{{ p.event.span_days }}"{% endif %}{% if not p.title %} aria-hidden="true"{% endif %}>{% if p.title %}{{ p.event.title }}{% endif %}</span>{% else %}<span class="piece hole" aria-hidden="true"></span>{% endif %}{% endfor %}
           {% if cell.more %}<em class="more">+{{ cell.more }}</em>{% endif %}
         </a>
       {% endfor %}{% endfor %}
