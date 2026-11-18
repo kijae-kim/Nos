@@ -1005,7 +1005,14 @@ a.label-chip:active { transform: scale(.94); }
 .region-panel .btn { margin: 4px 0 0; }
 
 /* ---------- 가고 싶은 곳 (couples/wishes.html) ---------- */
-.wish-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-top: 6px; color: var(--text); }
+.wish-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-top: 6px; color: var(--text); width: 100%; text-align: left; font: inherit; border: 0; cursor: pointer; }
+.wish-card .chev { transition: transform .2s; }
+.wish-card[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.wish-inline[hidden] { display: none; }
+.wish-inline .label-chips { margin-top: 4px; }
+.wish-all { justify-content: center; }
+/* 지도 카드: 가고 싶은 곳이 든 목록 이름 */
+.place-head .wish-lists { grid-column: 1 / 3; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .wish-card .main { flex: 1; display: grid; gap: 2px; min-width: 0; }
 .wish-card small { font-size: 12px; color: var(--muted); }
 .wish-cats { margin-bottom: 4px; }

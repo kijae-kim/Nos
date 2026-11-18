@@ -234,6 +234,19 @@
         meta.className = "meta";
         meta.textContent = kindOf(p) === "record" ? "사진 " + p.photos + "장" : (p.visited ? "다녀옴" : "가고 싶은 곳");
         a.appendChild(name); a.appendChild(addr); a.appendChild(meta);
+        // 가고 싶은 곳: 들어 있는 목록 이름 (예: 부산여행)
+        if (kindOf(p) !== "record" && p.lists && p.lists.length) {
+          var lists = document.createElement("span");
+          lists.className = "wish-lists";
+          p.lists.forEach(function (l) {
+            var chip = document.createElement("span");
+            chip.className = "label-chip";
+            chip.style.setProperty("--c", "var(--" + l.color + ")");
+            chip.textContent = l.name;
+            lists.appendChild(chip);
+          });
+          a.appendChild(lists);
+        }
         card.appendChild(a);
         // 장소 하나만 열었을 때 그 장소 사진 줄을 받아 붙인다
         if (kindOf(p) === "record" && p.photos && p.strip && places.length === 1) {
@@ -278,14 +291,25 @@
         showCards(e.layer.getAllChildMarkers().map(function (m) { return m.place; }));
       });
       map.addLayer(cluster);
-      var wishMarkers = []; // 겹쳐 보기 핀도 같은 묶음에 넣는다
+      // 겹쳐 보기 핀은 기록 핀과 따로: 사진은 사진끼리만 묶고, 가고 싶은 곳은 묶지 않는다
+      // (기록 핀과 한 묶음이면 핀이 하나인 곳에도 합친 숫자가 떠서 헷갈린다)
+      var overlayCluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 40 });
+      overlayCluster.on("clusterclick", function (e) {
+        showCards(e.layer.getAllChildMarkers().map(function (m) { return m.place; }));
+      });
+      map.addLayer(overlayCluster);
+      var overlayLayer = L.layerGroup().addTo(map);
+      var wishMarkers = [];
       var view = {
         setFocus: function (lat, lng) { map.setView([lat, lng], 15); },
         resize: function () { map.invalidateSize(); },
         setWishes: function (list) {
-          cluster.removeLayers(wishMarkers);
+          overlayCluster.clearLayers();
+          overlayLayer.clearLayers();
           wishMarkers = list.map(marker);
-          cluster.addLayers(wishMarkers);
+          wishMarkers.forEach(function (m) {
+            if (kindOf(m.place) === "photo") overlayCluster.addLayer(m); else overlayLayer.addLayer(m);
+          });
         },
       };
       view.refit = function () {
@@ -329,15 +353,22 @@
         var inside = c.getMarkers();
         showCards(byMarker.filter(function (x) { return inside.indexOf(x.marker) !== -1; }).map(function (x) { return x.place; }));
       });
+      // 겹쳐 보기 핀은 기록 묶음과 따로: 사진은 사진끼리만 묶고, 가고 싶은 곳은 묶지 않고 바로 지도에
+      var overlayClusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 6, gridSize: 40 });
       var wishOverlays = [];
       var view = {
         setFocus: function (lat, lng) { map.setLevel(3); map.setCenter(new kakao.maps.LatLng(lat, lng)); },
         resize: function () { map.relayout(); },
         setWishes: function (list) {
-          clusterer.removeMarkers(wishOverlays);
+          overlayClusterer.clear();
+          wishOverlays.forEach(function (o) { o.setMap(null); });
           byMarker = byMarker.filter(function (x) { return wishOverlays.indexOf(x.marker) === -1; });
           wishOverlays = list.map(pinOf);
-          clusterer.addMarkers(wishOverlays);
+          var photos = [];
+          wishOverlays.forEach(function (o, i) {
+            if (kindOf(list[i]) === "photo") photos.push(o); else o.setMap(map);
+          });
+          overlayClusterer.addMarkers(photos);
         },
       };
       view.refit = function () {

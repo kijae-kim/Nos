@@ -517,8 +517,11 @@ def taste(request):
             .annotate(photo_count=Count("place_photos", distinct=True))
             .order_by(F("latitude").asc(nulls_last=True), "-created_at", "-pk")
         )
-        wish_open_count = WishPlace.objects.filter(couple=couple, visited_at__isnull=True).count()
-        return render(request, "couples/taste.html", {**common, "places": places, "wish_open_count": wish_open_count})
+        # 가고 싶은 곳 카드를 누르면 바로 아래에 펼쳐 보이는 목록 (아직 안 다녀온 곳, 카드 숫자와 같게)
+        wishes_open = list(WishPlace.objects.filter(couple=couple, visited_at__isnull=True).prefetch_related("lists"))
+        return render(request, "couples/taste.html", {
+            **common, "places": places, "wish_open_count": len(wishes_open), "wishes_open": wishes_open,
+        })
 
     partner = user.partner
     category = request.GET.get("cat", "전체")
@@ -719,7 +722,8 @@ def wish_map_data(request):
         {
             "places": [
                 {"id": w.pk, "name": w.name, "lat": w.latitude, "lng": w.longitude, "color": w.color,
-                 "visited": w.is_visited, "url": reverse("wish_update", args=[w.pk]), "address": w.address, "photos": 0}
+                 "visited": w.is_visited, "url": reverse("wish_update", args=[w.pk]), "address": w.address, "photos": 0,
+                 "lists": [{"name": l.name, "color": l.color} for l in sorted(w.lists.all(), key=lambda l: l.name)]}
                 for w in wishes_qs.distinct()
             ]
         }
