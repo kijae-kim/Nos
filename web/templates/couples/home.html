@@ -96,7 +96,7 @@
     <a href="{% url 'albums' %}">앨범 보기</a>
   </div>
   {% if photos %}
-    <div class="photos">
+    <div class="photos recent">
       {% for p in photos %}
         <a class="tile" href="{% url 'photo_detail' p.pk %}" aria-label="{{ p.caption|default:'사진' }} 보기"><img src="{{ p.thumb_url }}" loading="lazy" decoding="async" alt=""></a>
       {% endfor %}
