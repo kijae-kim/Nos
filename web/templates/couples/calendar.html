@@ -22,10 +22,12 @@
     <div class="week-names"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
     <div class="days">
       {% for week in weeks %}{% for cell in week %}
+        {# 누르면(꾹 눌러도) 그날 팝업. 스크립트가 없으면 일정 추가 화면 #}
         <a class="day{% if forloop.first %} sun{% endif %}{% if not cell.in_month %} out{% endif %}{% if cell.is_today %} today{% endif %}{% if cell.is_selected %} sel{% endif %}"
-           href="?month={{ cell.date|date:'Y-m' }}&amp;day={{ cell.date|date:'Y-m-d' }}">
+           href="{% url 'event_create' %}?date={{ cell.date|date:'Y-m-d' }}" data-day-popup="{% url 'day_popup' cell.date|date:'Y-m-d' %}" aria-label="{{ cell.date|date:'n월 j일' }}, 일정 보기·추가">
           <b>{{ cell.day }}</b>
-          <span class="bars">{% for e in cell.events %}<i style="background:var(--{{ e.color }})"></i>{% endfor %}</span>
+          {% for p in cell.pieces %}{% if p %}<span class="piece{% if p.event.is_multi_day %} multi{% if p.start %} s{% endif %}{% if p.end %} e{% endif %}{% endif %}{% if label and p.event.pk not in label_event_ids %} dim{% endif %}" style="--c: var(--{{ p.event.color }})"{% if not p.title %} aria-hidden="true"{% endif %}>{% if p.title %}{{ p.event.title }}{% endif %}</span>{% else %}<span class="piece hole" aria-hidden="true"></span>{% endif %}{% endfor %}
+          {% if cell.more %}<em class="more">+{{ cell.more }}</em>{% endif %}
         </a>
       {% endfor %}{% endfor %}
     </div>
@@ -37,14 +39,13 @@
     {% include "couples/_label_events.html" %}
   {% else %}
     <div class="list-head row-between">
-      <h2>{{ list_title }}</h2>
-      <a class="add-link" href="{{ new_event_url }}"><svg class="i"><use href="#i-plus"/></svg>일정 추가</a>
+      <h2>다가오는 일정</h2>
     </div>
     <ul class="events">
-      {% for e in day_events %}
+      {% for e in upcoming %}
         {% include "couples/_event_item.html" with event=e %}
       {% empty %}
-        <li class="empty-line">이 날은 일정이 없어요</li>
+        <li class="empty-line">다가오는 일정이 없어요. 날짜를 눌러 추가해 보세요</li>
       {% endfor %}
     </ul>
   {% endif %}
@@ -88,14 +89,12 @@
       <div class="cal-controls">
         <a class="circle" href="{{ prev_url }}" aria-label="이전 달"><svg class="i"><use href="#i-left"/></svg></a>
         <a class="circle" href="{{ next_url }}" aria-label="다음 달"><svg class="i"><use href="#i-right"/></svg></a>
-        <a class="add" href="{{ new_event_url }}"><svg class="i"><use href="#i-plus"/></svg>일정 추가</a>
       </div>
     </header>
     <div class="big-names"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
     <div class="big-days" data-today="{{ today|date:'Y-m-d' }}">
       {% for week in weeks %}{% for cell in week %}
-        <a class="cell{% if forloop.first %} sun{% endif %}{% if not cell.in_month %} out{% endif %}{% if cell.is_today %} today{% endif %}{% if cell.is_selected %} sel{% endif %}" data-drop-date="{{ cell.date|date:'Y-m-d' }}"
-           href="?month={{ cell.date|date:'Y-m' }}&amp;day={{ cell.date|date:'Y-m-d' }}">
+        <a class="cell{% if forloop.first %} sun{% endif %}{% if not cell.in_month %} out{% endif %}{% if cell.is_today %} today{% endif %}{% if cell.is_selected %} sel{% endif %}" data-drop-date="{{ cell.date|date:'Y-m-d' }}" href="{% url 'event_create' %}?date={{ cell.date|date:'Y-m-d' }}" data-day-popup="{% url 'day_popup' cell.date|date:'Y-m-d' %}">
           <b>{{ cell.day }}</b>
           {# 칸 높이를 고정하므로 줄 0·1 만, 나머지는 개수로. 여러 날 일정은 같은 줄에 조각으로 이어진다 #}
           {% for p in cell.pieces %}{% if p %}<span class="piece{% if p.event.is_multi_day %} multi{% if p.start %} s{% endif %}{% if p.end %} e{% endif %}{% endif %}{% if label and p.event.pk not in label_event_ids %} dim{% endif %}" style="--c: var(--{{ p.event.color }})" data-event-id="{{ p.event.pk }}"{% if p.event.is_past %} data-past{% elif p.title %} draggable="true" data-grab-date="{{ cell.date|date:'Y-m-d' }}" data-start="{{ p.event.date|date:'Y-m-d' }}" data-span="{{ p.event.span_days }}"{% endif %}{% if not p.title %} aria-hidden="true"{% endif %}>{% if p.title %}{{ p.event.title }}{% endif %}</span>{% else %}<span class="piece hole" aria-hidden="true"></span>{% endif %}{% endfor %}
@@ -106,4 +105,9 @@
   </div>
 </div>
 {% endblock %}
-{% block extra_body %}<script src="{% static 'js/calendar-drag.js' %}" defer></script>{% endblock %}
+{% block extra_body %}
+{# 날짜 팝업: 폰은 아래에서 올라오는 판, 넓은 화면은 가운데 창 (내용은 calendar-popup.js 가 받아 넣는다) #}
+<dialog class="day-sheet" aria-label="그날 일정"><div class="day-sheet-body" data-popup-body></div></dialog>
+<script src="{% static 'js/calendar-drag.js' %}" defer></script>
+<script src="{% static 'js/calendar-popup.js' %}" defer></script>
+{% endblock %}

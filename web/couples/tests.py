@@ -2823,3 +2823,30 @@ class DayPopupTests(TestCase):
         page = self.client.get(reverse("event_create") + "?date=2026-12-01&text=전시 보러 가기")
         self.assertEqual(page.context["form"].initial["text"], "전시 보러 가기")
         self.assertEqual(str(page.context["form"].initial["date"]), "2026-12-01")
+
+
+class CalendarPopupScreenTests(TestCase):
+    """캘린더 화면: 칸을 누르면 팝업(스크립트 없으면 일정 추가 화면), 버튼 없음, 폰 칸에 이름."""
+
+    setUp = ScreenTests.setUp
+
+    def test_cells_link_to_add_and_popup(self):
+        day = timezone.localdate()
+        html = self.client.get(reverse("calendar")).content.decode()
+        self.assertIn(f'href="{reverse("event_create")}?date={day:%Y-%m-%d}"', html)
+        self.assertIn(f'data-day-popup="{reverse("day_popup", args=[day.isoformat()])}"', html)
+        self.assertIn('<dialog class="day-sheet"', html)
+        self.assertIn("calendar-popup.js", html)
+
+    def test_add_buttons_removed_and_list_is_upcoming(self):
+        html = self.client.get(reverse("calendar")).content.decode()
+        self.assertNotIn("일정 추가</a>", html)
+        mobile = html.split('class="mobile-only"')[1].split('class="desktop-only"')[0]
+        self.assertIn("다가오는 일정", mobile)
+
+    def test_phone_cells_show_event_names(self):
+        day = timezone.localdate() + timedelta(days=1)
+        Event.objects.create(couple=self.couple, created_by=self.a, title="성수 산책", date=day)
+        html = self.client.get(reverse("calendar") + f"?month={day:%Y-%m}").content.decode()
+        mobile = html.split('class="mobile-only"')[1].split('class="desktop-only"')[0]
+        self.assertIn("성수 산책", mobile.split('class="days"')[1])

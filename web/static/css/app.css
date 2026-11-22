@@ -505,11 +505,37 @@ a.label-chip:active { transform: scale(.94); }
 .day.sel b { background: var(--primary); color: #fff; font-weight: 600; box-shadow: none; }
 /* 날짜 숫자를 같은 폭으로 (1·11 처럼 좁은 숫자도 다른 날짜와 같은 자리에 오게) */
 .day b, .cell b { font-variant-numeric: tabular-nums; }
-.day .bars { display: flex; gap: 2px; height: 5px; max-width: 100%; overflow: hidden; }
-.day .bars i { width: 12px; height: 5px; border-radius: 3px; }
-.day .bars i:only-child { width: 22px; }
-/* 막대는 세 개까지만. 그 날의 모든 일정은 아래 목록에서 본다 */
-.day .bars i:nth-child(n+4) { display: none; }
+/* 폰 달력 칸: 칸을 키워 일정 이름 두 줄 + "+N" (넓은 화면 큰 달력과 같은 조각) */
+.month { padding: 12px 6px 10px; }
+.days { column-gap: 0; }
+.day { align-content: start; justify-items: stretch; gap: 2px; height: 82px; padding: 2px 1px; overflow: hidden; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.day b { justify-self: center; width: 26px; height: 26px; font-size: 13px; }
+.day .piece { display: block; font-size: 10px; line-height: 15px; height: 15px; padding: 0 3px; border-radius: 5px; white-space: nowrap; overflow: hidden; text-overflow: clip;
+  background: color-mix(in srgb, var(--c) 60%, var(--surface)); color: var(--text); }
+.day .piece.hole { visibility: hidden; }
+.day .piece.dim { opacity: .28; }
+.day .piece.multi:not(.s) { margin-left: -1px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.day .piece.multi:not(.e) { margin-right: -1px; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.day .more { font-size: 10px; font-weight: 600; font-style: normal; color: var(--muted); text-align: center; line-height: 1.2; }
+.cell { -webkit-touch-callout: none; }
+
+/* 날짜 팝업: 폰은 아래에서 올라오는 판, 넓은 화면은 가운데 창 */
+.day-sheet { border: 0; padding: 0; background: var(--surface); color: var(--text); width: 100%; max-width: 480px; max-height: 88dvh;
+  margin: auto auto 0; border-radius: 26px 26px 0 0; box-shadow: var(--shadow); overflow: auto; }
+.day-sheet::backdrop { background: rgba(10, 14, 30, .45); }
+.day-sheet[open] { animation: sheet-up .28s var(--ease); }
+@keyframes sheet-up { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+.day-sheet-body { padding: 18px 20px calc(20px + env(safe-area-inset-bottom)); }
+.day-popup { display: grid; gap: 14px; }
+.day-popup-head h2 { font-size: 20px; font-weight: 800; }
+.day-popup-head h2 small { font-size: 14px; font-weight: 600; color: var(--muted); }
+.day-popup-events { display: grid; gap: 8px; }
+.day-popup-form { display: grid; gap: 12px; }
+.day-popup-labels { margin-top: -4px; }
+.day-popup-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.day-popup-actions .btn { flex: 1; max-width: 200px; }
+.day-popup-loading { color: var(--muted); text-align: center; padding: 30px 0; }
+@media (min-width: 900px) { .day-sheet { margin: auto; border-radius: 26px; max-height: 80vh; } }
 .list-head { font-size: 16px; font-weight: 600; padding: 2px; }
 .list-head h2 { font-size: 16px; font-weight: 600; }
 .add-link { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--primary); }
