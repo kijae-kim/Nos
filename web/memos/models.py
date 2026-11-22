@@ -10,7 +10,7 @@ class MemoFolder(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["created_at", "pk"]
+        ordering = ["name"]  # 화면에서는 lines.ordered_folders 로 기본 두 개 먼저
         constraints = [models.UniqueConstraint(fields=["couple", "name"], name="unique_memo_folder")]
 
     def __str__(self):

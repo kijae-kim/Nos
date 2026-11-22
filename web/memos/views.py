@@ -4,7 +4,8 @@ from datetime import timedelta
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Count
+from django.db import IntegrityError
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -12,7 +13,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
 from .forms import FolderForm
-from .lines import clean_lines, ensure_default_folders, title_and_preview
+from .lines import MAX_TOTAL, clean_lines, ensure_default_folders, ordered_folders, title_and_preview
 from .models import Memo, MemoFolder
 
 
@@ -29,7 +30,8 @@ def memos(request):
     """폴더 화면: 폴더마다 메모 수."""
     couple = request.user.couple
     ensure_default_folders(couple)
-    folders = couple.memo_folders.annotate(count=Count("memos"))
+    # 수는 글이 있는 메모만 (제목이 비면 빈 메모)
+    folders = ordered_folders(couple.memo_folders.annotate(count=Count("memos", filter=~Q(memos__title=""))))
     return render(request, "memos/index.html", {"folders": folders})
 
 
@@ -39,8 +41,12 @@ def folder_create(request):
     if request.method == "POST" and form.is_valid():
         folder = form.save(commit=False)
         folder.couple = request.user.couple
-        folder.save()
-        return redirect("memo_folder", pk=folder.pk)
+        try:
+            folder.save()
+        except IntegrityError:  # 상대가 같은 이름을 방금 만든 경우
+            form.add_error("name", "이미 있는 폴더 이름이에요.")
+        else:
+            return redirect("memo_folder", pk=folder.pk)
     return render(request, "memos/folder_form.html", {"form": form, "folder": None})
 
 
@@ -94,8 +100,13 @@ def memo_new(request):
     folder = couple.memo_folders.filter(pk=folder_id).first() if str(folder_id or "").isdigit() else None
     folder = folder or couple.memo_folders.first()
     request.session["memo_folder"] = folder.pk
-    memo = Memo.objects.create(couple=couple, folder=folder, lines=[{"t": "text", "on": False, "s": ""}],
-                               created_by=request.user, updated_by=request.user)
+    # 방금 내가 만든 빈 메모가 있으면 그걸 다시 연다 (두 번 누름·뒤로 가기로 빈 메모가 쌓이지 않게)
+    recent = timezone.now() - timedelta(minutes=10)
+    memo = (Memo.objects.filter(couple=couple, folder=folder, created_by=request.user, title="", version=0, created_at__gte=recent)
+            .order_by("-pk").first())
+    if memo is None:
+        memo = Memo.objects.create(couple=couple, folder=folder, lines=[{"t": "text", "on": False, "s": ""}],
+                                   created_by=request.user, updated_by=request.user)
     return redirect("memo_edit", pk=memo.pk)
 
 
@@ -103,7 +114,7 @@ def memo_new(request):
 @never_cache  # 뒤로 가기로 옛 내용이 다시 뜨지 않게
 def memo_edit(request, pk):
     memo = _memo(request, pk)
-    folders = request.user.couple.memo_folders.all()
+    folders = ordered_folders(request.user.couple.memo_folders.all())
     data = {"lines": memo.lines or [{"t": "text", "on": False, "s": ""}], "version": memo.version}
     return render(request, "memos/edit.html", {"memo": memo, "folders": folders, "data": data})
 
@@ -113,14 +124,18 @@ def memo_edit(request, pk):
 def memo_save(request, pk):
     """JSON {lines, version}. 버전이 다르면 409 와 서버 것 (덮어쓰지 않는다)."""
     memo = _memo(request, pk)
+    too_long = False
     try:
         body = json.loads(request.body or b"{}")
         lines = clean_lines(body.get("lines")) if isinstance(body, dict) else None
         version = body.get("version") if isinstance(body, dict) else None
-    except (ValueError, UnicodeDecodeError):
+    except ValueError as e:
+        lines, too_long = None, str(e) == "too long"
+    except UnicodeDecodeError:
         lines = None
-    if lines is None or not isinstance(version, int):
-        return JsonResponse({"ok": False, "error": "저장하지 못했어요. 잠시 뒤 다시 해 볼까요?"}, status=400)
+    if lines is None or type(version) is not int:  # bool 은 int 로 치지 않는다
+        error = f"메모가 너무 길어요. {MAX_TOTAL // 10000}만 자까지 쓸 수 있어요." if too_long else "저장하지 못했어요. 잠시 뒤 다시 해 볼까요?"
+        return JsonResponse({"ok": False, "error": error}, status=400)
     with transaction.atomic():
         memo = Memo.objects.select_for_update().get(pk=memo.pk)
         if version != memo.version:
@@ -130,7 +145,8 @@ def memo_save(request, pk):
         memo.version += 1
         memo.updated_by = request.user
         memo.save()
-    return JsonResponse({"ok": True, "version": memo.version, "title": memo.title})
+    return JsonResponse({"ok": True, "version": memo.version, "title": memo.title,
+                         "updated": timezone.localtime(memo.updated_at).isoformat()})
 
 
 @login_required

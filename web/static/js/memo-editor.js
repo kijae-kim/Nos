@@ -173,13 +173,35 @@
     if (!(e.isComposing || composing)) tidy();
     changed();
   });
-  // 줄 왼쪽 동그라미를 누르면 체크 (커서는 옮기지 않는다)
+  // 줄 왼쪽 동그라미를 누르면 체크 (커서는 옮기지 않는다). 마우스는 mousedown, 터치는 touchend 에서
+  function tickAt(target, x) {
+    var line = target.closest && target.closest(".ln.todo");
+    if (!line || x - line.getBoundingClientRect().left > TICK) return null;
+    return line;
+  }
   editor.addEventListener("mousedown", function (e) {
-    var line = e.target.closest && e.target.closest(".ln.todo");
-    if (!line || e.clientX - line.getBoundingClientRect().left > TICK) return;
+    var line = tickAt(e.target, e.clientX);
+    if (!line) return;
     e.preventDefault();
     line.classList.toggle("on");
     changed();
+  });
+  editor.addEventListener("touchend", function (e) {
+    var t = e.changedTouches && e.changedTouches[0];
+    var line = t && tickAt(e.target, t.clientX);
+    if (!line) return;
+    e.preventDefault(); // 이어지는 클릭·커서 옮기기·자판 열기를 막는다
+    line.classList.toggle("on");
+    changed();
+  }, { passive: false });
+  // 키보드: Ctrl(⌘)+Enter 로 지금 체크 줄 체크
+  editor.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      var c = caret();
+      var line = c && editor.childNodes[c.line];
+      if (line && line.classList && line.classList.contains("todo")) { line.classList.toggle("on"); changed(); }
+    }
   });
 
   var makeCheck = document.querySelector("[data-make-check]");
@@ -199,6 +221,13 @@
   function show(text) { if (status) status.textContent = text; }
   function schedule() { clearTimeout(timer); timer = setTimeout(saveNow, 800); show("쓰는 중…"); }
   var gone = false; // 상대가 메모를 지웠으면 더 저장하지 않는다
+  // 연결이 잠깐 끊긴 것 같으면 5초 뒤 다시 저장
+  function retryLater() {
+    dirty = true;
+    show("저장하지 못했어요. 잠시 뒤 다시 저장할게요");
+    clearTimeout(timer);
+    timer = setTimeout(saveNow, 5000);
+  }
   function post(lines, keepalive) {
     return fetch(editor.dataset.saveUrl, {
       method: "POST", credentials: "same-origin", keepalive: !!keepalive,
@@ -209,14 +238,16 @@
   function saveNow(keepalive) {
     clearTimeout(timer);
     if (!dirty || gone) return;
+    var mine = serialize();
+    // 떠날 때 보내는 요청은 크기 한도(64KB)가 있어 큰 글은 기기에만 남기고 다음에 연다
+    if (keepalive && JSON.stringify(mine).length > 60000) { keepDraft(); return; }
     if (saving) {
       // 떠나는 중이면 기다리지 않고 지금 것을 보낸다 (안 되면 기기에 남긴 글로 다음에 안내)
-      if (keepalive) post(serialize(), true).catch(function () {});
+      if (keepalive) post(mine, true).catch(function () {});
       again = true;
       return;
     }
     saving = true; dirty = false;
-    var mine = serialize();
     post(mine, keepalive).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (d) { return { status: r.status, data: d }; });
     }).then(function (res) {
@@ -225,8 +256,9 @@
         if (!dirty) clearDraft(); else keepDraft();
       } else if (res.status === 409) conflict(res.data);
       else if (res.status === 404) { gone = true; clearDraft(); show("메모가 지워졌어요"); }
-      else { dirty = true; show("저장하지 못했어요. 다시 고치면 또 저장해 볼게요"); }
-    }).catch(function () { dirty = true; show("저장하지 못했어요. 다시 고치면 또 저장해 볼게요"); })
+      else if (res.status === 400) { dirty = false; show(res.data.error || "저장하지 못했어요"); } // 너무 긴 글 등: 고쳐야 저장
+      else retryLater();
+    }).catch(retryLater)
       .then(function () { saving = false; if (again) { again = false; saveNow(); } });
   }
   // 상대가 먼저 고쳤으면: 새 내용을 보여 주고, 내 글은 복사할 수 있게 남긴다
@@ -252,8 +284,13 @@
   function clearDraft() { try { localStorage.removeItem(draftKey); } catch (e) { /* 괜찮다 */ } }
   var copy = document.querySelector("[data-copy-mine]");
   if (copy) copy.addEventListener("click", function () {
-    if (navigator.clipboard) navigator.clipboard.writeText(mineText).then(function () { copy.textContent = "복사했어요"; });
+    if (navigator.clipboard) navigator.clipboard.writeText(mineText).then(function () {
+      copy.textContent = "복사했어요";
+      setTimeout(function () { copy.textContent = "내 글 복사"; }, 2000);
+    });
   });
+  var closeConflict = document.querySelector("[data-conflict-close]");
+  if (closeConflict) closeConflict.addEventListener("click", function () { conflictBox.hidden = true; });
   window.addEventListener("pagehide", function () { if (dirty) { keepDraft(); saveNow(true); } });
   document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden" && dirty) saveNow(true); });
 

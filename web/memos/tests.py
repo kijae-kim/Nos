@@ -203,7 +203,7 @@ class MemoReviewFixTests(TestCase):
     def test_cleanup_keeps_fresh_empty_memo(self):
         """상대가 방금 연 빈 메모는 목록을 열어도 지우지 않는다 (1시간 넘은 빈 메모만)."""
         fresh = self.new_memo()
-        old = self.new_memo()
+        old = Memo.objects.create(couple=self.couple, folder=fresh.folder, lines=[], created_by=self.b)
         Memo.objects.filter(pk=old.pk).update(updated_at=timezone.now() - timedelta(hours=2))
         self.client.force_login(self.b)
         self.client.get(reverse("memo_folder", args=[fresh.folder.pk]))
@@ -222,3 +222,81 @@ class MemoReviewFixTests(TestCase):
         self.assertIn("deleteContents", js)  # 고른 글 위에 붙여 넣기·엔터
         self.assertIn("메모가 지워졌어요", js)  # 404
         self.assertIn("var mineNow = serialize()", js)  # 충돌 때 저장 중에 친 글까지
+
+
+class MemoMinorTests(TestCase):
+    """메모 작은 것들."""
+
+    setUp = MemoTests.setUp
+    save = MemoTests.save
+    new_memo = MemoTests.new_memo
+
+    def js(self):
+        from pathlib import Path
+
+        return (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
+
+    def test_new_memo_reuses_my_fresh_empty_memo(self):
+        a = self.new_memo()
+        self.client.get(reverse("memo_new"))  # 두 번 누름
+        self.assertEqual(Memo.objects.count(), 1)
+        self.save(a, L("글"))
+        self.client.get(reverse("memo_new"))
+        self.assertEqual(Memo.objects.count(), 2)
+
+    def test_folder_counts_skip_empty_and_order(self):
+        self.client.get(reverse("memos"))
+        self.client.post(reverse("memo_folder_create"), {"name": "가나다"})
+        self.new_memo()  # 빈 메모
+        res = self.client.get(reverse("memos"))
+        names = [f.name for f in res.context["folders"]]
+        self.assertEqual(names, ["버킷리스트", "여행계획", "가나다"])  # 기본 두 개 먼저, 그다음 이름 순
+        self.assertEqual([f.count for f in res.context["folders"]], [0, 0, 0])
+
+    def test_default_folders_race_safe(self):
+        from .lines import ensure_default_folders
+        from .models import MemoFolder
+
+        MemoFolder.objects.create(couple=self.couple, name="버킷리스트")  # 상대가 먼저 하나 만든 상태
+        ensure_default_folders(self.couple)
+        self.assertEqual(sorted(MemoFolder.objects.values_list("name", flat=True)), ["버킷리스트", "여행계획"])
+
+    def test_save_rejects_bool_version_and_returns_updated(self):
+        m = self.new_memo()
+        self.assertEqual(self.client.post(reverse("memo_save", args=[m.pk]), json.dumps({"lines": L("x"), "version": True}),
+                                          content_type="application/json").status_code, 400)
+        res = self.save(m, L("x"))
+        self.assertIn("updated", res.json())
+
+    def test_too_long_message(self):
+        m = self.new_memo()
+        res = self.save(m, [{"t": "text", "on": False, "s": "가" * 1000}] * 21)
+        self.assertEqual(res.json()["error"], "메모가 너무 길어요. 2만 자까지 쓸 수 있어요.")
+
+    def test_editor_minor_bits(self):
+        js = self.js()
+        self.assertIn("touchend", js)  # 체크 동그라미를 터치로
+        self.assertIn('e.key === "Enter" && (e.metaKey || e.ctrlKey)', js)  # 키보드로 체크
+        self.assertIn("setTimeout(saveNow, 5000)", js)  # 실패하면 다시
+        self.assertIn("60000", js)  # 떠날 때 큰 글은 기기에만
+        self.assertIn("data-conflict-close", js)
+        from pathlib import Path
+
+        css = (Path(__file__).resolve().parent.parent / "static/css/app.css").read_text()
+        self.assertIn("white-space: pre-wrap", css.split(".memo-editor {")[1].split("}")[0])
+
+
+class CalendarLeftoverTests(TestCase):
+    setUp = MemoTests.setUp
+
+    def test_full_form_takes_all_day(self):
+        page = self.client.get(reverse("event_create") + "?date=2026-12-01&all_day=on")
+        self.assertTrue(page.context["form"].initial["all_day"])
+
+    def test_popup_passes_all_day(self):
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/calendar-popup.js").read_text()
+        self.assertIn("&all_day=on", js)
+        views = (Path(__file__).resolve().parent.parent / "couples/views.py").read_text()
+        self.assertNotIn("day_events = upcoming", views)

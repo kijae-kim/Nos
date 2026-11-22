@@ -30,7 +30,10 @@
      data-save-url="{% url 'memo_save' memo.pk %}" aria-label="메모 내용" role="textbox" aria-multiline="true"></div>
 <div class="memo-conflict notice" data-memo-conflict hidden>
   상대가 먼저 고쳤어요. 새 내용을 불러왔어요.
-  <button type="button" class="link-btn" data-copy-mine>내 글 복사</button>
+  <span class="memo-conflict-actions">
+    <button type="button" class="link-btn" data-copy-mine>내 글 복사</button>
+    <button type="button" class="link-btn" data-conflict-close aria-label="안내 닫기">닫기</button>
+  </span>
 </div>
 <div class="memo-toolbar" role="toolbar" aria-label="메모 도구">
   <button type="button" class="memo-tool" data-make-check aria-label="체크 항목 넣기·빼기"><svg class="i"><use href="#i-check-circle"/></svg></button>

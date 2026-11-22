@@ -42,6 +42,17 @@ def title_and_preview(lines):
 
 
 def ensure_default_folders(couple):
-    if not couple.memo_folders.exists():
-        for name in DEFAULT_FOLDERS:
-            MemoFolder.objects.create(couple=couple, name=name)
+    """처음 들어올 때 기본 폴더 두 개. 두 사람이 동시에 들어와도 한 번만 (없는 것만 만든다)."""
+    if couple.memo_folders.count() >= len(DEFAULT_FOLDERS):
+        return
+    for name in DEFAULT_FOLDERS:
+        MemoFolder.objects.get_or_create(couple=couple, name=name)
+
+
+def ordered_folders(qs):
+    """기본 폴더 두 개(버킷리스트·여행계획) 먼저, 그다음 이름 순."""
+    from django.db.models import Case, IntegerField, Value, When
+
+    rank = Case(*[When(name=n, then=Value(i)) for i, n in enumerate(DEFAULT_FOLDERS)],
+                default=Value(len(DEFAULT_FOLDERS)), output_field=IntegerField())
+    return qs.annotate(rank=rank).order_by("rank", "name")

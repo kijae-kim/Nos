@@ -1137,7 +1137,7 @@ html.sheet-open, html.sheet-open body { overflow: hidden; } /* 팝업이 열린 
 .memo-menu { position: absolute; right: 0; top: 48px; z-index: 6; width: 220px; padding: 14px; display: grid; gap: 12px; }
 .memo-move { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
 .memo-date { text-align: center; font-size: 12px; }
-.memo-editor { min-height: 55dvh; outline: none; font-size: 17px; line-height: 1.55; color: var(--text); padding-bottom: 80px; caret-color: var(--primary); }
+.memo-editor { white-space: pre-wrap; min-height: 55dvh; outline: none; font-size: 17px; line-height: 1.55; color: var(--text); padding-bottom: 80px; caret-color: var(--primary); }
 .memo-editor .ln { min-height: 1.55em; position: relative; word-break: break-word; }
 .memo-editor .ln:first-child { font-size: 26px; font-weight: 800; letter-spacing: -.02em; line-height: 1.35; margin-bottom: 6px; }
 /* 빈 첫 줄에 '제목' 안내 */

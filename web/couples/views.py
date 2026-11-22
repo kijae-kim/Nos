@@ -240,8 +240,6 @@ def calendar(request):
         grid.append(row)
 
     upcoming = list(visible.not_past(today)[:3])
-    if selected == today:
-        day_events = upcoming
 
     # 이름표 모아 보기: ?label=<id> 이면 그 이름표가 붙은 일정만 (다가오는 것 먼저, 지난 것은 아래에)
     label = None
@@ -400,6 +398,8 @@ def event_create(request):
             initial[key] = request.GET[key][:10]
     if request.GET.get("scope") in ("shared", "personal"):
         initial["scope"] = request.GET["scope"]
+    if request.GET.get("all_day") == "on":
+        initial["all_day"] = True
     form = EventForm(request.POST or None, initial={"date": timezone.localdate(), **initial})
     if request.method == "POST" and form.is_valid():
         event = services.save_event(Event(created_by=request.user), couple, form.cleaned_data)

@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
                 ('couple', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='memo_folders', to='couples.couple')),
             ],
             options={
-                'ordering': ['created_at', 'pk'],
+                'ordering': ['name'],
             },
         ),
         migrations.CreateModel(

@@ -73,6 +73,7 @@
       if (text && text.value.trim()) q += "&text=" + encodeURIComponent(text.value.trim());
       // 넘길 칸들: "start_time", "end_time", "end_date", "scope" (시간은 하루 종일이 아닐 때만)
       var timed = !(allDay && allDay.checked);
+      if (!timed) q += "&all_day=on";
       [["start_time", timed], ["end_time", timed], ["end_date", true], ["scope", true]].forEach(function (pair) {
         var n = pair[0];
         if (!pair[1]) return;
