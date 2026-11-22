@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -6,6 +7,8 @@ from django.db import transaction
 from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
 from .forms import FolderForm
@@ -63,15 +66,21 @@ def folder_delete(request, pk):
     return redirect("memos")
 
 
+EMPTY_MEMO_AGE = timedelta(hours=1)
+
+
 @login_required
+@never_cache
 def folder(request, pk):
-    """메모 목록 (최근 고친 순). 글이 하나도 없는 메모는 정리한다."""
+    """메모 목록 (최근 고친 순). 글이 없는 메모는 숨기고, 1시간 넘게 빈 채인 것만 지운다
+    (상대가 방금 열어 아직 쓰는 중인 새 메모를 지우지 않게)."""
     folder = _folder(request, pk)
     items = list(folder.memos.select_related("updated_by"))
-    empty = [m.pk for m in items if m.is_empty]
-    if empty:
-        Memo.objects.filter(pk__in=empty).delete()
-    items = [m for m in items if m.pk not in empty]
+    stale = timezone.now() - EMPTY_MEMO_AGE
+    old_empty = [m.pk for m in items if m.is_empty and m.updated_at < stale]
+    if old_empty:
+        Memo.objects.filter(pk__in=old_empty).delete()
+    items = [m for m in items if not m.is_empty]
     request.session["memo_folder"] = folder.pk  # + 메뉴 '메모' 가 이 폴더에 새 메모를 연다
     return render(request, "memos/folder.html", {"folder": folder, "items": items})
 
@@ -91,6 +100,7 @@ def memo_new(request):
 
 
 @login_required
+@never_cache  # 뒤로 가기로 옛 내용이 다시 뜨지 않게
 def memo_edit(request, pk):
     memo = _memo(request, pk)
     folders = request.user.couple.memo_folders.all()

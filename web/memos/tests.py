@@ -103,7 +103,10 @@ class MemoTests(TestCase):
         res = self.client.get(reverse("memo_folder", args=[bucket.pk]))
         self.assertContains(res, "오로라")
         self.assertContains(res, "아이슬란드에서")
-        self.assertFalse(Memo.objects.filter(pk=empty.pk).exists())  # 글 없는 메모는 정리
+        self.assertContains(res, "메모 1개")  # 글 없는 메모는 목록에 안 보임
+        Memo.objects.filter(pk=empty.pk).update(updated_at=timezone.now() - timedelta(hours=2))
+        self.client.get(reverse("memo_folder", args=[bucket.pk]))
+        self.assertFalse(Memo.objects.filter(pk=empty.pk).exists())  # 오래 빈 메모는 정리
 
     def test_move_and_delete(self):
         self.client.get(reverse("memos"))
@@ -183,3 +186,39 @@ class MemoHomeTests(TestCase):
 
     def test_empty_home_card(self):
         self.assertContains(self.client.get(reverse("home")), "버킷리스트나 여행 계획을 적어 볼까요?")
+
+
+class MemoReviewFixTests(TestCase):
+    """최종 검토에서 나온 것 (글 잃지 않기)."""
+
+    setUp = MemoTests.setUp
+    save = MemoTests.save
+    new_memo = MemoTests.new_memo
+
+    def js(self):
+        from pathlib import Path
+
+        return (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
+
+    def test_cleanup_keeps_fresh_empty_memo(self):
+        """상대가 방금 연 빈 메모는 목록을 열어도 지우지 않는다 (1시간 넘은 빈 메모만)."""
+        fresh = self.new_memo()
+        old = self.new_memo()
+        Memo.objects.filter(pk=old.pk).update(updated_at=timezone.now() - timedelta(hours=2))
+        self.client.force_login(self.b)
+        self.client.get(reverse("memo_folder", args=[fresh.folder.pk]))
+        self.assertTrue(Memo.objects.filter(pk=fresh.pk).exists())
+        self.assertFalse(Memo.objects.filter(pk=old.pk).exists())
+
+    def test_edit_and_list_not_cached(self):
+        memo = self.new_memo()
+        for url in (reverse("memo_edit", args=[memo.pk]), reverse("memo_folder", args=[memo.folder.pk])):
+            self.assertIn("no-cache", self.client.get(url)["Cache-Control"], url)
+
+    def test_editor_guards(self):
+        js = self.js()
+        self.assertIn("localStorage", js)  # 떠날 때·저장 중 끊겨도 내 글을 기기에 남김
+        self.assertIn("compositionend", js)  # 한글 입력 중에는 다시 그리지 않음
+        self.assertIn("deleteContents", js)  # 고른 글 위에 붙여 넣기·엔터
+        self.assertIn("메모가 지워졌어요", js)  # 404
+        self.assertIn("var mineNow = serialize()", js)  # 충돌 때 저장 중에 친 글까지

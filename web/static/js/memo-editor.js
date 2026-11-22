@@ -71,8 +71,19 @@
   }
 
   // ---------- 고치기 ----------
-  function changed() { dirty = true; schedule(); }
+  function changed() { dirty = true; keepDraft(); schedule(); }
+  // 글을 고른 채로 엔터·붙여 넣기를 하면 고른 글을 먼저 지운다 (바꾸기)
+  function dropSelection() {
+    var sel = window.getSelection();
+    if (!sel.rangeCount || sel.isCollapsed || !editor.contains(sel.anchorNode)) return;
+    sel.getRangeAt(0).deleteContents();
+    sel.collapseToStart();
+    var c = caret();
+    render(serialize());
+    if (c) setCaret(c.line, c.offset);
+  }
   function splitAtCaret() {
+    dropSelection();
     var c = caret();
     if (!c) return;
     var lines = serialize();
@@ -101,6 +112,7 @@
     render(lines); setCaret(c.line, c.offset); changed();
   }
   function pasteText(text) {
+    dropSelection();
     var c = caret();
     var lines = serialize();
     if (!c) { c = { line: lines.length - 1, offset: lines[lines.length - 1].s.length }; }
@@ -116,9 +128,20 @@
     render(lines); setCaret(c.line + added.length, endOffset); changed();
   }
 
+  // 한글 입력(조합) 중에는 다시 그리지 않는다. 조합 중 엔터는 조합이 끝난 뒤 줄을 나눈다
+  var composing = false, pendingSplit = false;
+  editor.addEventListener("compositionstart", function () { composing = true; });
+  editor.addEventListener("compositionend", function () {
+    composing = false;
+    setTimeout(function () {
+      if (pendingSplit) { pendingSplit = false; splitAtCaret(); } else tidy();
+    }, 0);
+  });
   editor.addEventListener("beforeinput", function (e) {
     if (e.inputType === "insertParagraph" || e.inputType === "insertLineBreak") {
-      e.preventDefault(); splitAtCaret();
+      e.preventDefault();
+      if (e.isComposing || composing) { pendingSplit = true; return; }
+      splitAtCaret();
     } else if (e.inputType === "deleteContentBackward") {
       var c = caret();
       var line = c && editor.childNodes[c.line];
@@ -135,8 +158,8 @@
     pasteText((e.clipboardData || window.clipboardData).getData("text/plain") || "");
   });
   editor.addEventListener("drop", function (e) { e.preventDefault(); });
-  editor.addEventListener("input", function () {
-    // 줄 밖 글·겹친 줄이 생기면 정리 (커서 자리 유지)
+  // 줄 밖 글·겹친 줄이 생기면 정리 (커서 자리 유지)
+  function tidy() {
     var messy = Array.prototype.some.call(editor.childNodes, function (n) {
       return n.nodeType === 3 || (n.nodeType === 1 && (!n.classList.contains("ln") || n.querySelector("div,p,span,b,i,font")));
     });
@@ -145,6 +168,9 @@
       render(serialize());
       if (c) setCaret(c.line, c.offset);
     }
+  }
+  editor.addEventListener("input", function (e) {
+    if (!(e.isComposing || composing)) tidy();
     changed();
   });
   // 줄 왼쪽 동그라미를 누르면 체크 (커서는 옮기지 않는다)
@@ -172,43 +198,80 @@
   }
   function show(text) { if (status) status.textContent = text; }
   function schedule() { clearTimeout(timer); timer = setTimeout(saveNow, 800); show("쓰는 중…"); }
-  function saveNow(keepalive) {
-    clearTimeout(timer);
-    if (!dirty) return;
-    if (saving) { again = true; return; } // 한 번에 하나, 끝난 뒤 최신 것만
-    saving = true; dirty = false;
-    var mine = serialize();
-    fetch(editor.dataset.saveUrl, {
+  var gone = false; // 상대가 메모를 지웠으면 더 저장하지 않는다
+  function post(lines, keepalive) {
+    return fetch(editor.dataset.saveUrl, {
       method: "POST", credentials: "same-origin", keepalive: !!keepalive,
       headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-      body: JSON.stringify({ lines: mine, version: version }),
-    }).then(function (r) {
+      body: JSON.stringify({ lines: lines, version: version }),
+    });
+  }
+  function saveNow(keepalive) {
+    clearTimeout(timer);
+    if (!dirty || gone) return;
+    if (saving) {
+      // 떠나는 중이면 기다리지 않고 지금 것을 보낸다 (안 되면 기기에 남긴 글로 다음에 안내)
+      if (keepalive) post(serialize(), true).catch(function () {});
+      again = true;
+      return;
+    }
+    saving = true; dirty = false;
+    var mine = serialize();
+    post(mine, keepalive).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (d) { return { status: r.status, data: d }; });
     }).then(function (res) {
-      if (res.status === 200 && res.data.ok) { version = res.data.version; show("저장했어요"); }
-      else if (res.status === 409) conflict(res.data, mine);
-      else { dirty = true; show("저장하지 못했어요. 잠시 뒤 다시 할게요"); }
-    }).catch(function () { dirty = true; show("저장하지 못했어요. 잠시 뒤 다시 할게요"); })
+      if (res.status === 200 && res.data.ok) {
+        version = res.data.version; show("저장했어요");
+        if (!dirty) clearDraft(); else keepDraft();
+      } else if (res.status === 409) conflict(res.data);
+      else if (res.status === 404) { gone = true; clearDraft(); show("메모가 지워졌어요"); }
+      else { dirty = true; show("저장하지 못했어요. 다시 고치면 또 저장해 볼게요"); }
+    }).catch(function () { dirty = true; show("저장하지 못했어요. 다시 고치면 또 저장해 볼게요"); })
       .then(function () { saving = false; if (again) { again = false; saveNow(); } });
   }
   // 상대가 먼저 고쳤으면: 새 내용을 보여 주고, 내 글은 복사할 수 있게 남긴다
   var mineText = "";
-  function conflict(d, mine) {
+  function asText(lines) {
+    return lines.map(function (l) { return (l.t === "check" ? (l.on ? "☑ " : "☐ ") : "") + l.s; }).join("\n");
+  }
+  function conflict(d) {
+    var mineNow = serialize(); // 저장 중에 더 친 글까지
     version = d.version;
-    mineText = mine.map(function (l) { return (l.t === "check" ? (l.on ? "☑ " : "☐ ") : "") + l.s; }).join("\n");
+    mineText = asText(mineNow);
     render(d.lines || []);
     dirty = false;
+    clearDraft();
     if (conflictBox) conflictBox.hidden = false;
     show("");
   }
+  // ---------- 기기에 남기기: 떠나는 중 저장이 끊기거나 충돌해도 내 글을 잃지 않게 ----------
+  var draftKey = "memo-draft:" + editor.dataset.saveUrl;
+  function keepDraft() {
+    try { localStorage.setItem(draftKey, JSON.stringify({ lines: serialize(), version: version })); } catch (e) { /* 저장소 없음 */ }
+  }
+  function clearDraft() { try { localStorage.removeItem(draftKey); } catch (e) { /* 괜찮다 */ } }
   var copy = document.querySelector("[data-copy-mine]");
   if (copy) copy.addEventListener("click", function () {
     if (navigator.clipboard) navigator.clipboard.writeText(mineText).then(function () { copy.textContent = "복사했어요"; });
   });
-  window.addEventListener("pagehide", function () { if (dirty) saveNow(true); });
+  window.addEventListener("pagehide", function () { if (dirty) { keepDraft(); saveNow(true); } });
   document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden" && dirty) saveNow(true); });
 
   render(data.lines || []);
+  // 지난번에 저장하지 못한 내 글이 기기에 남아 있으면: 서버가 그대로면 이어서 저장, 그새 바뀌었으면 안내
+  (function () {
+    var draft = null;
+    try { draft = JSON.parse(localStorage.getItem(draftKey) || "null"); } catch (e) { draft = null; }
+    if (!draft || !draft.lines) return;
+    if (JSON.stringify(draft.lines) === JSON.stringify(data.lines)) return clearDraft();
+    if (draft.version === version) {
+      render(draft.lines); dirty = true; schedule(); show("저장하지 못한 글을 이어서 저장해요");
+    } else {
+      mineText = asText(draft.lines);
+      clearDraft();
+      if (conflictBox) conflictBox.hidden = false;
+    }
+  })();
   // 새 메모(빈 첫 줄)면 바로 쓸 수 있게
   if (serialize().length === 1 && !serialize()[0].s) { editor.focus(); setCaret(0, 0); }
 })();
