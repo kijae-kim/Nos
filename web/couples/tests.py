@@ -2738,3 +2738,34 @@ class WideAlbumGridTests(TestCase):
         self.assertRegex(wide, r"\.albums \{ grid-template-columns: repeat\(4, 1fr\)")
         home = (Path(__file__).resolve().parent.parent / "templates/couples/home.html").read_text()
         self.assertIn('class="photos recent"', home)
+
+
+class TopBottomColorTests(TestCase):
+    """폰에서 위(상태 표시줄)·아래 바탕을 앱 배경색으로."""
+
+    setUp = ScreenTests.setUp
+
+    def read(self, rel):
+        from pathlib import Path
+
+        return (Path(__file__).resolve().parent.parent / rel).read_text()
+
+    def test_single_theme_color_meta_and_status_bar(self):
+        html = self.client.get(reverse("home")).content.decode()
+        self.assertEqual(html.count('name="theme-color"'), 1)
+        self.assertIn('id="theme-color"', html)
+        self.assertIn('name="apple-mobile-web-app-status-bar-style" content="black-translucent"', html)
+
+    def test_theme_js_follows_theme_and_mode(self):
+        js = self.read("static/js/theme.js")
+        for color in ("#E4EDFB", "#F8F0E3", "#0B1026", "#15111F"):
+            self.assertIn(color, js)
+        self.assertIn("MutationObserver", js)
+
+    def test_phone_background_matches_app(self):
+        css = self.read("static/css/app.css")
+        self.assertIn("@media (max-width: 899px) { html, body { background: var(--bg-2); } }", css)
+
+    def test_manifest_colors_are_app_background(self):
+        body = self.client.get(reverse("manifest")).content.decode()
+        self.assertIn('"theme_color": "#E4EDFB"', body)

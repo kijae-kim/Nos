@@ -26,4 +26,16 @@
   try {
     if (!sessionStorage.getItem("splashed")) root.classList.add("splash-on");
   } catch (e) {}
+
+  // 주소창·상태 표시줄 색을 지금 테마·모드의 앱 배경색(app.css 의 --bg-1)으로. 테마·모드를 바꾸면 따라 바뀐다
+  var BAR = { "boat-light": "#E4EDFB", "journey-light": "#F8F0E3", "boat-dark": "#0B1026", "journey-dark": "#15111F" };
+  function syncBar() {
+    var meta = document.getElementById("theme-color");
+    var color = BAR[root.dataset.theme + "-" + root.dataset.mode];
+    if (meta && color) meta.setAttribute("content", color);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", syncBar); else syncBar();
+  try {
+    new MutationObserver(syncBar).observe(root, { attributes: true, attributeFilter: ["data-theme", "data-mode"] });
+  } catch (e) { /* 오래된 브라우저: 처음 색만 */ }
 })();

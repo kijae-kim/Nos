@@ -72,6 +72,8 @@ body {
   font-family: var(--font); color: var(--text); background: var(--board);
   -webkit-font-smoothing: antialiased; line-height: 1.5;
 }
+/* 폰: 바깥 바탕을 앱 배경 아래쪽 색으로 (탭바 아래·사파리 아래 막대 근처가 다른 색으로 보이지 않게). 넓은 화면은 회색 바탕 그대로 */
+@media (max-width: 899px) { html, body { background: var(--bg-2); } }
 h1, h2, h3, p, ul, ol, figure { margin: 0; padding: 0; }
 ul, ol { list-style: none; }
 a { color: inherit; text-decoration: none; }
