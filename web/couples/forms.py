@@ -97,6 +97,17 @@ class EventForm(forms.Form):
         return cleaned
 
 
+class QuickEventForm(EventForm):
+    """캘린더 날짜 팝업의 빠른 추가: 장소·메모·색은 빼고(자세히 쓰기에서), 날짜는 누른 날."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ("place", "memo", "color"):
+            del self.fields[name]
+        self.fields["date"].widget = forms.HiddenInput()
+        self.fields["text"].help_text = ""
+
+
 class TasteForm(forms.ModelForm):
     image = ImageUploadField(
         label="사진",
