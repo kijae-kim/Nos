@@ -1,0 +1,25 @@
+{% extends "layout_app.html" %}
+{% block head_title %}{{ folder.name }} · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'memos' %}" aria-label="폴더"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">{{ folder.name }}</h1>
+  <a class="circle" href="{% url 'memo_folder_update' folder.pk %}" aria-label="폴더 고치기"><svg class="i"><use href="#i-dots"/></svg></a>
+</header>
+{% endblock %}
+{% block content %}
+{% if items %}
+  <ul class="memo-list card">
+    {% for m in items %}
+      <li><a href="{% url 'memo_edit' m.pk %}">
+        <strong>{{ m.title|default:"새 메모" }}</strong>
+        <span class="memo-meta"><time>{{ m.updated_at|date:"n. j." }}</time> {{ m.preview|default:"추가 텍스트 없음" }}</span>
+      </a></li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="empty">아직 메모가 없어요. 새 메모를 써 볼까요?</p>
+{% endif %}
+<a class="btn primary" href="{% url 'memo_new' %}?folder={{ folder.pk }}">새 메모</a>
+<p class="memo-count muted">메모 {{ items|length }}개</p>
+{% endblock %}

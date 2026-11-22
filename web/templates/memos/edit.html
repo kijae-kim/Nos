@@ -1,0 +1,41 @@
+{% extends "layout_app.html" %}
+{% load static %}
+{% block head_title %}{{ memo.title|default:"새 메모" }} · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head memo-head">
+  <a class="circle" href="{% url 'memo_folder' memo.folder_id %}" aria-label="{{ memo.folder.name }}로"><svg class="i"><use href="#i-left"/></svg></a>
+  <span class="memo-status muted" data-memo-status aria-live="polite"></span>
+  <details class="memo-more">
+    <summary class="circle" aria-label="더 보기"><svg class="i"><use href="#i-dots"/></svg></summary>
+    <div class="memo-menu card">
+      <form method="post" action="{% url 'memo_move' memo.pk %}" class="memo-move">
+        {% csrf_token %}
+        <label for="memo-move-folder">폴더 옮기기</label>
+        <select id="memo-move-folder" name="folder" onchange="this.form.submit()">
+          {% for f in folders %}<option value="{{ f.pk }}"{% if f.pk == memo.folder_id %} selected{% endif %}>{{ f.name }}</option>{% endfor %}
+        </select>
+      </form>
+      <form method="post" action="{% url 'memo_delete' memo.pk %}" data-confirm="이 메모를 지울까요?">
+        {% csrf_token %}
+        <button type="submit" class="btn danger">메모 지우기</button>
+      </form>
+    </div>
+  </details>
+</header>
+{% endblock %}
+{% block content %}
+<p class="memo-date muted">{{ memo.updated_at|date:"Y년 n월 j일 A g:i" }}</p>
+{# 쓰기 칸: memo-editor.js 가 줄 목록을 그리고, 고칠 때마다 저절로 저장한다 #}
+<div class="memo-editor" contenteditable="true" spellcheck="false" data-memo-editor
+     data-save-url="{% url 'memo_save' memo.pk %}" aria-label="메모 내용" role="textbox" aria-multiline="true"></div>
+<div class="memo-conflict notice" data-memo-conflict hidden>
+  상대가 먼저 고쳤어요. 새 내용을 불러왔어요.
+  <button type="button" class="link-btn" data-copy-mine>내 글 복사</button>
+</div>
+<div class="memo-toolbar" role="toolbar" aria-label="메모 도구">
+  <button type="button" class="memo-tool" data-make-check aria-label="체크 항목 넣기·빼기"><svg class="i"><use href="#i-check-circle"/></svg></button>
+  <button type="button" class="memo-tool done" data-done>완료</button>
+</div>
+{{ data|json_script:"memo-data" }}
+<script src="{% static 'js/memo-editor.js' %}" defer></script>
+{% endblock %}

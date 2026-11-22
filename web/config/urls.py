@@ -26,5 +26,6 @@ urlpatterns = [
     path("me/", include("accounts.urls")),
     path("cron/anniversaries/", notification_views.cron_anniversaries, name="cron_anniversaries"),
     path("anniversaries/", include("anniversaries.urls")),
+    path("memos/", include("memos.urls")),
     path("", include("couples.urls")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
