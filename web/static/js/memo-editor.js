@@ -186,9 +186,15 @@
     line.classList.toggle("on");
     changed();
   });
+  var touchFrom = null; // 손가락이 움직였으면(스크롤) 체크하지 않는다
+  editor.addEventListener("touchstart", function (e) {
+    var t = e.touches && e.touches[0];
+    touchFrom = t ? { x: t.clientX, y: t.clientY, at: Date.now() } : null;
+  }, { passive: true });
   editor.addEventListener("touchend", function (e) {
     var t = e.changedTouches && e.changedTouches[0];
-    var line = t && tickAt(e.target, t.clientX);
+    if (!t || !touchFrom || Math.abs(t.clientX - touchFrom.x) > 10 || Math.abs(t.clientY - touchFrom.y) > 10 || Date.now() - touchFrom.at > 600) return;
+    var line = tickAt(e.target, t.clientX);
     if (!line) return;
     e.preventDefault(); // 이어지는 클릭·커서 옮기기·자판 열기를 막는다
     line.classList.toggle("on");
@@ -255,7 +261,7 @@
         version = res.data.version; show("저장했어요");
         if (!dirty) clearDraft(); else keepDraft();
       } else if (res.status === 409) conflict(res.data);
-      else if (res.status === 404) { gone = true; clearDraft(); show("메모가 지워졌어요"); }
+      else if (res.status === 404) { gone = true; show("메모가 지워졌어요"); } // 쓴 글은 기기에 남겨 둔다
       else if (res.status === 400) { dirty = false; show(res.data.error || "저장하지 못했어요"); } // 너무 긴 글 등: 고쳐야 저장
       else retryLater();
     }).catch(retryLater)
@@ -282,6 +288,11 @@
     try { localStorage.setItem(draftKey, JSON.stringify({ lines: serialize(), version: version })); } catch (e) { /* 저장소 없음 */ }
   }
   function clearDraft() { try { localStorage.removeItem(draftKey); } catch (e) { /* 괜찮다 */ } }
+  // 줄 목록 비교 (서버 DB 가 JSON 키 순서를 바꿔도 같게 본다)
+  function sameLines(a, b) {
+    var key = function (ls) { return (ls || []).map(function (l) { return l.t + "|" + (l.on ? 1 : 0) + "|" + l.s; }).join("\n"); };
+    return key(a) === key(b);
+  }
   var copy = document.querySelector("[data-copy-mine]");
   if (copy) copy.addEventListener("click", function () {
     if (navigator.clipboard) navigator.clipboard.writeText(mineText).then(function () {
@@ -300,7 +311,7 @@
     var draft = null;
     try { draft = JSON.parse(localStorage.getItem(draftKey) || "null"); } catch (e) { draft = null; }
     if (!draft || !draft.lines) return;
-    if (JSON.stringify(draft.lines) === JSON.stringify(data.lines)) return clearDraft();
+    if (sameLines(draft.lines, data.lines)) return clearDraft();
     if (draft.version === version) {
       render(draft.lines); dirty = true; schedule(); show("저장하지 못한 글을 이어서 저장해요");
     } else {

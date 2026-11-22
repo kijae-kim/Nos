@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db import IntegrityError
-from django.db.models import Count, Q
+from django.db.models import Count, ProtectedError, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -55,8 +55,12 @@ def folder_update(request, pk):
     folder = _folder(request, pk)
     form = FolderForm(request.POST or None, instance=folder, couple=request.user.couple)
     if request.method == "POST" and form.is_valid():
-        form.save()
-        return redirect("memo_folder", pk=folder.pk)
+        try:
+            form.save()
+        except IntegrityError:  # 상대가 같은 이름을 방금 만든 경우
+            form.add_error("name", "이미 있는 폴더 이름이에요.")
+        else:
+            return redirect("memo_folder", pk=folder.pk)
     return render(request, "memos/folder_form.html", {"form": form, "folder": folder})
 
 
@@ -64,10 +68,17 @@ def folder_update(request, pk):
 @require_POST
 def folder_delete(request, pk):
     folder = _folder(request, pk)
-    if folder.memos.exists():
+    # 목록에 안 보이는 빈 메모(쓰다 만 것)는 폴더와 함께 지운다. 글이 있는 메모가 있으면 못 지운다
+    if folder.memos.exclude(title="").exists():
         messages.error(request, "메모를 옮기거나 지운 뒤에 지울 수 있어요.")
         return redirect("memo_folder", pk=folder.pk)
-    folder.delete()
+    try:
+        with transaction.atomic():
+            folder.memos.filter(title="").delete()
+            folder.delete()
+    except ProtectedError:  # 그 사이 상대가 메모를 쓴 경우
+        messages.error(request, "메모를 옮기거나 지운 뒤에 지울 수 있어요.")
+        return redirect("memo_folder", pk=folder.pk)
     messages.success(request, "폴더를 지웠어요.")
     return redirect("memos")
 
@@ -98,7 +109,7 @@ def memo_new(request):
     ensure_default_folders(couple)
     folder_id = request.GET.get("folder") or request.session.get("memo_folder")
     folder = couple.memo_folders.filter(pk=folder_id).first() if str(folder_id or "").isdigit() else None
-    folder = folder or couple.memo_folders.first()
+    folder = folder or ordered_folders(couple.memo_folders.all()).first()
     request.session["memo_folder"] = folder.pk
     # 방금 내가 만든 빈 메모가 있으면 그걸 다시 연다 (두 번 누름·뒤로 가기로 빈 메모가 쌓이지 않게)
     recent = timezone.now() - timedelta(minutes=10)

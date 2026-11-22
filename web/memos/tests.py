@@ -300,3 +300,34 @@ class CalendarLeftoverTests(TestCase):
         self.assertIn("&all_day=on", js)
         views = (Path(__file__).resolve().parent.parent / "couples/views.py").read_text()
         self.assertNotIn("day_events = upcoming", views)
+
+
+class MemoPreDeployTests(TestCase):
+    setUp = MemoTests.setUp
+    save = MemoTests.save
+    new_memo = MemoTests.new_memo
+
+    def js(self):
+        from pathlib import Path
+
+        return (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
+
+    def test_folder_with_only_empty_memos_can_be_deleted(self):
+        self.client.get(reverse("memos"))
+        self.client.post(reverse("memo_folder_create"), {"name": "데이트"})
+        folder = MemoFolder.objects.get(name="데이트")
+        self.new_memo(folder)  # 쓰다 만 빈 메모
+        self.client.post(reverse("memo_folder_delete", args=[folder.pk]))
+        self.assertFalse(MemoFolder.objects.filter(pk=folder.pk).exists())
+
+    def test_editor_compares_lines_not_json_key_order_and_ignores_swipes(self):
+        js = self.js()
+        self.assertIn("function sameLines", js)
+        self.assertNotIn("JSON.stringify(draft.lines) === JSON.stringify(data.lines)", js)
+        self.assertIn("touchstart", js)
+
+    def test_new_memo_fallback_folder_is_default_first(self):
+        self.client.get(reverse("memos"))
+        MemoFolder.objects.create(couple=self.couple, name="가가")
+        self.new_memo()
+        self.assertEqual(Memo.objects.latest("pk").folder.name, "버킷리스트")
