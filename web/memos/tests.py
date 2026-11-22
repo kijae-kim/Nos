@@ -139,3 +139,20 @@ class MemoTests(TestCase):
     def test_login_required(self):
         self.client.logout()
         self.assertEqual(self.client.get(reverse("memos")).status_code, 302)
+
+
+class MemoEditorPageTests(TestCase):
+    setUp = MemoTests.setUp
+
+    def test_editor_page_assets(self):
+        self.client.get(reverse("memos"))
+        res = self.client.get(reverse("memo_new"))
+        page = self.client.get(res["Location"])
+        self.assertContains(page, "data-memo-editor")
+        self.assertContains(page, "data-make-check")
+        self.assertContains(page, 'id="i-check-circle"')
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
+        for needle in ("beforeinput", "text/plain", "keepalive", "409"):
+            self.assertIn(needle, js)
