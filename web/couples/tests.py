@@ -2769,3 +2769,57 @@ class TopBottomColorTests(TestCase):
     def test_manifest_colors_are_app_background(self):
         body = self.client.get(reverse("manifest")).content.decode()
         self.assertIn('"theme_color": "#E4EDFB"', body)
+
+
+class DayPopupTests(TestCase):
+    """날짜 팝업: 그날 일정 + 빠른 추가."""
+
+    setUp = ScreenTests.setUp
+
+    def url(self, day):
+        return reverse("day_popup", args=[day.isoformat() if hasattr(day, "isoformat") else day])
+
+    def test_lists_day_events_including_multi_day_and_hides_others(self):
+        day = timezone.localdate() + timedelta(days=3)
+        mine = Event.objects.create(couple=self.couple, created_by=self.a, title="저녁", date=day)
+        trip = Event.objects.create(couple=self.couple, created_by=self.a, title="여행", date=day - timedelta(days=1), end_date=day + timedelta(days=1))
+        Event.objects.create(couple=self.couple, created_by=self.b, title="바다 개인", date=day, scope=Event.PERSONAL)
+        other = Couple.objects.create()
+        u = User.objects.create_user("c", password="pw", couple=other)
+        Event.objects.create(couple=other, created_by=u, title="남의 일정", date=day)
+        html = self.client.get(self.url(day)).content.decode()
+        self.assertIn("저녁", html)
+        self.assertIn("여행", html)
+        self.assertNotIn("바다 개인", html)
+        self.assertNotIn("남의 일정", html)
+        self.assertIn(reverse("event_update", args=[mine.pk]), html)
+        self.assertIn(f"{day.month}월 {day.day}일", html)
+        self.assertNotIn("<html", html)  # 조각만
+
+    def test_quick_add_saves_and_returns_calendar_url(self):
+        day = timezone.localdate() + timedelta(days=3)
+        res = self.client.post(self.url(day), {"text": "전시 @데이트", "date": day.isoformat(), "all_day": "on", "scope": "shared"})
+        self.assertEqual(res.status_code, 200)
+        e = Event.objects.get(title="전시")
+        self.assertEqual((e.date, e.color, e.place, e.memo), (day, "sky", "", ""))
+        self.assertEqual([str(l) for l in e.labels.all()], ["@데이트"])
+        self.assertEqual(res.json(), {"ok": True, "url": reverse("calendar") + f"?month={day:%Y-%m}&day={day:%Y-%m-%d}"})
+
+    def test_quick_add_errors_stay_in_popup(self):
+        day = timezone.localdate() + timedelta(days=3)
+        res = self.client.post(self.url(day), {"text": "@데이트", "date": day.isoformat(), "scope": "shared"})
+        self.assertEqual(res.status_code, 400)
+        self.assertContains(res, "이름표만 적으면", status_code=400)
+        res = self.client.post(self.url(day), {"text": "여행", "date": day.isoformat(), "end_date": (day - timedelta(days=1)).isoformat(), "scope": "shared"})
+        self.assertContains(res, "끝나는 날은 시작하는 날보다 뒤여야 해요.", status_code=400)
+        self.assertFalse(Event.objects.exists())
+
+    def test_bad_day_and_login(self):
+        self.assertEqual(self.client.get(reverse("day_popup", args=["2026-13-40"])).status_code, 404)
+        self.client.logout()
+        self.assertEqual(self.client.get(self.url(timezone.localdate())).status_code, 302)
+
+    def test_full_form_takes_text(self):
+        page = self.client.get(reverse("event_create") + "?date=2026-12-01&text=전시 보러 가기")
+        self.assertEqual(page.context["form"].initial["text"], "전시 보러 가기")
+        self.assertEqual(str(page.context["form"].initial["date"]), "2026-12-01")

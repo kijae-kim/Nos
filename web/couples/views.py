@@ -10,7 +10,7 @@ from django.db import transaction
 from django.db.models import Count, Exists, F, OuterRef
 from urllib.parse import urlencode
 
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -23,7 +23,7 @@ from anniversaries import services as anniversary_services
 from . import ics, linkpreview, places, placesearch, quota, services
 from .storage import MAX_IMAGE_BYTES, delete_file
 from .forms import (
-    AlbumForm, CreateForm, EventForm, JoinForm, LabelForm, MomentForm, PhotoForm, PlaceForm, ProfileForm, TasteCommentForm, WishListForm, WishPlaceForm,
+    AlbumForm, CreateForm, EventForm, JoinForm, LabelForm, MomentForm, QuickEventForm, PhotoForm, PlaceForm, ProfileForm, TasteCommentForm, WishListForm, WishPlaceForm,
 )
 from .models import Album, CalendarFeed, Couple, Event, Label, Photo, RegionMark, Taste, TasteComment, TasteLike, WishList, WishPlace
 
@@ -394,11 +394,38 @@ def event_create(request):
     day = request.GET.get("date")
     if day:
         initial["date"] = day
-    form = EventForm(request.POST or None, initial=initial or {"date": timezone.localdate()})
+    if request.GET.get("text"):
+        initial["text"] = request.GET["text"][:140]  # 날짜 팝업에서 '자세히 쓰기' 로 넘어온 글
+    form = EventForm(request.POST or None, initial={"date": timezone.localdate(), **initial})
     if request.method == "POST" and form.is_valid():
         event = services.save_event(Event(created_by=request.user), couple, form.cleaned_data)
         return redirect(_calendar_url(event.date))
     return render(request, "couples/event_form.html", {"form": form, "labels": couple.labels.all(), "event": None})
+
+
+@login_required
+def day_popup(request, day):
+    """캘린더 날짜 팝업(조각 HTML): 그날에 걸친 일정 + 빠른 추가. 저장 성공이면 JSON 으로 돌아갈 주소."""
+    try:
+        the_day = date.fromisoformat(day)
+    except ValueError:
+        raise Http404
+    couple = request.user.couple
+    form = QuickEventForm(request.POST or None, initial={"date": the_day, "all_day": True, "scope": "shared"})
+    if request.method == "POST":
+        if form.is_valid():
+            data = {**form.cleaned_data, "place": "", "memo": "", "color": "sky"}
+            event = services.save_event(Event(created_by=request.user), couple, data)
+            return JsonResponse({"ok": True, "url": _calendar_url(event.date)})
+    events = (Event.objects.visible_to(request.user).overlapping(the_day, the_day)
+              .select_related("created_by").prefetch_related("labels").order_by("date", "start_time", "pk"))
+    res = render(request, "couples/_day_popup.html", {
+        "day": the_day, "events": events, "form": form, "labels": couple.labels.all(),
+        "full_url": f"{reverse('event_create')}?date={the_day:%Y-%m-%d}",
+    })
+    if request.method == "POST":
+        res.status_code = 400
+    return res
 
 
 @login_required
