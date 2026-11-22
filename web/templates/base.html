@@ -4,9 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block head_title %}{{ APP_NAME }}{% endblock %}</title>
-  <meta name="theme-color" content="#E4EDFB" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0B1026" media="(prefers-color-scheme: dark)">
+  {# 주소창·상태 표시줄 색: theme.js 가 지금 테마·모드의 앱 배경색으로 맞춘다 #}
+  <meta name="theme-color" id="theme-color" content="#E4EDFB">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  {# 아이폰 홈 화면 앱: 상태 표시줄을 투명하게 해 앱 배경이 맨 위까지 이어지게 (화면 위 여백은 safe-area 로 둔다) #}
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="{{ APP_NAME }}">
   <link rel="manifest" href="{% url 'manifest' %}">
   <link rel="icon" href="{% static 'icons/icon.svg' %}" type="image/svg+xml">
