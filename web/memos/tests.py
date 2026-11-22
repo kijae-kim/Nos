@@ -156,3 +156,30 @@ class MemoEditorPageTests(TestCase):
         js = (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
         for needle in ("beforeinput", "text/plain", "keepalive", "409"):
             self.assertIn(needle, js)
+
+
+class MemoHomeTests(TestCase):
+    setUp = MemoTests.setUp
+    save = MemoTests.save
+    new_memo = MemoTests.new_memo
+
+    def test_home_shows_recent_memos(self):
+        m = self.new_memo()
+        self.save(m, L("오로라 보기"))
+        html = self.client.get(reverse("home")).content.decode()
+        self.assertIn("오로라 보기", html)
+        self.assertIn(reverse("memo_edit", args=[m.pk]), html)
+        self.assertIn(reverse("memos"), html)
+
+    def test_quick_menu_has_memo_and_remembers_folder(self):
+        html = self.client.get(reverse("home")).content.decode()
+        self.assertIn(f'href="{reverse("memo_new")}"', html)
+        self.assertEqual(html.count('class="quick"'), 6)
+        self.client.get(reverse("memos"))
+        trip = MemoFolder.objects.get(name="여행계획")
+        self.client.get(reverse("memo_folder", args=[trip.pk]))
+        self.client.get(reverse("memo_new"))
+        self.assertEqual(Memo.objects.latest("pk").folder, trip)
+
+    def test_empty_home_card(self):
+        self.assertContains(self.client.get(reverse("home")), "버킷리스트나 여행 계획을 적어 볼까요?")

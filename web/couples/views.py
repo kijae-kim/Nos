@@ -19,6 +19,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.avatars import fix_color_on_join
 from anniversaries import services as anniversary_services
+from memos.models import Memo
 
 from . import ics, linkpreview, places, placesearch, quota, services
 from .storage import MAX_IMAGE_BYTES, delete_file
@@ -115,6 +116,8 @@ def home(request):
             "events": Event.objects.visible_to(user).not_past(today).select_related("created_by").prefetch_related("labels")[:3],
             "tastes": Taste.objects.filter(couple=couple).select_related("author")[:3],
             "photos": Photo.objects.filter(couple=couple)[:4],
+            # 최근 고친 메모 (제목 있는 것만)
+            "memos": Memo.objects.filter(couple=couple).exclude(title="").select_related("folder")[:3],
         },
     )
 

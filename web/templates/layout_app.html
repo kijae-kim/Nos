@@ -30,11 +30,13 @@
     <svg class="bar" viewBox="0 0 342 64" aria-hidden="true"><path d="M22 0H126Q133 0 134 6A38 38 0 0 0 208 6Q209 0 216 0H320A22 22 0 0 1 342 22V42A22 22 0 0 1 320 64H22A22 22 0 0 1 0 42V22A22 22 0 0 1 22 0Z"/></svg>
 
     {# 빠른 추가: 다섯 개를 + 버튼 위로 반원처럼 #}
-    <a class="quick" style="--x:-128px;--y:-58px" href="{% url 'event_create' %}"><i style="background:var(--sky)"><svg class="i"><use href="#i-cal"/></svg></i>일정</a>
-    <a class="quick" style="--x:-70px;--y:-112px" href="{% url 'taste_create' %}"><i style="background:var(--rose)"><svg class="i"><use href="#i-note"/></svg></i>순간</a>
-    <a class="quick" style="--x:0px;--y:-136px" href="{% url 'taste_create' %}?kind=place"><i style="background:var(--peach)"><svg class="i"><use href="#i-pin"/></svg></i>기록</a>
-    <a class="quick" style="--x:70px;--y:-112px" href="{% url 'photo_create' %}"><i style="background:var(--lav)"><svg class="i"><use href="#i-album"/></svg></i>사진</a>
-    <a class="quick" style="--x:128px;--y:-58px" href="{% url 'anniversary_create' %}"><i style="background:var(--sand)"><svg class="i"><use href="#i-gift"/></svg></i>기념일</a>
+    {# 여섯 개를 반원(반지름 136px)에 고르게: 160°·132°·104°·76°·48°·20° #}
+    <a class="quick" style="--x:-128px;--y:-47px" href="{% url 'event_create' %}"><i style="background:var(--sky)"><svg class="i"><use href="#i-cal"/></svg></i>일정</a>
+    <a class="quick" style="--x:-91px;--y:-101px" href="{% url 'taste_create' %}"><i style="background:var(--rose)"><svg class="i"><use href="#i-note"/></svg></i>순간</a>
+    <a class="quick" style="--x:-33px;--y:-132px" href="{% url 'taste_create' %}?kind=place"><i style="background:var(--peach)"><svg class="i"><use href="#i-pin"/></svg></i>기록</a>
+    <a class="quick" style="--x:33px;--y:-132px" href="{% url 'memo_new' %}"><i style="background:var(--sage)"><svg class="i"><use href="#i-check-circle"/></svg></i>메모</a>
+    <a class="quick" style="--x:91px;--y:-101px" href="{% url 'photo_create' %}"><i style="background:var(--lav)"><svg class="i"><use href="#i-album"/></svg></i>사진</a>
+    <a class="quick" style="--x:128px;--y:-47px" href="{% url 'anniversary_create' %}"><i style="background:var(--sand)"><svg class="i"><use href="#i-gift"/></svg></i>기념일</a>
 
     <a class="tab{% if tab == 'home' %} on{% endif %}" style="left:11.7%" href="{% url 'home' %}"{% if tab == 'home' %} aria-current="page"{% endif %}>
       <svg class="i" aria-hidden="true"><use href="#i-home"/></svg><span>홈</span>
