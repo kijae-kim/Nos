@@ -15,6 +15,7 @@
     {% csrf_token %}
     {% for e in form.non_field_errors %}<p class="error">{{ e }}</p>{% endfor %}
     {{ form.date }}
+    {% for e in form.date.errors %}<p class="error">날짜가 잘못됐어요. 팝업을 닫고 다시 열어 주세요.</p>{% endfor %}
     <div class="field">
       <label for="{{ form.text.id_for_label }}">새 일정</label>
       {{ form.text }}

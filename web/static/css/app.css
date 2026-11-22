@@ -6,6 +6,8 @@
   --pin-shadow: 0 2px 6px rgba(0, 0, 0, .3);
   /* 파스텔 색(목록·이름표 색) 위의 글자: 라이트·다크 모두 진하게 */
   --on-pastel: #1D2440;
+  /* 팝업 뒤를 어둡게 */
+  --scrim: rgba(10, 14, 30, .45);
   --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --spring: cubic-bezier(.34, 1.56, .64, 1);
   --ease: cubic-bezier(.3, .7, .2, 1);
@@ -522,7 +524,8 @@ a.label-chip:active { transform: scale(.94); }
 /* 날짜 팝업: 폰은 아래에서 올라오는 판, 넓은 화면은 가운데 창 */
 .day-sheet { border: 0; padding: 0; background: var(--surface); color: var(--text); width: 100%; max-width: 480px; max-height: 88dvh;
   margin: auto auto 0; border-radius: 26px 26px 0 0; box-shadow: var(--shadow); overflow: auto; }
-.day-sheet::backdrop { background: rgba(10, 14, 30, .45); }
+.day-sheet::backdrop { background: var(--scrim); }
+html.sheet-open, html.sheet-open body { overflow: hidden; } /* 팝업이 열린 동안 뒤 화면 스크롤 막기 */
 .day-sheet[open] { animation: sheet-up .28s var(--ease); }
 @keyframes sheet-up { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
 .day-sheet-body { padding: 18px 20px calc(20px + env(safe-area-inset-bottom)); }
