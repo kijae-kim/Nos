@@ -2850,3 +2850,23 @@ class CalendarPopupScreenTests(TestCase):
         html = self.client.get(reverse("calendar") + f"?month={day:%Y-%m}").content.decode()
         mobile = html.split('class="mobile-only"')[1].split('class="desktop-only"')[0]
         self.assertIn("성수 산책", mobile.split('class="days"')[1])
+
+
+class CalendarPopupScriptTests(TestCase):
+    """팝업 스크립트: 꾹 눌러 연 직후 바깥 누름 무시, 로그인 만료·서버 오류는 팝업에 페이지를 넣지 않음."""
+
+    def js(self):
+        from pathlib import Path
+
+        return (Path(__file__).resolve().parent.parent / "static/js/calendar-popup.js").read_text()
+
+    def test_backdrop_click_right_after_open_is_ignored(self):
+        js = self.js()
+        self.assertIn("openedAt", js)
+        self.assertIn("Date.now() - openedAt", js)
+
+    def test_redirect_and_non_400_errors(self):
+        js = self.js()
+        self.assertIn("r.redirected", js)
+        self.assertIn('searchParams.set("next", location.pathname + location.search)', js)
+        self.assertIn("r.status === 400", js)

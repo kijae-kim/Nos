@@ -10,15 +10,28 @@
   document.addEventListener("dragend", function () { lastDragEnd = Date.now(); }, true);
   document.addEventListener("drop", function () { lastDragEnd = Date.now(); }, true);
 
+  var openedAt = 0;
+  // 로그인 화면으로 보내되, 다시 로그인하면 팝업 조각이 아니라 지금 캘린더로 돌아오게
+  function toLogin(url) {
+    var u = new URL(url, location.href);
+    u.searchParams.set("next", location.pathname + location.search);
+    location.href = u.pathname + u.search;
+  }
+  function failed() {
+    body.innerHTML = '<p class="day-popup-loading">불러오지 못했어요. 잠시 뒤 다시 해 볼까요?</p>';
+  }
   function open(url) {
     body.innerHTML = '<p class="day-popup-loading">불러오고 있어요…</p>';
+    openedAt = Date.now();
     if (!sheet.open) sheet.showModal();
     fetch(url, { credentials: "same-origin", headers: { "X-Requested-With": "fetch" } })
-      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(function (r) {
+        if (r.redirected) { toLogin(r.url); throw new Error("redirect"); } // 로그인이 끝났으면 로그인 화면으로
+        if (!r.ok) throw new Error(r.status);
+        return r.text();
+      })
       .then(function (html) { body.innerHTML = html; wire(); })
-      .catch(function () {
-        body.innerHTML = '<p class="day-popup-loading">불러오지 못했어요. 잠시 뒤 다시 해 볼까요?</p>';
-      });
+      .catch(failed);
   }
   function close() { if (sheet.open) sheet.close(); }
 
@@ -61,8 +74,10 @@
       if (btn) btn.disabled = true;
       fetch(form.action, { method: "POST", body: new FormData(form), credentials: "same-origin", headers: { "X-Requested-With": "fetch" } })
         .then(function (r) {
+          if (r.redirected) { toLogin(r.url); return; } // 로그인이 끝났으면 로그인 화면으로
           if (r.ok) return r.json().then(function (d) { location.href = d.url; });
-          return r.text().then(function (html) { body.innerHTML = html; wire(); }); // 오류: 팝업 안에서 다시
+          if (r.status === 400) return r.text().then(function (html) { body.innerHTML = html; wire(); }); // 입력 오류: 팝업 안에서 다시
+          throw new Error(r.status); // 그 밖의 오류(403·500): 페이지를 넣지 않고 안내만
         })
         .catch(function () {
           if (btn) btn.disabled = false;
@@ -73,7 +88,10 @@
   }
 
   // 바깥(어두운 곳)을 누르면 닫기
-  sheet.addEventListener("click", function (e) { if (e.target === sheet) close(); });
+  // (꾹 눌러 연 직후 손을 뗄 때 오는 클릭이 바깥에 떨어져 바로 닫히지 않게 잠깐은 무시)
+  sheet.addEventListener("click", function (e) {
+    if (e.target === sheet && Date.now() - openedAt > 600) close();
+  });
 
   document.querySelectorAll("[data-day-popup]").forEach(function (cell) {
     var pressTimer = null, longOpened = false;
