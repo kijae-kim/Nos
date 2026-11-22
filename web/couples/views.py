@@ -19,6 +19,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.avatars import fix_color_on_join
 from anniversaries import services as anniversary_services
+from memos.models import Memo
 
 from . import ics, linkpreview, places, placesearch, quota, services
 from .storage import MAX_IMAGE_BYTES, delete_file
@@ -115,6 +116,8 @@ def home(request):
             "events": Event.objects.visible_to(user).not_past(today).select_related("created_by").prefetch_related("labels")[:3],
             "tastes": Taste.objects.filter(couple=couple).select_related("author")[:3],
             "photos": Photo.objects.filter(couple=couple)[:4],
+            # 최근 고친 메모 (제목 있는 것만)
+            "memos": Memo.objects.filter(couple=couple).exclude(title="").select_related("folder")[:3],
         },
     )
 
@@ -237,10 +240,6 @@ def calendar(request):
         grid.append(row)
 
     upcoming = list(visible.not_past(today)[:3])
-    day_events = by_date.get(selected, [])
-    list_title = "다가오는 일정" if selected == today else f"{selected.month}월 {selected.day}일"
-    if selected == today:
-        day_events = upcoming
 
     # 이름표 모아 보기: ?label=<id> 이면 그 이름표가 붙은 일정만 (다가오는 것 먼저, 지난 것은 아래에)
     label = None
@@ -264,10 +263,7 @@ def calendar(request):
             "prev_url": f"?month={_shift_month(first, -1):%Y-%m}",
             "next_url": f"?month={_shift_month(first, 1):%Y-%m}",
             "weeks": grid,
-            "day_events": day_events,
             "upcoming": upcoming,
-            "list_title": list_title,
-            "new_event_url": f"/calendar/events/new/?date={selected:%Y-%m-%d}",
             "days": user.couple.days_together,
             "next_item": anniversaries[0] if anniversaries else None,
             "labels": user.couple.labels.filter(events__in=visible).distinct(),
@@ -394,8 +390,16 @@ def event_create(request):
     day = request.GET.get("date")
     if day:
         initial["date"] = day
+    # 날짜 팝업에서 '자세히 쓰기' 로 넘어온 값들 (폼이 다시 검사한다)
     if request.GET.get("text"):
-        initial["text"] = request.GET["text"][:140]  # 날짜 팝업에서 '자세히 쓰기' 로 넘어온 글
+        initial["text"] = request.GET["text"][:140]
+    for key in ("start_time", "end_time", "end_date"):
+        if request.GET.get(key):
+            initial[key] = request.GET[key][:10]
+    if request.GET.get("scope") in ("shared", "personal"):
+        initial["scope"] = request.GET["scope"]
+    if request.GET.get("all_day") == "on":
+        initial["all_day"] = True
     form = EventForm(request.POST or None, initial={"date": timezone.localdate(), **initial})
     if request.method == "POST" and form.is_valid():
         event = services.save_event(Event(created_by=request.user), couple, form.cleaned_data)
@@ -418,7 +422,9 @@ def day_popup(request, day):
             event = services.save_event(Event(created_by=request.user), couple, data)
             return JsonResponse({"ok": True, "url": _calendar_url(event.date)})
     events = (Event.objects.visible_to(request.user).overlapping(the_day, the_day)
-              .select_related("created_by").prefetch_related("labels").order_by("date", "start_time", "pk"))
+              .select_related("created_by").prefetch_related("labels")
+              # 하루 종일·여러 날 먼저, 그다음 시작 시간 순 (DB 마다 빈 시간 순서가 달라 명시)
+              .order_by(F("start_time").asc(nulls_first=True), "date", "pk"))
     res = render(request, "couples/_day_popup.html", {
         "day": the_day, "events": events, "form": form, "labels": couple.labels.all(),
         "full_url": f"{reverse('event_create')}?date={the_day:%Y-%m-%d}",

@@ -58,6 +58,22 @@
 
 <section class="section">
   <div class="section-head">
+    <h2>메모</h2>
+    <a href="{% url 'memos' %}">전체 보기</a>
+  </div>
+  {% if memos %}
+    <ul class="memo-list card home-memos">
+      {% for m in memos %}
+        <li><a href="{% url 'memo_edit' m.pk %}"><strong>{{ m.title }}</strong><span class="memo-meta"><time>{{ m.folder.name }}</time> {{ m.preview|default:"추가 텍스트 없음" }}</span></a></li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <a class="empty" href="{% url 'memo_new' %}">버킷리스트나 여행 계획을 적어 볼까요?</a>
+  {% endif %}
+</section>
+
+<section class="section">
+  <div class="section-head">
     <h2>다가오는 일정</h2>
     <a href="{% url 'calendar' %}">캘린더 보기</a>
   </div>

@@ -106,6 +106,7 @@ class QuickEventForm(EventForm):
             del self.fields[name]
         self.fields["date"].widget = forms.HiddenInput()
         self.fields["text"].help_text = ""
+        self.fields["end_date"].help_text = ""  # 좁은 팝업에서는 길다
 
 
 class TasteForm(forms.ModelForm):

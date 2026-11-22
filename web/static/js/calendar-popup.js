@@ -20,20 +20,24 @@
   function failed() {
     body.innerHTML = '<p class="day-popup-loading">불러오지 못했어요. 잠시 뒤 다시 해 볼까요?</p>';
   }
+  var seq = 0; // 빠르게 다른 날을 열면 늦게 온 앞 응답은 버린다
   function open(url) {
+    var mine = ++seq;
     body.innerHTML = '<p class="day-popup-loading">불러오고 있어요…</p>';
     openedAt = Date.now();
-    if (!sheet.open) sheet.showModal();
-    fetch(url, { credentials: "same-origin", headers: { "X-Requested-With": "fetch" } })
+    if (!sheet.open) { sheet.showModal(); document.documentElement.classList.add("sheet-open"); }
+    fetch(url, { credentials: "same-origin" })
       .then(function (r) {
+        if (mine !== seq) throw new Error("stale");
         if (r.redirected) { toLogin(r.url); throw new Error("redirect"); } // 로그인이 끝났으면 로그인 화면으로
         if (!r.ok) throw new Error(r.status);
         return r.text();
       })
-      .then(function (html) { body.innerHTML = html; wire(); })
-      .catch(failed);
+      .then(function (html) { if (mine === seq) { body.innerHTML = html; wire(); } })
+      .catch(function (e) { if (mine === seq && e.message !== "redirect") failed(); });
   }
   function close() { if (sheet.open) sheet.close(); }
+  sheet.addEventListener("close", function () { document.documentElement.classList.remove("sheet-open"); });
 
   // 받아 온 팝업 내용에 동작 붙이기 (하루 종일·끝나는 날·이름표 넣기·저장·자세히 쓰기·닫기)
   function wire() {
@@ -62,17 +66,27 @@
       });
     });
     var full = body.querySelector("[data-popup-full]");
+    // 자세히 쓰기: 팝업에 적은 값(글·시간·끝나는 날·공개)을 가지고 일정 추가 화면으로
     if (full) full.addEventListener("click", function (e) {
-      if (text && text.value.trim()) {
-        e.preventDefault();
-        location.href = full.href + "&text=" + encodeURIComponent(text.value.trim());
-      }
+      e.preventDefault();
+      var q = "";
+      if (text && text.value.trim()) q += "&text=" + encodeURIComponent(text.value.trim());
+      // 넘길 칸들: "start_time", "end_time", "end_date", "scope" (시간은 하루 종일이 아닐 때만)
+      var timed = !(allDay && allDay.checked);
+      if (!timed) q += "&all_day=on";
+      [["start_time", timed], ["end_time", timed], ["end_date", true], ["scope", true]].forEach(function (pair) {
+        var n = pair[0];
+        if (!pair[1]) return;
+        var f = form.querySelector('[name="' + n + '"]' + (n === "scope" ? ":checked" : ""));
+        if (f && f.value) q += "&" + n + "=" + encodeURIComponent(f.value);
+      });
+      location.href = full.href + q;
     });
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       var btn = form.querySelector('[type="submit"]');
       if (btn) btn.disabled = true;
-      fetch(form.action, { method: "POST", body: new FormData(form), credentials: "same-origin", headers: { "X-Requested-With": "fetch" } })
+      fetch(form.action, { method: "POST", body: new FormData(form), credentials: "same-origin" })
         .then(function (r) {
           if (r.redirected) { toLogin(r.url); return; } // 로그인이 끝났으면 로그인 화면으로
           if (r.ok) return r.json().then(function (d) { location.href = d.url; });

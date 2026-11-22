@@ -6,6 +6,8 @@
   --pin-shadow: 0 2px 6px rgba(0, 0, 0, .3);
   /* 파스텔 색(목록·이름표 색) 위의 글자: 라이트·다크 모두 진하게 */
   --on-pastel: #1D2440;
+  /* 팝업 뒤를 어둡게 */
+  --scrim: rgba(10, 14, 30, .45);
   --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --spring: cubic-bezier(.34, 1.56, .64, 1);
   --ease: cubic-bezier(.3, .7, .2, 1);
@@ -522,7 +524,8 @@ a.label-chip:active { transform: scale(.94); }
 /* 날짜 팝업: 폰은 아래에서 올라오는 판, 넓은 화면은 가운데 창 */
 .day-sheet { border: 0; padding: 0; background: var(--surface); color: var(--text); width: 100%; max-width: 480px; max-height: 88dvh;
   margin: auto auto 0; border-radius: 26px 26px 0 0; box-shadow: var(--shadow); overflow: auto; }
-.day-sheet::backdrop { background: rgba(10, 14, 30, .45); }
+.day-sheet::backdrop { background: var(--scrim); }
+html.sheet-open, html.sheet-open body { overflow: hidden; } /* 팝업이 열린 동안 뒤 화면 스크롤 막기 */
 .day-sheet[open] { animation: sheet-up .28s var(--ease); }
 @keyframes sheet-up { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
 .day-sheet-body { padding: 18px 20px calc(20px + env(safe-area-inset-bottom)); }
@@ -1111,3 +1114,48 @@ a.label-chip:active { transform: scale(.94); }
 .pair figure { position: relative; }
 .mini-link { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 12px; font-weight: 600; color: var(--primary); margin-top: 2px; }
 .couple .pair { padding-bottom: 16px; }
+
+
+/* ---------- 메모 (아이폰 메모장처럼) ---------- */
+.memo-group-title { font-size: 22px; font-weight: 800; }
+.memo-folders, .memo-list { list-style: none; margin: 0; padding: 4px 0; }
+.memo-folders li a { display: flex; align-items: center; gap: 12px; padding: 13px 16px; color: var(--text); font-weight: 600; }
+.memo-folders li + li a, .memo-list li + li a { border-top: 1px solid var(--track); }
+.memo-folders li a > .i:first-child { color: var(--primary); }
+.memo-folders li a small { margin-left: auto; color: var(--muted); font-weight: 500; }
+.memo-folders li a .chev { width: 16px; height: 16px; color: var(--faint); }
+.memo-list li a { display: grid; gap: 2px; padding: 12px 16px; color: var(--text); }
+.memo-list strong { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.memo-meta { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.memo-meta time { color: var(--text); margin-right: 6px; }
+.memo-count { text-align: center; font-size: 12px; }
+.memo-head { position: relative; }
+.memo-status { font-size: 12px; }
+.memo-more { position: relative; }
+.memo-more summary { list-style: none; cursor: pointer; }
+.memo-more summary::-webkit-details-marker { display: none; }
+.memo-menu { position: absolute; right: 0; top: 48px; z-index: 6; width: 220px; padding: 14px; display: grid; gap: 12px; }
+.memo-move { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.memo-date { text-align: center; font-size: 12px; }
+.memo-editor { white-space: pre-wrap; min-height: 55dvh; outline: none; font-size: 17px; line-height: 1.55; color: var(--text); padding-bottom: 80px; caret-color: var(--primary); }
+.memo-editor .ln { min-height: 1.55em; position: relative; word-break: break-word; }
+.memo-editor .ln:first-child { font-size: 26px; font-weight: 800; letter-spacing: -.02em; line-height: 1.35; margin-bottom: 6px; }
+/* 빈 첫 줄에 '제목' 안내 */
+.memo-editor .ln:first-child:not(.todo):has(> br:only-child)::before { content: "제목"; color: var(--faint); position: absolute; pointer-events: none; }
+/* 체크 줄: 왼쪽 동그라미 (CSS 로 그림, 누르기는 JS 가 왼쪽 폭으로 판단) */
+.memo-editor .ln.todo { padding-left: 32px; }
+.memo-editor .ln.todo::before {
+  content: ""; position: absolute; left: 2px; top: .2em; width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--faint); box-sizing: border-box; cursor: pointer;
+}
+.memo-editor .ln.todo.on { color: var(--muted); text-decoration: line-through; }
+.memo-editor .ln.todo.on::before { background: var(--primary); border-color: var(--primary);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M5.5 10.3l3 3 6-6.2' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg>"); background-size: cover; }
+.memo-editor .ln.todo:first-child { font-size: 17px; font-weight: 500; }
+.memo-toolbar { position: sticky; bottom: calc(108px + env(safe-area-inset-bottom)); display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 12px; border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); z-index: 4; }
+.memo-tool { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; height: 40px; border-radius: 12px; color: var(--primary); font-weight: 700; }
+.memo-tool .i { width: 24px; height: 24px; }
+.memo-conflict { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.memo-conflict[hidden] { display: none; }
+@media (min-width: 900px) { .memo-toolbar { bottom: 24px; } }

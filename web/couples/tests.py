@@ -1896,8 +1896,8 @@ class MultiDayEventTests(TestCase):
         self.assertIn(e, cells[first]["events"])
         self.assertIn(e, cells[first + timedelta(days=1)]["events"])
         self.assertNotIn(e, cells[first + timedelta(days=2)]["events"])
-        if first + timedelta(days=1) != timezone.localdate():
-            self.assertIn(e, res.context["day_events"])
+        # 그날 일정은 이제 날짜 팝업에서 본다
+        self.assertIn(e, list(self.client.get(reverse("day_popup", args=[(first + timedelta(days=1)).isoformat()])).context["events"]))
 
     def test_ongoing_trip_upcoming_and_editable(self):
         today = timezone.localdate()
@@ -2870,3 +2870,59 @@ class CalendarPopupScriptTests(TestCase):
         self.assertIn("r.redirected", js)
         self.assertIn('searchParams.set("next", location.pathname + location.search)', js)
         self.assertIn("r.status === 400", js)
+
+
+class CalendarPopupMinorTests(TestCase):
+    """캘린더 팝업 작은 것들."""
+
+    setUp = ScreenTests.setUp
+
+    def read(self, rel):
+        from pathlib import Path
+
+        return (Path(__file__).resolve().parent.parent / rel).read_text()
+
+    def test_popup_order_all_day_first_then_time(self):
+        from datetime import time
+
+        day = timezone.localdate() + timedelta(days=2)
+        late = Event.objects.create(couple=self.couple, created_by=self.a, title="저녁", date=day, start_time=time(19))
+        trip = Event.objects.create(couple=self.couple, created_by=self.a, title="여행", date=day - timedelta(days=1), end_date=day + timedelta(days=1))
+        early = Event.objects.create(couple=self.couple, created_by=self.a, title="아침", date=day, start_time=time(8))
+        allday = Event.objects.create(couple=self.couple, created_by=self.a, title="하루 종일", date=day)
+        events = list(self.client.get(reverse("day_popup", args=[day.isoformat()])).context["events"])
+        self.assertEqual(events, [trip, allday, early, late])
+
+    def test_calendar_view_drops_unused_values(self):
+        ctx = self.client.get(reverse("calendar")).context
+        for key in ("day_events", "list_title", "new_event_url"):
+            self.assertNotIn(key, ctx)
+
+    def test_phone_cell_has_no_aria_label_hiding_names(self):
+        html = self.client.get(reverse("calendar")).content.decode()
+        mobile = html.split('class="mobile-only"')[1].split('class="desktop-only"')[0]
+        self.assertNotIn("일정 보기·추가", mobile)
+
+    def test_popup_compact_help_and_date_errors(self):
+        day = timezone.localdate()
+        html = self.client.get(reverse("day_popup", args=[day.isoformat()])).content.decode()
+        self.assertNotIn("여행처럼 며칠 이어지면", html)
+        res = self.client.post(reverse("day_popup", args=[day.isoformat()]), {"text": "x", "date": "", "scope": "shared"})
+        self.assertContains(res, 'class="error"', status_code=400)
+
+    def test_full_form_takes_times_end_and_scope(self):
+        page = self.client.get(reverse("event_create") + "?date=2026-12-01&text=전시&start_time=14:00&end_time=16:00&end_date=2026-12-03&scope=personal")
+        init = page.context["form"].initial
+        self.assertEqual((init["start_time"], init["end_time"], init["end_date"], init["scope"]), ("14:00", "16:00", "2026-12-03", "personal"))
+        bad = self.client.get(reverse("event_create") + "?scope=evil").context["form"].initial
+        self.assertNotIn("scope", bad)
+
+    def test_scrim_token_and_script_details(self):
+        css = self.read("static/css/app.css")
+        self.assertIn("--scrim:", css)
+        self.assertIn(".day-sheet::backdrop { background: var(--scrim); }", css)
+        js = self.read("static/js/calendar-popup.js")
+        self.assertNotIn("X-Requested-With", js)
+        self.assertIn("seq", js)  # 늦게 온 응답 버리기
+        self.assertIn("sheet-open", js)  # 뒤 화면 스크롤 막기
+        self.assertIn('"start_time", "end_time", "end_date", "scope"', js)
