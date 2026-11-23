@@ -3019,3 +3019,102 @@ class ColorPaletteTests(TestCase):
         self.assertIn('<span class="sr-only">코랄</span>', html)
         self.client.post(reverse("event_create"), ScreenTests.event_form(self, color="coral"))
         self.assertEqual(Event.objects.get().color, "coral")
+
+
+class QuickParseTests(TestCase):
+    """글로 일정: '12월 25일 찜질방가기' 같은 글에서 날짜·시간·이름을 찾는다."""
+
+    from datetime import date as _d
+
+    TODAY = _d(2026, 11, 23)  # 월요일
+
+    def p(self, text):
+        from .quickparse import parse
+
+        return parse(text, self.TODAY)
+
+    def test_month_day_and_title(self):
+        from datetime import date
+
+        r = self.p("12월 25일 찜질방가기")
+        self.assertEqual((r["date"], r["title"], r["start_time"], r["end_date"]), (date(2026, 12, 25), "찜질방가기", None, None))
+        self.assertEqual(self.p("12월 25일에 찜질방")["title"], "찜질방")
+
+    def test_past_date_goes_to_next_year_and_slash(self):
+        from datetime import date
+
+        self.assertEqual(self.p("3월 1일 등산")["date"], date(2027, 3, 1))
+        self.assertEqual(self.p("12/25 파티")["date"], date(2026, 12, 25))
+        self.assertEqual(self.p("11월 23일 오늘 것")["date"], date(2026, 11, 23))
+
+    def test_day_only_this_or_next_month(self):
+        from datetime import date
+
+        self.assertEqual(self.p("25일 영화")["date"], date(2026, 11, 25))
+        self.assertEqual(self.p("5일 병원")["date"], date(2026, 12, 5))
+
+    def test_relative_days_and_weekdays(self):
+        from datetime import date
+
+        self.assertEqual(self.p("내일 산책")["date"], date(2026, 11, 24))
+        self.assertEqual(self.p("모레 쇼핑")["date"], date(2026, 11, 25))
+        self.assertEqual(self.p("오늘 저녁")["date"], date(2026, 11, 23))
+        self.assertEqual(self.p("금요일 장보기")["date"], date(2026, 11, 27))
+        self.assertEqual(self.p("월요일 회의")["date"], date(2026, 11, 23))  # 오늘이 월요일
+        self.assertEqual(self.p("이번 주 토요일 캠핑")["date"], date(2026, 11, 28))
+        r = self.p("다음 주 금요일 여행")
+        self.assertEqual((r["date"], r["title"]), (date(2026, 12, 4), "여행"))
+
+    def test_times(self):
+        from datetime import time
+
+        r = self.p("내일 저녁 7시 영화")
+        self.assertEqual((r["start_time"], r["title"]), (time(19), "영화"))
+        self.assertEqual(self.p("내일 오후 3시 반 카페")["start_time"], time(15, 30))
+        self.assertEqual(self.p("내일 19:30 저녁")["start_time"], time(19, 30))
+        self.assertEqual(self.p("내일 오전 10시 20분 병원")["start_time"], time(10, 20))
+        self.assertEqual(self.p("내일 11시 브런치")["start_time"], time(11))
+        r = self.p("내일 3시~5시 스터디")
+        self.assertEqual((r["start_time"], r["end_time"], r["title"]), (time(15), time(17), "스터디"))
+
+    def test_ranges(self):
+        from datetime import date
+
+        r = self.p("12월 25일~27일 여행")
+        self.assertEqual((r["date"], r["end_date"], r["title"]), (date(2026, 12, 25), date(2026, 12, 27), "여행"))
+        r = self.p("25~27일 제주")
+        self.assertEqual((r["date"], r["end_date"]), (date(2026, 11, 25), date(2026, 11, 27)))
+        r = self.p("12월 30일~1월 2일 해돋이")
+        self.assertEqual((r["date"], r["end_date"]), (date(2026, 12, 30), date(2027, 1, 2)))
+
+    def test_no_date_and_labels_kept(self):
+        self.assertIsNone(self.p("그냥 글"))
+        self.assertIsNone(self.p(""))
+        self.assertIsNone(self.p("13월 40일 이상"))
+        self.assertEqual(self.p("@데이트 내일 산책 #공원")["title"], "@데이트 산책 #공원")
+        self.assertEqual(self.p("내일")["title"], "")
+
+
+class CalendarQuickTests(TestCase):
+    """캘린더 위 글로 일정 입력칸."""
+
+    setUp = ScreenTests.setUp
+
+    def test_parsed_gives_day_and_fields(self):
+        res = self.client.get(reverse("calendar_quick"), {"q": "12월 25일 저녁 7시 찜질방"}).json()
+        year = timezone.localdate().year if timezone.localdate() <= timezone.localdate().replace(month=12, day=25) else timezone.localdate().year + 1
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["day"], f"{year}-12-25")
+        self.assertEqual(res["popup"], reverse("day_popup", args=[f"{year}-12-25"]))
+        self.assertEqual(res["fields"], {"text": "찜질방", "start_time": "19:00", "end_time": "", "end_date": ""})
+
+    def test_unparsed_goes_to_form_with_text(self):
+        res = self.client.get(reverse("calendar_quick"), {"q": "찜질방 가기"}).json()
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["url"], reverse("event_create") + "?text=%EC%B0%9C%EC%A7%88%EB%B0%A9+%EA%B0%80%EA%B8%B0")
+
+    def test_login_required_and_input_on_calendar(self):
+        html = self.client.get(reverse("calendar")).content.decode()
+        self.assertIn("data-quick-url", html)
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("calendar_quick"), {"q": "내일"}).status_code, 302)

@@ -37,6 +37,28 @@
       .catch(function (e) { if (mine === seq && e.message !== "redirect") failed(); });
   }
   function close() { if (sheet.open) sheet.close(); }
+  // 글로 일정: 서버가 날짜를 알아들으면 그 날 팝업을 채워 열고, 아니면 일정 추가 화면으로
+  var quick = document.querySelector("[data-quick-url]");
+  if (quick) quick.addEventListener("submit", function (e) {
+    var input = quick.querySelector('[name="text"]');
+    var q = input.value.trim();
+    e.preventDefault();
+    if (!q) { input.focus(); return; }
+    fetch(quick.dataset.quickUrl + "?q=" + encodeURIComponent(q), { credentials: "same-origin" })
+      .then(function (r) {
+        if (r.redirected) { toLogin(r.url); throw new Error("redirect"); }
+        if (!r.ok) throw new Error(r.status);
+        return r.json();
+      })
+      .then(function (res) {
+        if (!res.ok) { location.href = res.url; return; }
+        input.value = "";
+        input.blur(); // 폰 자판 내리기
+        window.nosOpenDay(res.popup, res.fields);
+      })
+      .catch(function (err) { if (err.message !== "redirect") quick.submit(); }); // 실패하면 그냥 일정 추가 화면으로
+  });
+
   // 다른 스크립트(+ 버튼, 글로 일정)가 날짜 팝업을 열고 칸을 채울 때 쓴다
   var prefill = null;
   window.nosOpenDay = function (url, fields) { prefill = fields || null; open(url); };

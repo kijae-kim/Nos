@@ -21,7 +21,7 @@ from accounts.avatars import fix_color_on_join
 from anniversaries import services as anniversary_services
 from memos.models import Memo
 
-from . import ics, linkpreview, places, placesearch, quota, services
+from . import ics, linkpreview, places, placesearch, quickparse, quota, services
 from .storage import MAX_IMAGE_BYTES, delete_file
 from .forms import (
     AlbumForm, CreateForm, EventForm, JoinForm, LabelForm, MomentForm, QuickEventForm, PhotoForm, PlaceForm, ProfileForm, TasteCommentForm, WishListForm, WishPlaceForm,
@@ -404,6 +404,28 @@ def event_create(request):
         event = services.save_event(Event(created_by=request.user), couple, form.cleaned_data)
         return redirect(_calendar_url(event.date))
     return render(request, "couples/event_form.html", {"form": form, "labels": couple.labels.all(), "event": None})
+
+
+@login_required
+def calendar_quick(request):
+    """글로 일정: ?q=12월 25일 찜질방 → 날짜 팝업 주소와 채울 칸. 날짜를 못 찾으면 일정 추가 화면 주소."""
+    q = request.GET.get("q", "")[:200]
+    found = quickparse.parse(q, timezone.localdate())
+    if not found:
+        return JsonResponse({"ok": False, "url": reverse("event_create") + "?" + urlencode({"text": q.strip()})})
+    hhmm = lambda t: t.strftime("%H:%M") if t else ""
+    day = found["date"].isoformat()
+    return JsonResponse({
+        "ok": True,
+        "day": day,
+        "popup": reverse("day_popup", args=[day]),
+        "fields": {
+            "text": found["title"],
+            "start_time": hhmm(found["start_time"]),
+            "end_time": hhmm(found["end_time"]),
+            "end_date": found["end_date"].isoformat() if found["end_date"] else "",
+        },
+    })
 
 
 @login_required

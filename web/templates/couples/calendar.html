@@ -8,9 +8,16 @@
   {# 끌어서 옮긴 뒤 한 번만 보이는 안내. 되돌리기는 같은 옮기기를 옛 날짜로 부른다 (calendar-drag.js) #}
   <p class="notice move-note" role="status">{{ last_move.text }}{% if last_move.undo_date %} <button type="button" class="link-btn" data-undo-event="{{ last_move.event }}" data-undo-date="{{ last_move.undo_date }}">되돌리기</button>{% endif %}</p>
 {% endif %}
+{% include "_brand_head.html" %}{# 넓은 화면에서는 숨는다 #}
+{# 글로 일정: 날짜를 알아들으면 그 날 팝업을 채워 연다 (calendar-popup.js). 스크립트가 없으면 일정 추가 화면으로 #}
+<form class="quick-add card" method="get" action="{% url 'event_create' %}" data-quick-url="{% url 'calendar_quick' %}">
+  <svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>
+  <input type="text" name="text" maxlength="200" autocomplete="off" enterkeyhint="go"
+    placeholder="예: 12월 25일 찜질방 가기" aria-label="글로 일정 추가: 무엇을 언제 할지 써 주세요">
+  <button type="submit" class="quick-add-go" aria-label="일정 만들기"><svg class="i"><use href="#i-right"/></svg></button>
+</form>
 {# 휴대폰: 달력과 선택한 날의 일정 #}
 <div class="mobile-only">
-  {% include "_brand_head.html" %}
   <header class="row-between cal-head">
     <h1 class="page-title">{{ first|date:"n월" }} <span>{{ first|date:"Y" }}</span></h1>
     <div class="arrows">
