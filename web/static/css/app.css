@@ -1256,3 +1256,6 @@ html[data-mode="dark"] { --bar-bg: color-mix(in srgb, var(--surface), #fff 9%); 
 .tab { color: var(--bar-fg, var(--faint)); }
 .tab.on { color: var(--bar-on, var(--primary)); }
 .day-sheet:not([open]) { display: none; } /* 닫힌 판은 그리지 않는다 (다른 dialog 규칙이 display 를 바꿔도) */
+/* 넓은 화면 추억: + 가 없으므로 머리 줄에 남기기 버튼 */
+.wide-add { display: none; }
+@media (min-width: 900px) { .wide-add { display: inline-flex; width: auto; padding: 10px 18px; margin: 0; } }

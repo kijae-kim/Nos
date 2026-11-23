@@ -3258,7 +3258,7 @@ class AddSheetTests(TestCase):
 
     def test_memories_has_no_add_button(self):
         html = self.client.get(reverse("tastes")).content.decode()
-        self.assertNotIn(">순간 남기기</a>", html)
+        self.assertNotIn(f'<a class="btn primary" href="{reverse("taste_create")}">', html)  # 폰은 + 로 (넓은 화면만 wide-add)
 
 
 class DrawerTests(TestCase):
@@ -3286,3 +3286,28 @@ class SheetFrameHeaderTests(TestCase):
     def test_same_origin_frame_allowed_only(self):
         res = self.client.get(reverse("taste_create") + "?sheet=1")
         self.assertEqual(res["X-Frame-Options"], "SAMEORIGIN")
+
+
+class AddSheetReviewTests(TestCase):
+    """+ 추가 팝업 검토: 로그인 만료, 넓은 화면 추억 추가, 같은 사이트로만 이동."""
+
+    setUp = ScreenTests.setUp
+
+    def read(self, rel):
+        from pathlib import Path
+
+        return (Path(__file__).resolve().parent.parent / rel).read_text()
+
+    def test_wide_screen_has_add_link_on_memories(self):
+        html = self.client.get(reverse("tastes")).content.decode()
+        self.assertIn(f'class="btn primary wide-add" href="{reverse("taste_create")}"', html)
+        html = self.client.get(reverse("tastes") + "?tab=record").content.decode()
+        self.assertIn(f'class="btn primary wide-add" href="{reverse("taste_create")}?kind=place"', html)
+
+    def test_scripts_guard_login_origin_and_top_level_sheet(self):
+        popup = self.read("static/js/calendar-popup.js")
+        self.assertIn("next.origin !== location.origin", popup)
+        self.assertIn("/accounts/login/", popup)
+        app = self.read("static/js/app.js")
+        self.assertIn('searchParams.delete("sheet")', app)  # 팝업 밖에서 ?sheet=1 로 열리면 보통 화면으로
+        self.assertIn('e.key === "Escape"', app)

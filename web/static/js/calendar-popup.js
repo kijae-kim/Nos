@@ -83,7 +83,7 @@
   });
 
   // 등록 화면을 판 안에 그대로 (?sheet=1). 저장해서 다른 주소로 가면 판을 닫고 그 화면으로
-  function openPage(url) {
+  function openPage(url, title) {
     seq++;
     var u = new URL(url, location.href);
     u.searchParams.set("sheet", "1");
@@ -91,14 +91,17 @@
     body.innerHTML = "";
     var frame = document.createElement("iframe");
     frame.className = "sheet-frame";
-    frame.title = fab && fab.getAttribute("aria-label") !== "닫기" ? fab.getAttribute("aria-label") : "추가";
+    frame.title = title || "추가";
     frame.addEventListener("load", function () {
       var loc;
       try { loc = frame.contentWindow.location; } catch (e) { return; }
       if (loc.href === "about:blank" || loc.pathname === startPath) return;
       var next = new URL(loc.href);
+      if (next.origin !== location.origin) { close(); return; } // 같은 사이트로만 따라간다
+      // 로그인이 끝났으면: 다시 로그인한 뒤 팝업 화면(?sheet=1)이 아니라 지금 화면으로 돌아오게
+      if (next.pathname.indexOf("/accounts/login/") === 0) { toLogin(next.href); return; }
       next.searchParams.delete("sheet");
-      location.href = next.pathname + next.search + next.hash;
+      location.href = next.href;
     });
     frame.src = u.pathname + u.search;
     body.appendChild(frame);
@@ -111,7 +114,7 @@
     if (e.origin === location.origin && e.data && e.data.nos === "sheet-close") close();
   });
   // 폰(모달 아님): 어두운 곳·Esc 로 닫기
-  if (dim) dim.addEventListener("click", function () { if (sheet.open && Date.now() - openedAt > 400) close(); });
+  if (dim) dim.addEventListener("click", function () { if (sheet.open && Date.now() - openedAt > 600) close(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && sheet.open) close(); });
 
   // 사이드바 등에서 data-sheet-page 링크를 누르면 그 등록 화면을 판 안에
@@ -119,14 +122,14 @@
     var a = e.target.closest && e.target.closest("a[data-sheet-page]");
     if (!a) return;
     e.preventDefault();
-    openPage(a.getAttribute("href"));
+    openPage(a.getAttribute("href"), a.textContent.trim());
   });
 
   // + : 판이 열려 있으면 닫기(×), 아니면 그 화면의 추가 (날짜 팝업 또는 등록 화면 팝업). 스크립트가 없으면 href
   if (fab) fab.addEventListener("click", function (e) {
     if (sheet.open) { e.preventDefault(); close(); return; }
     if (fab.dataset.fabPopup) { e.preventDefault(); open(fab.dataset.fabPopup); }
-    else if (fab.dataset.fabPage) { e.preventDefault(); openPage(fab.dataset.fabPage); }
+    else if (fab.dataset.fabPage) { e.preventDefault(); openPage(fab.dataset.fabPage, fab.getAttribute("aria-label")); }
   });
 
   // 미리 받은 값(text·start_time·end_time·end_date)을 팝업 칸에 넣는다. 시간이 있으면 하루 종일을 끈다

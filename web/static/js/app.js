@@ -74,7 +74,17 @@
 
   // 추가 팝업 안(?sheet=1)에 띄운 등록 화면: 위 '뒤로' 는 팝업 닫기 (calendar-popup.js 가 받는다)
   var appEl = document.getElementById("app");
+  // 팝업 밖에서(?sheet=1 주소로 바로) 열렸으면 보통 화면으로 (메뉴·아래 바가 없는 화면에 갇히지 않게)
+  if (appEl && appEl.classList.contains("in-sheet") && window.parent === window) {
+    var plain = new URL(location.href);
+    plain.searchParams.delete("sheet");
+    location.replace(plain.href);
+  }
   if (appEl && appEl.classList.contains("in-sheet") && window.parent !== window) {
+    // 팝업 안에서 Esc 도 닫기 (키는 부모 창으로 올라가지 않는다)
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") window.parent.postMessage({ nos: "sheet-close" }, location.origin);
+    });
     var back = document.querySelector(".bar-head > a.circle:first-child");
     if (back) {
       back.setAttribute("aria-label", "닫기");
