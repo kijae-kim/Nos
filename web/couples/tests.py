@@ -3003,3 +3003,19 @@ class FabTests(TestCase):
         tag = self.fab(reverse("albums"))
         self.assertIn('aria-label="사진 올리기"', tag)
         self.assertIn(f'data-fab-url="{reverse("photo_create")}"', tag)
+
+
+class ColorPaletteTests(TestCase):
+    """색 12개, 고르는 칸은 이름 없이 동그라미만."""
+
+    setUp = ScreenTests.setUp
+
+    def test_twelve_colors_and_new_color_saves(self):
+        from .models import COLOR_CHOICES
+
+        self.assertEqual(len(COLOR_CHOICES), 12)
+        html = self.client.get(reverse("event_create")).content.decode()
+        self.assertEqual(html.count('class="swatch"'), 12)
+        self.assertIn('<span class="sr-only">코랄</span>', html)
+        self.client.post(reverse("event_create"), ScreenTests.event_form(self, color="coral"))
+        self.assertEqual(Event.objects.get().color, "coral")

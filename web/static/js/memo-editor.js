@@ -71,7 +71,7 @@
   }
 
   // ---------- 고치기 ----------
-  function changed() { dirty = true; keepDraft(); schedule(); }
+  function changed() { dirty = true; editedHere = true; keepDraft(); schedule(); }
   // 글을 고른 채로 엔터·붙여 넣기를 하면 고른 글을 먼저 지운다 (바꾸기)
   function dropSelection() {
     var sel = window.getSelection();
@@ -316,8 +316,19 @@
   });
   var closeConflict = document.querySelector("[data-conflict-close]");
   if (closeConflict) closeConflict.addEventListener("click", function () { conflictBox.hidden = true; });
-  window.addEventListener("pagehide", function () { if (dirty) { keepDraft(); saveNow(true); } });
-  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden" && dirty) saveNow(true); });
+  // 이번에 고친 게 있으면 떠날 때 한 번 상대에게 알린다 (서버가 30분에 한 번으로 거른다)
+  var editedHere = false;
+  function notifyPartner() {
+    if (!editedHere || gone || !editor.dataset.notifyUrl) return;
+    editedHere = false;
+    fetch(editor.dataset.notifyUrl, { method: "POST", keepalive: true, credentials: "same-origin", headers: { "X-CSRFToken": csrf() } }).catch(function () {});
+  }
+  window.addEventListener("pagehide", function () { if (dirty) { keepDraft(); saveNow(true); } notifyPartner(); });
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "hidden") return;
+    if (dirty) saveNow(true);
+    notifyPartner();
+  });
 
   render(data.lines || []);
   // 지난번에 저장하지 못한 내 글이 기기에 남아 있으면: 서버가 그대로면 이어서 저장, 그새 바뀌었으면 안내

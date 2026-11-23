@@ -46,6 +46,12 @@ COLOR_CHOICES = [
     ("lav", "라벤더"),
     ("sage", "세이지"),
     ("peach", "복숭아"),
+    ("coral", "코랄"),
+    ("blue", "파랑"),
+    ("mint", "민트"),
+    ("lime", "라임"),
+    ("mauve", "모브"),
+    ("stone", "돌"),
 ]
 
 

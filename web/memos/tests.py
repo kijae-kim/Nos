@@ -340,3 +340,75 @@ class MemoShortcutScriptTests(TestCase):
         js = (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
         self.assertIn('var SHORTCUTS = ["- ", "/todo "]', js)
         self.assertIn("shortcut()", js)
+
+
+class MemoNotifyTests(TestCase):
+    """메모를 고치고 떠나면 상대에게 알림 (같은 메모 30분에 한 번)."""
+
+    setUp = MemoTests.setUp
+
+    def memo(self, **kw):
+        folder, _ = MemoFolder.objects.get_or_create(couple=self.couple, name="여행계획")
+        lines = [{"t": "text", "on": False, "s": "부산 여행"}]
+        defaults = dict(couple=self.couple, folder=folder, lines=lines, title="부산 여행", version=1, created_by=self.a, updated_by=self.a)
+        defaults.update(kw)
+        return Memo.objects.create(**defaults)
+
+    def notify(self, memo):
+        from unittest import mock
+
+        with mock.patch("memos.notify.send_to_user", return_value=1) as sent:
+            res = self.client.post(reverse("memo_notify", args=[memo.pk]))
+        return res, sent
+
+    def test_partner_gets_one_push_with_title_and_link(self):
+        memo = self.memo()
+        res, sent = self.notify(memo)
+        self.assertEqual(res.status_code, 204)
+        sent.assert_called_once()
+        user, payload = sent.call_args.args
+        self.assertEqual(user, self.b)
+        self.assertEqual(payload["title"], "하늘님이 메모를 고쳤어요")
+        self.assertEqual(payload["body"], "여행계획 · 부산 여행")
+        self.assertEqual(payload["url"], reverse("memo_edit", args=[memo.pk]))
+        memo.refresh_from_db()
+        self.assertIsNotNone(memo.notified_at)
+
+    def test_second_within_30_minutes_is_skipped_then_sent_after(self):
+        memo = self.memo(notified_at=timezone.now() - timedelta(minutes=10))
+        _, sent = self.notify(memo)
+        sent.assert_not_called()
+        Memo.objects.filter(pk=memo.pk).update(notified_at=timezone.now() - timedelta(minutes=31))
+        _, sent = self.notify(memo)
+        sent.assert_called_once()
+
+    def test_not_sent_when_partner_turned_off_or_i_did_not_edit_or_empty(self):
+        User.objects.filter(pk=self.b.pk).update(notify_memo=False)
+        _, sent = self.notify(self.memo())
+        sent.assert_not_called()
+        User.objects.filter(pk=self.b.pk).update(notify_memo=True)
+        _, sent = self.notify(self.memo(updated_by=self.b))  # 상대가 고친 메모를 내가 열기만 함
+        sent.assert_not_called()
+        _, sent = self.notify(self.memo(title="", lines=[]))
+        sent.assert_not_called()
+
+    def test_push_error_does_not_break(self):
+        from unittest import mock
+
+        memo = self.memo()
+        with mock.patch("memos.notify.send_to_user", side_effect=RuntimeError("boom")):
+            res = self.client.post(reverse("memo_notify", args=[memo.pk]))
+        self.assertEqual(res.status_code, 204)
+
+    def test_other_couple_404_and_get_not_allowed(self):
+        memo = self.memo()
+        self.assertEqual(self.client.get(reverse("memo_notify", args=[memo.pk])).status_code, 405)
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("z", password="pw", couple=other)
+        self.client.force_login(stranger)
+        self.assertEqual(self.client.post(reverse("memo_notify", args=[memo.pk])).status_code, 404)
+
+    def test_default_on_and_editor_calls_notify(self):
+        self.assertTrue(User.objects.create_user("n", password="pw").notify_memo)
+        html = self.client.get(reverse("memo_edit", args=[self.memo().pk])).content.decode()
+        self.assertIn("data-notify-url", html)

@@ -24,6 +24,7 @@
   --primary: #2A45F5; --primary-soft: #7C8CFF; --accent: #FF5A5F; --accent-soft: #FF9A7A; --highlight: #FFD978;
   --meta: var(--primary); --fab-fg: #FFFFFF; --fab-open: var(--text); --on-pastel: #141B3D;
   --rose: #FFB8DC; --sky: #8FE3EC; --sand: #FFD978; --lav: #CFCBFF; --sage: #C4EBCB; --peach: #FFCDBD;
+  --coral: #FFA3A3; --blue: #A9C4FF; --mint: #9DEBD5; --lime: #DDF09A; --mauve: #E6B8F2; --stone: #D9D4CC;
   --shadow-rgb: 20, 27, 61; --shadow: 0 8px 24px rgba(20, 27, 61, .08); --fab-shadow: 0 8px 16px rgba(42, 69, 245, .35);
   --hero-bg: linear-gradient(180deg, #2A45F5 0%, #3555FF 100%);
   --mover-rotate: auto;
@@ -38,6 +39,7 @@
   --primary: #232759; --primary-soft: #6D62B8; --accent: #D9623B; --accent-soft: #F0A06E; --highlight: #F2B544;
   --meta: var(--accent); --fab-fg: var(--highlight); --fab-open: var(--accent); --on-pastel: #231E3D;
   --rose: #F5C2B8; --sky: #BBD6EE; --sand: #F6D9A8; --lav: #D5CDF2; --sage: #BFDCC4; --peach: #F8D2B5;
+  --coral: #F0AFA3; --blue: #B3C6EA; --mint: #B6DFD2; --lime: #DCE5A8; --mauve: #DCC0E6; --stone: #DAD3C8;
   --shadow-rgb: 64, 44, 28; --shadow: 0 8px 24px rgba(64, 44, 28, .1); --fab-shadow: 0 8px 16px rgba(35, 39, 89, .35);
   --hero-bg: linear-gradient(180deg, #1B1E4B 0%, #2D2A6E 42%, #6B4491 68%, #D9774F 100%);
   --mover-rotate: 0deg;
@@ -463,6 +465,12 @@ img.av { object-fit: cover; background: var(--tile); display: block; }
 .choice:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: 2px; }
 .swatch { width: 14px; height: 14px; border-radius: 50%; background: var(--c); display: inline-block; }
 .choice:has(input:checked) .swatch { box-shadow: 0 0 0 2px #fff; }
+/* 색 고르기: 이름 없이 동그라미만 (이름은 화면 읽기용) */
+.choices.swatches { gap: 10px; }
+.choice.swatch-choice { padding: 0; width: 36px; height: 36px; justify-content: center; background: transparent; }
+.choice.swatch-choice .swatch { width: 30px; height: 30px; }
+.choice.swatch-choice:has(input:checked) { background: transparent; }
+.choice.swatch-choice:has(input:checked) .swatch { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--text); }
 .time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 /* 좁은 폰에서 "오후 01:00" 이 잘리지 않게 시간 칸의 안쪽 여백과 글자를 줄인다 */
 .time-row input[type="time"] { padding-left: 12px; padding-right: 8px; font-size: 15px; min-width: 0; }
@@ -962,6 +970,12 @@ html.splash-on { background: var(--hero-bg); } /* 위·아래 안전 영역(상�
 .map-pin.c-lav { background: var(--lav); }
 .map-pin.c-sage { background: var(--sage); }
 .map-pin.c-peach { background: var(--peach); }
+.map-pin.c-coral { background: var(--coral); }
+.map-pin.c-blue { background: var(--blue); }
+.map-pin.c-mint { background: var(--mint); }
+.map-pin.c-lime { background: var(--lime); }
+.map-pin.c-mauve { background: var(--mauve); }
+.map-pin.c-stone { background: var(--stone); }
 .map-canvas .marker-cluster { background: color-mix(in srgb, var(--primary) 30%, transparent); border-radius: 50%; }
 .map-canvas .marker-cluster div { background: var(--primary); color: #fff; font: 700 12px/30px var(--font); width: 30px; height: 30px; margin: 5px; border-radius: 50%; text-align: center; }
 .map-cards { display: grid; gap: 8px; margin-top: 10px; }

@@ -102,7 +102,8 @@ def notification_settings(request):
     if request.method == "POST":
         user.notify_day_before = request.POST.get("notify_day_before") == "on"
         user.notify_week_before = request.POST.get("notify_week_before") == "on"
-        user.save(update_fields=["notify_day_before", "notify_week_before"])
+        user.notify_memo = request.POST.get("notify_memo") == "on"
+        user.save(update_fields=["notify_day_before", "notify_week_before", "notify_memo"])
         messages.success(request, "알림 설정을 저장했어요.")
         return redirect("notifications")
     return render(request, "notifications/settings.html", {"VAPID_PUBLIC_KEY": settings.VAPID_PUBLIC_KEY})
