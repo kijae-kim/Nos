@@ -36,16 +36,16 @@
 
   <div class="field">
     <span class="field-label">내 색</span>
-    <div class="choices">
+    <div class="choices swatches">
       {% for value, name in colors %}
         <label class="choice swatch-choice{% if value == partner_color %} taken{% endif %}">
           <input type="radio" name="color" value="{{ value }}"{% if value == current_color %} checked{% endif %}{% if value == partner_color %} disabled{% endif %} data-color-pick>
           <i class="swatch" style="--c: var(--{{ value }})"></i>
-          <span>{{ name }}{% if value == partner_color %} · 상대{% endif %}</span>
+          <span class="sr-only">{{ name }}{% if value == partner_color %} · 상대 색{% endif %}</span>
         </label>
       {% endfor %}
     </div>
-    <small>일정에 누가 만들었는지 이 색 점으로 보여요.</small>
+    <small>일정에 누가 만들었는지 이 색 점으로 보여요.{% if partner_color %} 빗금 친 색은 상대 색이에요.{% endif %}</small>
     {% for e in form.color.errors %}<p class="error">{{ e }}</p>{% endfor %}
   </div>
 

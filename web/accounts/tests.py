@@ -438,3 +438,19 @@ class ProfileEdgeTests(TestCase):
         self.client.post(reverse("profile"), {"photo": SimpleUploadedFile("a.jpg", _jpeg(), content_type="image/jpeg"), "color": "rose", "emoji": ""})
         self.a.refresh_from_db()
         self.assertIn("max-age=86400", self.client.get(self.a.avatar_url)["Cache-Control"])
+
+
+class ProfilePaletteTests(TestCase):
+    """프로필 수정: 내 색도 이름 없이 동그라미 12개 팔레트."""
+
+    setUp = ProfileTests.setUp
+
+    def test_profile_colors_are_swatches_only(self):
+        self.b.color = "coral"
+        self.b.save(update_fields=["color"])
+        html = self.client.get(reverse("profile")).content.decode()
+        self.assertIn('class="choices swatches"', html)
+        self.assertEqual(html.count('class="swatch"'), 12)
+        self.assertIn('<span class="sr-only">민트</span>', html)
+        self.assertIn('<span class="sr-only">코랄 · 상대 색</span>', html)
+        self.assertIn('value="coral" disabled', html)
