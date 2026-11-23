@@ -232,7 +232,6 @@ def calendar(request):
                 "day": d.day,
                 "in_month": d.month == first.month,
                 "is_today": d == today,
-                "is_selected": d == selected,
                 "events": by_date.get(d, []),
                 "pieces": shown,
                 "more": sum(1 for p in lanes[i] if p["lane"] >= 2),

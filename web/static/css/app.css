@@ -1166,3 +1166,7 @@ html.splash-on { background: var(--hero-bg); } /* 위·아래 안전 영역(상�
 .color-legend .on { background: color-mix(in srgb, var(--primary) 78%, var(--surface)); }
 .color-legend .wish { background: color-mix(in srgb, var(--accent) 70%, var(--surface)); }
 .color-legend[hidden] { display: none; }
+
+/* + 버튼 처음 안내 */
+.fab-hint { position: absolute; left: 50%; bottom: calc(100% + 14px); transform: translateX(-50%); margin: 0; padding: 8px 12px; border-radius: 12px; background: var(--text); color: var(--surface); font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: var(--shadow); transition: opacity .4s; pointer-events: none; }
+.fab-hint.gone { opacity: 0; }

@@ -80,7 +80,41 @@
     app.classList.toggle("open", open);
     fab.setAttribute("aria-expanded", String(open));
   }
-  if (fab) fab.addEventListener("click", function () { setOpen(!app.classList.contains("open")); });
+  // 화면에 추가 주소가 있으면 짧게 누르면 그 화면의 추가, 꾹 누르면(0.5초) 메뉴
+  var pressTimer = null, longPressed = false;
+  function fabAction() {
+    if (app.classList.contains("open")) return setOpen(false);
+    var popup = fab.dataset.fabPopup, url = fab.dataset.fabUrl;
+    if (popup && window.nosOpenDay) return window.nosOpenDay(popup);
+    if (url) { location.href = url; return; }
+    setOpen(true);
+  }
+  if (fab && fab.dataset.fabUrl) {
+    var clearPress = function () { clearTimeout(pressTimer); pressTimer = null; };
+    fab.addEventListener("pointerdown", function () {
+      longPressed = false;
+      clearPress();
+      pressTimer = setTimeout(function () { longPressed = true; setOpen(true); }, 500);
+    });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(function (t) { fab.addEventListener(t, clearPress); });
+    fab.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    // 처음 한 번: 꾹 누르면 메뉴라는 것을 알려 준다
+    try {
+      if (!localStorage.getItem("nos.fabHint")) {
+        localStorage.setItem("nos.fabHint", "1");
+        var hint = document.createElement("p");
+        hint.className = "fab-hint";
+        hint.textContent = "+ 를 꾹 누르면 메뉴가 열려요";
+        fab.parentNode.appendChild(hint);
+        setTimeout(function () { hint.classList.add("gone"); }, 3500);
+        setTimeout(function () { hint.remove(); }, 4000);
+      }
+    } catch (e) { /* 저장소를 못 쓰면 안내 없이 */ }
+  }
+  if (fab) fab.addEventListener("click", function (e) {
+    if (longPressed) { longPressed = false; e.preventDefault(); return; } // 꾹 누른 뒤 손을 뗀 것
+    fabAction();
+  });
   if (dim) dim.addEventListener("click", function () { setOpen(false); });
 
   // 탭 전환형 선택 (연결 방식, 앨범 보기): data-tabs 안의 버튼은 data-target 패널을 연다

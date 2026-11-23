@@ -15,6 +15,7 @@
   {% endif %}
 </header>
 {% endblock %}
+{% block fab %}{% if tab_name == "record" %}aria-label="기록 남기기" data-fab-url="{% url 'taste_create' %}?kind=place"{% else %}aria-label="순간 남기기" data-fab-url="{% url 'taste_create' %}"{% endif %}{% endblock %}
 {% block content %}
 <nav class="segment two" aria-label="순간과 기록">
   <i class="thumb"{% if tab_name == "record" %} style="transform: translateX(100%)"{% endif %}></i>

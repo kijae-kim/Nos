@@ -2,6 +2,7 @@
 {% load static %}
 {% block head_title %}캘린더 · {{ APP_NAME }}{% endblock %}
 {% block app_class %} wide{% endblock %}
+{% block fab %}aria-label="일정 추가" data-fab-url="{% url 'event_create' %}?date={{ selected|date:'Y-m-d' }}" data-fab-popup="{% url 'day_popup' selected|date:'Y-m-d' %}"{% endblock %}
 {% block content %}
 {% if last_move %}
   {# 끌어서 옮긴 뒤 한 번만 보이는 안내. 되돌리기는 같은 옮기기를 옛 날짜로 부른다 (calendar-drag.js) #}

@@ -2963,3 +2963,43 @@ class DailyFixScreenTests(TestCase):
         points = self.client.get(reverse("region_data")).json()["points"]
         self.assertEqual([(p["lat"], p["lng"]) for p in points if p["kind"] == "wish"], [(35.1, 129.0)])
         self.assertNotIn("name", points[0])
+
+
+class FabTests(TestCase):
+    """+ 버튼: 화면마다 그 화면의 추가, 홈은 메뉴."""
+
+    setUp = ScreenTests.setUp
+
+    def fab(self, url):
+        import re
+
+        html = self.client.get(url).content.decode()
+        m = re.search(r'<button class="fab"[^>]*>', html)
+        self.assertIsNotNone(m)
+        return m.group(0)
+
+    def test_home_is_menu(self):
+        tag = self.fab(reverse("home"))
+        self.assertIn('aria-label="추가"', tag)
+        self.assertNotIn("data-fab-url", tag)
+
+    def test_calendar_adds_event_today_or_first_of_month(self):
+        today = timezone.localdate()
+        tag = self.fab(reverse("calendar"))
+        self.assertIn('aria-label="일정 추가"', tag)
+        self.assertIn(f'data-fab-url="{reverse("event_create")}?date={today.isoformat()}"', tag)
+        self.assertIn(f'data-fab-popup="{reverse("day_popup", args=[today.isoformat()])}"', tag)
+        nxt = (today.replace(day=1) + timedelta(days=40)).replace(day=1)
+        tag = self.fab(reverse("calendar") + f"?month={nxt:%Y-%m}")
+        self.assertIn(f"?date={nxt.isoformat()}", tag)
+
+    def test_memories_tabs_and_album(self):
+        tag = self.fab(reverse("tastes"))
+        self.assertIn('aria-label="순간 남기기"', tag)
+        self.assertIn(f'data-fab-url="{reverse("taste_create")}"', tag)
+        tag = self.fab(reverse("tastes") + "?tab=record")
+        self.assertIn('aria-label="기록 남기기"', tag)
+        self.assertIn(f'data-fab-url="{reverse("taste_create")}?kind=place"', tag)
+        tag = self.fab(reverse("albums"))
+        self.assertIn('aria-label="사진 올리기"', tag)
+        self.assertIn(f'data-fab-url="{reverse("photo_create")}"', tag)

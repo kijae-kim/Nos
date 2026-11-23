@@ -33,12 +33,27 @@
         if (!r.ok) throw new Error(r.status);
         return r.text();
       })
-      .then(function (html) { if (mine === seq) { body.innerHTML = html; wire(); } })
+      .then(function (html) { if (mine === seq) { body.innerHTML = html; fill(); wire(); } })
       .catch(function (e) { if (mine === seq && e.message !== "redirect") failed(); });
   }
   function close() { if (sheet.open) sheet.close(); }
+  // 다른 스크립트(+ 버튼, 글로 일정)가 날짜 팝업을 열고 칸을 채울 때 쓴다
+  var prefill = null;
+  window.nosOpenDay = function (url, fields) { prefill = fields || null; open(url); };
   sheet.addEventListener("close", function () { document.documentElement.classList.remove("sheet-open"); });
 
+  // 미리 받은 값(text·start_time·end_time·end_date)을 팝업 칸에 넣는다. 시간이 있으면 하루 종일을 끈다
+  function fill() {
+    var f = prefill; prefill = null;
+    var form = body.querySelector("[data-popup-form]");
+    if (!f || !form) return;
+    ["text", "start_time", "end_time", "end_date"].forEach(function (name) {
+      var input = form.querySelector('[name="' + name + '"]');
+      if (input && f[name]) input.value = f[name];
+    });
+    var allDay = form.querySelector('[name="all_day"]');
+    if (allDay && f.start_time) allDay.checked = false;
+  }
   // 받아 온 팝업 내용에 동작 붙이기 (하루 종일·끝나는 날·이름표 넣기·저장·자세히 쓰기·닫기)
   function wire() {
     var form = body.querySelector("[data-popup-form]");
