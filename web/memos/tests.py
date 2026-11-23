@@ -331,3 +331,12 @@ class MemoPreDeployTests(TestCase):
         MemoFolder.objects.create(couple=self.couple, name="가가")
         self.new_memo()
         self.assertEqual(Memo.objects.latest("pk").folder.name, "버킷리스트")
+
+
+class MemoShortcutScriptTests(TestCase):
+    def test_editor_has_dash_and_todo_shortcuts(self):
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
+        self.assertIn('var SHORTCUTS = ["- ", "/todo "]', js)
+        self.assertIn("shortcut()", js)

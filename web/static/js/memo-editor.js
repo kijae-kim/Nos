@@ -134,7 +134,7 @@
   editor.addEventListener("compositionend", function () {
     composing = false;
     setTimeout(function () {
-      if (pendingSplit) { pendingSplit = false; splitAtCaret(); } else tidy();
+      if (pendingSplit) { pendingSplit = false; splitAtCaret(); } else { tidy(); shortcut(); }
     }, 0);
   });
   editor.addEventListener("beforeinput", function (e) {
@@ -169,8 +169,22 @@
       if (c) setCaret(c.line, c.offset);
     }
   }
+  // 글 줄 맨 앞에 "- " 나 "/todo " 를 치면 체크 줄로 (띄어쓰기까지 쳐야 바뀐다: "-5도" 는 그대로)
+  var SHORTCUTS = ["- ", "/todo "];
+  function shortcut() {
+    var c = caret();
+    var el = c && c.collapsed && editor.childNodes[c.line];
+    if (!el || !el.classList || el.classList.contains("todo")) return false;
+    var text = el.textContent.replace(/\u00a0/g, " "); // 브라우저는 끝 띄어쓰기를 nbsp 로 넣는다
+    var hit = SHORTCUTS.filter(function (p) { return c.offset === p.length && text.slice(0, p.length) === p; })[0];
+    if (!hit) return false;
+    var lines = serialize();
+    lines[c.line] = { t: "check", on: false, s: lines[c.line].s.slice(hit.length) };
+    render(lines); setCaret(c.line, 0);
+    return true;
+  }
   editor.addEventListener("input", function (e) {
-    if (!(e.isComposing || composing)) tidy();
+    if (!(e.isComposing || composing)) { tidy(); shortcut(); }
     changed();
   });
   // 줄 왼쪽 동그라미를 누르면 체크 (커서는 옮기지 않는다). 마우스는 mousedown, 터치는 touchend 에서
