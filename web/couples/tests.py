@@ -2971,20 +2971,19 @@ class FabTests(TestCase):
         import re
 
         html = self.client.get(url).content.decode()
-        m = re.search(r'<button class="fab"[^>]*>', html)
+        m = re.search(r'<a class="fab"[^>]*>', html)
         self.assertIsNotNone(m)
         return m.group(0)
 
-    def test_home_is_menu(self):
+    def test_home_adds_event(self):
         tag = self.fab(reverse("home"))
-        self.assertIn('aria-label="추가"', tag)
-        self.assertNotIn("data-fab-url", tag)
+        self.assertIn(f'href="{reverse("event_create")}?date=', tag)
 
     def test_calendar_adds_event_today_or_first_of_month(self):
         today = timezone.localdate()
         tag = self.fab(reverse("calendar"))
         self.assertIn('aria-label="일정 추가"', tag)
-        self.assertIn(f'data-fab-url="{reverse("event_create")}?date={today.isoformat()}"', tag)
+        self.assertIn(f'href="{reverse("event_create")}?date={today.isoformat()}"', tag)
         self.assertIn(f'data-fab-popup="{reverse("day_popup", args=[today.isoformat()])}"', tag)
         nxt = (today.replace(day=1) + timedelta(days=40)).replace(day=1)
         tag = self.fab(reverse("calendar") + f"?month={nxt:%Y-%m}")
@@ -2993,13 +2992,13 @@ class FabTests(TestCase):
     def test_memories_tabs_and_album(self):
         tag = self.fab(reverse("tastes"))
         self.assertIn('aria-label="순간 남기기"', tag)
-        self.assertIn(f'data-fab-url="{reverse("taste_create")}"', tag)
+        self.assertIn(f'href="{reverse("taste_create")}"', tag)
         tag = self.fab(reverse("tastes") + "?tab=record")
         self.assertIn('aria-label="기록 남기기"', tag)
-        self.assertIn(f'data-fab-url="{reverse("taste_create")}?kind=place"', tag)
+        self.assertIn(f'href="{reverse("taste_create")}?kind=place"', tag)
         tag = self.fab(reverse("albums"))
         self.assertIn('aria-label="사진 올리기"', tag)
-        self.assertIn(f'data-fab-url="{reverse("photo_create")}"', tag)
+        self.assertIn(f'href="{reverse("photo_create")}"', tag)
 
 
 class ColorPaletteTests(TestCase):
@@ -3221,3 +3220,94 @@ class HomeTodayTextTests(TestCase):
         html = self.client.get(reverse("home")).content.decode()
         self.assertIn("오후 7시<", html)
         self.assertIn("오후 3시 30분", html)
+
+
+class AddSheetTests(TestCase):
+    """+ 는 어디서나 그 화면의 추가 팝업, 등록 화면은 ?sheet=1 로 팝업 안에."""
+
+    setUp = ScreenTests.setUp
+    fab = FabTests.fab
+
+    def test_home_plus_opens_today_popup(self):
+        today = timezone.localdate().isoformat()
+        tag = self.fab(reverse("home"))
+        self.assertIn('aria-label="일정 추가"', tag)
+        self.assertIn(f'data-fab-popup="{reverse("day_popup", args=[today])}"', tag)
+
+    def test_memories_and_album_open_page_in_sheet(self):
+        tag = self.fab(reverse("tastes"))
+        self.assertIn(f'data-fab-page="{reverse("taste_create")}"', tag)
+        tag = self.fab(reverse("tastes") + "?tab=record")
+        self.assertIn(f'data-fab-page="{reverse("taste_create")}?kind=place"', tag)
+        tag = self.fab(reverse("albums"))
+        self.assertIn(f'data-fab-page="{reverse("photo_create")}"', tag)
+
+    def test_every_screen_has_one_sheet_and_script_and_no_arc_menu(self):
+        for url in (reverse("home"), reverse("calendar"), reverse("tastes"), reverse("albums")):
+            html = self.client.get(url).content.decode()
+            self.assertEqual(html.count('class="day-sheet"'), 1, url)
+            self.assertIn("js/calendar-popup.js", html)
+            self.assertNotIn('class="quick"', html)
+
+    def test_sheet_mode_has_no_tabbar(self):
+        html = self.client.get(reverse("taste_create") + "?sheet=1").content.decode()
+        self.assertIn("in-sheet", html)
+        self.assertNotIn('class="tabbar"', html)
+        self.assertNotIn('class="day-sheet"', html)
+        self.assertIn('class="tabbar"', self.client.get(reverse("taste_create")).content.decode())
+
+    def test_memories_has_no_add_button(self):
+        html = self.client.get(reverse("tastes")).content.decode()
+        self.assertNotIn(f'<a class="btn primary" href="{reverse("taste_create")}">', html)  # 폰은 + 로 (넓은 화면만 wide-add)
+
+
+class DrawerTests(TestCase):
+    """NÓS 사이드바: 새로 만들기 6개와 바로가기."""
+
+    setUp = ScreenTests.setUp
+
+    def test_drawer_on_screens_with_links(self):
+        for url in (reverse("home"), reverse("calendar")):
+            html = self.client.get(url).content.decode()
+            self.assertIn('id="drawer"', html)
+            self.assertIn("data-drawer-open", html)
+            start = html.index('id="drawer"')
+            drawer = html[start:html.index("</nav>", start)]
+            for link in (reverse("taste_create"), reverse("photo_create"), reverse("memo_new"), reverse("anniversary_create"),
+                         reverse("memos"), reverse("anniversary_index"), reverse("wishes"), reverse("us")):
+                self.assertIn(f'href="{link}', drawer)
+            self.assertEqual(drawer.count("data-sheet-page"), 3)
+            self.assertIn("data-day-popup", drawer)
+
+
+class SheetFrameHeaderTests(TestCase):
+    setUp = ScreenTests.setUp
+
+    def test_same_origin_frame_allowed_only(self):
+        res = self.client.get(reverse("taste_create") + "?sheet=1")
+        self.assertEqual(res["X-Frame-Options"], "SAMEORIGIN")
+
+
+class AddSheetReviewTests(TestCase):
+    """+ 추가 팝업 검토: 로그인 만료, 넓은 화면 추억 추가, 같은 사이트로만 이동."""
+
+    setUp = ScreenTests.setUp
+
+    def read(self, rel):
+        from pathlib import Path
+
+        return (Path(__file__).resolve().parent.parent / rel).read_text()
+
+    def test_wide_screen_has_add_link_on_memories(self):
+        html = self.client.get(reverse("tastes")).content.decode()
+        self.assertIn(f'class="btn primary wide-add" href="{reverse("taste_create")}"', html)
+        html = self.client.get(reverse("tastes") + "?tab=record").content.decode()
+        self.assertIn(f'class="btn primary wide-add" href="{reverse("taste_create")}?kind=place"', html)
+
+    def test_scripts_guard_login_origin_and_top_level_sheet(self):
+        popup = self.read("static/js/calendar-popup.js")
+        self.assertIn("next.origin !== location.origin", popup)
+        self.assertIn("/accounts/login/", popup)
+        app = self.read("static/js/app.js")
+        self.assertIn('searchParams.delete("sheet")', app)  # 팝업 밖에서 ?sheet=1 로 열리면 보통 화면으로
+        self.assertIn('e.key === "Escape"', app)

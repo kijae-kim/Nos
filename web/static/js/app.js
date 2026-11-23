@@ -72,50 +72,56 @@
   });
   applyMode(savedMode);
 
-  // + 버튼: 빠른 추가 메뉴 열고 닫기 (휴대폰)
-  var app = document.getElementById("app");
-  var fab = document.getElementById("fab");
-  var dim = document.getElementById("dim");
-  function setOpen(open) {
-    app.classList.toggle("open", open);
-    fab.setAttribute("aria-expanded", String(open));
+  // 추가 팝업 안(?sheet=1)에 띄운 등록 화면: 위 '뒤로' 는 팝업 닫기 (calendar-popup.js 가 받는다)
+  var appEl = document.getElementById("app");
+  // 팝업 밖에서(?sheet=1 주소로 바로) 열렸으면 보통 화면으로 (메뉴·아래 바가 없는 화면에 갇히지 않게)
+  if (appEl && appEl.classList.contains("in-sheet") && window.parent === window) {
+    var plain = new URL(location.href);
+    plain.searchParams.delete("sheet");
+    location.replace(plain.href);
   }
-  // 화면에 추가 주소가 있으면 짧게 누르면 그 화면의 추가, 꾹 누르면(0.5초) 메뉴
-  var pressTimer = null, longPressed = false;
-  function fabAction() {
-    if (app.classList.contains("open")) return setOpen(false);
-    var popup = fab.dataset.fabPopup, url = fab.dataset.fabUrl;
-    if (popup && window.nosOpenDay) return window.nosOpenDay(popup);
-    if (url) { location.href = url; return; }
-    setOpen(true);
-  }
-  if (fab && fab.dataset.fabUrl) {
-    var clearPress = function () { clearTimeout(pressTimer); pressTimer = null; };
-    fab.addEventListener("pointerdown", function () {
-      longPressed = false;
-      clearPress();
-      pressTimer = setTimeout(function () { longPressed = true; setOpen(true); }, 500);
+  if (appEl && appEl.classList.contains("in-sheet") && window.parent !== window) {
+    // 팝업 안에서 Esc 도 닫기 (키는 부모 창으로 올라가지 않는다)
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") window.parent.postMessage({ nos: "sheet-close" }, location.origin);
     });
-    ["pointerup", "pointerleave", "pointercancel"].forEach(function (t) { fab.addEventListener(t, clearPress); });
-    fab.addEventListener("contextmenu", function (e) { e.preventDefault(); });
-    // 처음 한 번: 꾹 누르면 메뉴라는 것을 알려 준다
-    try {
-      if (!localStorage.getItem("nos.fabHint")) {
-        localStorage.setItem("nos.fabHint", "1");
-        var hint = document.createElement("p");
-        hint.className = "fab-hint";
-        hint.textContent = "+ 를 꾹 누르면 메뉴가 열려요";
-        fab.parentNode.appendChild(hint);
-        setTimeout(function () { hint.classList.add("gone"); }, 3500);
-        setTimeout(function () { hint.remove(); }, 4000);
-      }
-    } catch (e) { /* 저장소를 못 쓰면 안내 없이 */ }
+    var back = document.querySelector(".bar-head > a.circle:first-child");
+    if (back) {
+      back.setAttribute("aria-label", "닫기");
+      var use = back.querySelector("use");
+      if (use) use.setAttribute("href", "#i-close");
+      back.addEventListener("click", function (e) {
+        e.preventDefault();
+        window.parent.postMessage({ nos: "sheet-close" }, location.origin);
+      });
+    }
   }
-  if (fab) fab.addEventListener("click", function (e) {
-    if (longPressed) { longPressed = false; e.preventDefault(); return; } // 꾹 누른 뒤 손을 뗀 것
-    fabAction();
-  });
-  if (dim) dim.addEventListener("click", function () { setOpen(false); });
+
+  // NÓS 사이드바: 로고를 누르면 왼쪽에서. 바깥·Esc·닫기·항목을 누르면 닫는다 (스크립트 없으면 로고는 홈 링크)
+  var drawer = document.getElementById("drawer");
+  var drawerDim = document.getElementById("dim");
+  function setDrawer(open) {
+    if (!drawer) return;
+    if (open) {
+      drawer.hidden = false;
+      requestAnimationFrame(function () { document.documentElement.classList.add("drawer-open"); });
+      var first = drawer.querySelector("a");
+      if (first) first.focus({ preventScroll: true });
+    } else if (!drawer.hidden) {
+      document.documentElement.classList.remove("drawer-open");
+      setTimeout(function () { if (!document.documentElement.classList.contains("drawer-open")) drawer.hidden = true; }, 260);
+    }
+  }
+  if (drawer) {
+    document.querySelectorAll("[data-drawer-open]").forEach(function (a) {
+      a.addEventListener("click", function (e) { e.preventDefault(); setDrawer(true); });
+    });
+    drawer.addEventListener("click", function (e) {
+      if (e.target.closest("a, [data-drawer-close]")) setDrawer(false);
+    });
+    if (drawerDim) drawerDim.addEventListener("click", function () { setDrawer(false); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") setDrawer(false); });
+  }
 
   // 탭 전환형 선택 (연결 방식, 앨범 보기): data-tabs 안의 버튼은 data-target 패널을 연다
   $$("[data-tabs]").forEach(function (group) {

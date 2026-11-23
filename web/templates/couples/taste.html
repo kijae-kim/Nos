@@ -13,9 +13,11 @@
     {# 누가 남겼는지: 누를 때마다 둘 다 → 나 → 상대 #}
     <a class="who-pill" href="{{ who_next_query }}" aria-label="누가 남겼는지: {{ who_label }}. 눌러서 바꾸기">{{ who_label }}<svg class="i" aria-hidden="true"><use href="#i-repeat"/></svg></a>
   {% endif %}
+  {# 넓은 화면에는 + 가 없으므로 남기기 링크 #}
+  {% if tab_name == "record" %}<a class="btn primary wide-add" href="{% url 'taste_create' %}?kind=place">기록 남기기</a>{% else %}<a class="btn primary wide-add" href="{% url 'taste_create' %}">순간 남기기</a>{% endif %}
 </header>
 {% endblock %}
-{% block fab %}{% if tab_name == "record" %}aria-label="기록 남기기" data-fab-url="{% url 'taste_create' %}?kind=place"{% else %}aria-label="순간 남기기" data-fab-url="{% url 'taste_create' %}"{% endif %}{% endblock %}
+{% block fab %}{% if tab_name == "record" %}aria-label="기록 남기기" href="{% url 'taste_create' %}?kind=place" data-fab-page="{% url 'taste_create' %}?kind=place"{% else %}aria-label="순간 남기기" href="{% url 'taste_create' %}" data-fab-page="{% url 'taste_create' %}"{% endif %}{% endblock %}
 {% block content %}
 <nav class="segment two" aria-label="순간과 기록">
   <i class="thumb"{% if tab_name == "record" %} style="transform: translateX(100%)"{% endif %}></i>
@@ -117,8 +119,6 @@
     <a class="cat{% if c == category %} on{% endif %}" href="?cat={{ c|urlencode }}{% if who != 'all' %}&amp;who={{ who }}{% endif %}">{{ c }}</a>
   {% endfor %}
 </nav>
-
-<a class="btn primary" href="{% url 'taste_create' %}">순간 남기기</a>
 
 <div class="feed">
   {% for t in tastes %}

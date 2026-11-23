@@ -2,7 +2,7 @@
 {% load people %}
 {% block content %}
 <header class="row-between home-head">
-  <span class="home-brand"><svg class="logo-boat" aria-hidden="true"><use href="#boat"/></svg>{{ APP_NAME }}</span>
+  <a class="home-brand" href="{% url 'home' %}" data-drawer-open aria-label="메뉴 열기" aria-controls="drawer"><svg class="logo-boat" aria-hidden="true"><use href="#boat"/></svg>{{ APP_NAME }}</a>
   <a class="us-pill" href="{% url 'us' %}" aria-label="우리 화면 열기: 프로필, 기념일, 테마, 설정">{% avatar user %}{% if partner %}{% avatar partner %}{% endif %}우리<svg class="i" aria-hidden="true"><use href="#i-right"/></svg></a>
 </header>
 

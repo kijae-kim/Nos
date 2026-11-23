@@ -179,7 +179,7 @@ class MemoHomeTests(TestCase):
     def test_quick_menu_has_memo_and_remembers_folder(self):
         html = self.client.get(reverse("home")).content.decode()
         self.assertIn(f'href="{reverse("memo_new")}"', html)
-        self.assertEqual(html.count('class="quick"'), 6)
+        self.assertEqual(html[html.index('class="drawer-new"'):].split("</div>")[0].count("<a "), 6)  # 사이드바 새로 만들기
         self.client.get(reverse("memos"))
         trip = MemoFolder.objects.get(name="여행계획")
         self.client.get(reverse("memo_folder", args=[trip.pk]))
