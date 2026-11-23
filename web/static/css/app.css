@@ -317,7 +317,7 @@ img.av { object-fit: cover; background: var(--tile); display: block; }
 .day { display: grid; justify-items: center; padding: 3px 0; }
 .day b { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; font-weight: 500; }
 .day.out b { opacity: .3; }
-.day.today b { background: var(--primary); color: #fff; font-weight: 600; }
+.day.today b { box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent); font-weight: 600; }
 
 /* ---------- 기념일 ---------- */
 .next-card { border-radius: 28px; padding: 22px; color: #fff; background: var(--hero-bg); position: relative; overflow: hidden; display: grid; gap: 2px; }
@@ -504,7 +504,6 @@ a.label-chip:active { transform: scale(.94); }
 .day b { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; font-weight: 500; }
 .day.out { opacity: .35; }
 .day.today b { box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent); }
-.day.sel b { background: var(--primary); color: #fff; font-weight: 600; box-shadow: none; }
 /* 날짜 숫자를 같은 폭으로 (1·11 처럼 좁은 숫자도 다른 날짜와 같은 자리에 오게) */
 .day b, .cell b { font-variant-numeric: tabular-nums; }
 /* 폰 달력 칸: 칸을 키워 일정 이름 두 줄 + "+N" (넓은 화면 큰 달력과 같은 조각) */
@@ -667,10 +666,9 @@ html.sheet-open, html.sheet-open body { overflow: hidden; } /* 팝업이 열린 
   .cell { background: var(--tile); border-radius: 14px; padding: 8px 6px 6px; display: flex; flex-direction: column; gap: 4px; min-width: 0; min-height: 0; overflow: hidden; color: var(--text); transition: background .2s, transform .2s; }
   .cell:hover { background: var(--tile-hover); transform: translateY(-2px); }
   .cell.out { opacity: .5; }
-  .cell.sel { box-shadow: inset 0 0 0 2px var(--primary); }
   .cell b { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 500; }
   .cell.sun b { color: var(--accent); }
-  .cell.today b { background: var(--primary); color: #fff; font-weight: 600; }
+  .cell.today b { box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent); font-weight: 600; }  /* 오늘은 채우지 않고 고리만 */
   .cell .more { font-size: 11px; font-weight: 600; font-style: normal; color: var(--muted); padding: 0 6px; }
   .cell span { font-size: 11px; font-weight: 500; padding: 3px 6px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* 일정 조각. 여러 날 일정은 칸 안쪽 여백까지 늘려 옆 칸과 이어져 보이게 (끝만 둥글게) */
@@ -746,6 +744,7 @@ html.sheet-open, html.sheet-open body { overflow: hidden; } /* 팝업이 열린 
 .splash { position: fixed; inset: 0; z-index: 100; display: none; place-items: center; background: var(--hero-bg); color: #fff; cursor: pointer; touch-action: none; }
 .splash-on .splash { display: grid; }
 .splash-on body { overflow: hidden; }
+html.splash-on { background: var(--hero-bg); } /* 위·아래 안전 영역(상태 표시줄·홈 표시줄)까지 시작 화면 색 */
 .splash.leaving { opacity: 0; transform: scale(1.04); transition: opacity .45s ease, transform .45s ease; pointer-events: none; }
 .splash canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .splash-stage { position: relative; display: grid; justify-items: center; gap: 6px; text-align: center; pointer-events: none; }
@@ -1039,10 +1038,6 @@ html.sheet-open, html.sheet-open body { overflow: hidden; } /* 팝업이 열린 
 .color-canvas .region.on { fill: color-mix(in srgb, var(--primary) 78%, var(--surface)); }
 .color-canvas .region.sel { stroke: var(--text); stroke-width: 2.5; }
 .color-canvas .region:focus-visible { stroke: var(--primary); stroke-width: 3; }
-.color-canvas .region-labels text {
-  fill: var(--text); font-weight: 600; text-anchor: middle; dominant-baseline: middle; pointer-events: none;
-  paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round;
-}
 .region-panel { display: grid; gap: 6px; padding: 14px 16px; }
 .region-panel small { font-size: 13px; color: var(--muted); }
 .region-panel .region-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
@@ -1159,3 +1154,15 @@ html.sheet-open, html.sheet-open body { overflow: hidden; } /* 팝업이 열린 
 .memo-conflict { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .memo-conflict[hidden] { display: none; }
 @media (min-width: 900px) { .memo-toolbar { bottom: 24px; } }
+
+/* 추억: 누가 남겼는지 작은 버튼 (머리 줄 오른쪽) */
+.who-pill { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 7px 12px; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow); color: var(--text); font-size: 13px; font-weight: 600; text-decoration: none; max-width: 40vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.who-pill svg.i { width: 14px; height: 14px; color: var(--muted); flex: none; }
+
+/* 색칠 지도: 가고 싶은 곳만 있는 지역은 다른 색(강조색). 작은 시·군·구는 몇 px 라 빗금은 안 보여 단색 */
+.color-canvas .region.wish { fill: color-mix(in srgb, var(--accent) 70%, var(--surface)); }
+.color-legend { display: flex; gap: 12px; justify-content: center; font-size: 12px; color: var(--muted); margin: 0; }
+.color-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+.color-legend .on { background: color-mix(in srgb, var(--primary) 78%, var(--surface)); }
+.color-legend .wish { background: color-mix(in srgb, var(--accent) 70%, var(--surface)); }
+.color-legend[hidden] { display: none; }

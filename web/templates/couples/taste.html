@@ -9,6 +9,10 @@
     <h1 class="page-title">추억</h1>
     <p class="sub"><span class="t-boat">함께 남긴 것들</span><span class="t-journey">길 위에서 모은 것들</span></p>
   </div>
+  {% if tab_name != "record" %}
+    {# 누가 남겼는지: 누를 때마다 둘 다 → 나 → 상대 #}
+    <a class="who-pill" href="{{ who_next_query }}" aria-label="누가 남겼는지: {{ who_label }}. 눌러서 바꾸기">{{ who_label }}<svg class="i" aria-hidden="true"><use href="#i-repeat"/></svg></a>
+  {% endif %}
 </header>
 {% endblock %}
 {% block content %}
@@ -43,6 +47,7 @@
   <div class="map-under">
     <p class="map-summary muted pin-only" data-map-summary aria-live="polite">지도를 불러오고 있어요…</p>
     <p class="map-summary muted color-only" data-color-summary aria-live="polite"></p>
+    <p class="color-legend color-only" data-color-legend hidden><span><i class="on"></i>다녀온 곳</span><span><i class="wish"></i>가고 싶은 곳</span></p>
     <span class="overlay-chips pin-only">
       <label class="overlay-chip"><input type="checkbox" data-photo-overlay checked> 사진도 보기</label>
       <label class="overlay-chip"><input type="checkbox" data-wish-overlay> 가고 싶은 곳도 보기</label>
@@ -111,12 +116,6 @@
     <a class="cat{% if c == category %} on{% endif %}" href="?cat={{ c|urlencode }}{% if who != 'all' %}&amp;who={{ who }}{% endif %}">{{ c }}</a>
   {% endfor %}
 </nav>
-
-<div class="segment three" aria-label="누가 남겼는지">
-  {% for value, label in who_options %}
-    <a class="{% if value == who %}on{% endif %}" href="?who={{ value }}{% if category != '전체' %}&amp;cat={{ category|urlencode }}{% endif %}">{{ label }}</a>
-  {% endfor %}
-</div>
 
 <a class="btn primary" href="{% url 'taste_create' %}">순간 남기기</a>
 

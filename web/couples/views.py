@@ -578,6 +578,15 @@ def taste(request):
     who_options = [("all", "둘 다"), (str(user.pk), user.display_name)]
     if partner:
         who_options.append((str(partner.pk), partner.display_name))
+    # 머리 줄 작은 버튼: 지금 값을 보여 주고, 누르면 다음 값(둘 다 → 나 → 상대 → 둘 다)
+    values = [v for v, _ in who_options]
+    at = values.index(who) if who in values else 0
+    who_label = who_options[at][1]
+    who_next = values[(at + 1) % len(values)]
+    params = {} if who_next == "all" else {"who": who_next}
+    if category != "전체":
+        params["cat"] = category
+    who_next_query = "?" + urlencode(params) if params else "?"
     return render(
         request,
         "couples/taste.html",
@@ -586,8 +595,9 @@ def taste(request):
             "tastes": tastes,
             "categories": ["전체", *Taste.MOMENT_TAGS],
             "category": category,
-            "who_options": who_options,
             "who": who,
+            "who_label": who_label,
+            "who_next_query": who_next_query,
         },
     )
 
@@ -829,6 +839,9 @@ def region_data(request):
     photos = couple.photos.filter(latitude__isnull=False, longitude__isnull=False)
     points = [{"lat": p.latitude, "lng": p.longitude, "kind": "place"} for p in places.only("latitude", "longitude")]
     points += [{"lat": p.latitude, "lng": p.longitude, "kind": "photo"} for p in photos.only("latitude", "longitude")]
+    # 아직 안 다녀온 가고 싶은 곳: 다녀온 곳과 다른 색(옅게·빗금)으로 칠한다
+    wishes = couple.wish_places.filter(visited_at__isnull=True).only("latitude", "longitude")
+    points += [{"lat": w.latitude, "lng": w.longitude, "kind": "wish"} for w in wishes]
     marks = [{"level": m.level, "code": m.code, "state": m.state} for m in couple.region_marks.order_by("level", "code")]
     return JsonResponse({"points": points, "marks": marks})
 

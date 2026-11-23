@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from . import services
-from .models import Album, CalendarFeed, Couple, Event, Label, Photo, Taste, TasteComment, TasteLike
+from .models import Album, CalendarFeed, Couple, Event, Label, Photo, Taste, TasteComment, TasteLike, WishPlace
 
 User = get_user_model()
 
@@ -2926,3 +2926,40 @@ class CalendarPopupMinorTests(TestCase):
         self.assertIn("seq", js)  # 늦게 온 응답 버리기
         self.assertIn("sheet-open", js)  # 뒤 화면 스크롤 막기
         self.assertIn('"start_time", "end_time", "end_date", "scope"', js)
+
+
+class DailyFixScreenTests(TestCase):
+    """써 보며 나온 것: 오늘 표시, 추억 누가 버튼, 색칠 지도의 가고 싶은 곳."""
+
+    setUp = ScreenTests.setUp
+
+    def test_calendar_today_is_not_selected_fill(self):
+        html = self.client.get(reverse("calendar")).content.decode()
+        self.assertIn(" today", html)
+        self.assertNotIn(" sel\"", html)
+
+    def test_moment_tab_has_small_who_pill(self):
+        html = self.client.get(reverse("tastes")).content.decode()
+        self.assertNotIn("segment three", html)
+        self.assertIn('class="who-pill"', html)
+        self.assertIn("둘 다", html)
+        self.assertIn(f'href="?who={self.a.pk}"', html)  # 다음은 나
+        html = self.client.get(reverse("tastes") + f"?who={self.a.pk}").content.decode()
+        self.assertIn(f'href="?who={self.b.pk}"', html)  # 다음은 상대
+        html = self.client.get(reverse("tastes") + f"?who={self.b.pk}&cat=영화").content.decode()
+        self.assertIn('href="?cat=%EC%98%81%ED%99%94"', html)  # 다음은 둘 다, 태그는 그대로
+
+    def test_record_tab_has_no_who_pill(self):
+        html = self.client.get(reverse("tastes") + "?tab=record").content.decode()
+        self.assertNotIn("who-pill", html)
+
+    def test_region_data_has_open_wishes_only(self):
+        from django.utils import timezone as tz
+
+        WishPlace.objects.create(couple=self.couple, name="갈 곳", latitude=35.1, longitude=129.0, created_by=self.a)
+        WishPlace.objects.create(couple=self.couple, name="다녀옴", latitude=33.5, longitude=126.5, created_by=self.a, visited_at=tz.now())
+        other = Couple.objects.create()
+        WishPlace.objects.create(couple=other, name="남의", latitude=36, longitude=127)
+        points = self.client.get(reverse("region_data")).json()["points"]
+        self.assertEqual([(p["lat"], p["lng"]) for p in points if p["kind"] == "wish"], [(35.1, 129.0)])
+        self.assertNotIn("name", points[0])
