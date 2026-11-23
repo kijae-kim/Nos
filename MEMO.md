@@ -134,7 +134,7 @@
 
 ## + 추가 팝업과 사이드바 (2026-11-24)
 
-설계 `docs/superpowers/specs/2026-11-24-add-sheet-sidebar-design.md`. 모델 안 바뀜(migrate 없음).
+설계 `docs/superpowers/specs/2026-11-24-add-sheet-sidebar-design.md`. 모델 안 바뀜(migrate 없음). main 배포 완료 (2026-11-24).
 
 - [x] + 는 화면마다 추가 팝업 (홈·캘린더 날짜 팝업, 추억 순간·기록, 앨범 사진). 등록 화면은 팝업 안 iframe(`?sheet=1`), 저장하면 닫고 상세로. 열리면 + 가 ×
 - [x] 왼쪽 위 NÓS → 사이드바 (새로 만들기 6 + 바로가기). 꾹 누르기·반원 메뉴 없앰
