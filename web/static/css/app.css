@@ -1259,3 +1259,5 @@ html[data-mode="dark"] { --bar-bg: color-mix(in srgb, var(--surface), #fff 9%); 
 /* 넓은 화면 추억: + 가 없으므로 머리 줄에 남기기 버튼 */
 .wide-add { display: none; }
 @media (min-width: 900px) { .wide-add { display: inline-flex; width: auto; padding: 10px 18px; margin: 0; } }
+/* 프로필 내 색: 상대가 쓰는 색은 흐리게 + 빗금 */
+.choice.swatch-choice.taken .swatch { background: linear-gradient(135deg, transparent 45%, var(--text) 45% 55%, transparent 55%), var(--c); }
