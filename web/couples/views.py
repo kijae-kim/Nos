@@ -103,23 +103,63 @@ def home(request):
     user, couple = request.user, request.user.couple
     today = timezone.localdate()
     upcoming, _ = anniversary_services.build(couple)
+    partner = user.partner
+    # '오늘' 카드: 오늘·내일 일정 (공통과 내 개인 일정만, 캘린더와 같은 규칙)
+    visible = Event.objects.visible_to(user).select_related("created_by").prefetch_related("labels")
+    tomorrow = today + timedelta(days=1)
+    today_events = list(visible.overlapping(today, tomorrow).order_by("date", F("start_time").asc(nulls_first=True), "pk")[:4])
+    next_event = None if today_events else visible.not_past(today).first()
     return render(
         request,
         "couples/home.html",
         {
             "couple": couple,
-            "partner": user.partner,
+            "partner": partner,
             "days": couple.days_together,
             "next_item": upcoming[0] if upcoming else None,
             "anniversaries": upcoming[:3],
-            # 공통 일정과 내 개인 일정만 보인다 (캘린더와 같은 규칙)
-            "events": Event.objects.visible_to(user).not_past(today).select_related("created_by").prefetch_related("labels")[:3],
-            "tastes": Taste.objects.filter(couple=couple).select_related("author")[:3],
-            "photos": Photo.objects.filter(couple=couple)[:4],
-            # 최근 고친 메모 (제목 있는 것만)
-            "memos": Memo.objects.filter(couple=couple).exclude(title="").select_related("folder")[:3],
+            "today": today,
+            "today_events": today_events,
+            "next_event": next_event,
+            "partner_news": _partner_news(couple, partner) if partner else [],
         },
     )
+
+
+NEWS_DAYS = 3
+
+
+def _partner_news(couple, partner):
+    """최근 3일 안에 상대가 새로 남긴 순간·기록·사진과 고친 메모. 최근순 3개. 사진은 한 줄로 묶는다."""
+    since = timezone.now() - timedelta(days=NEWS_DAYS)
+    news = []
+    for t in Taste.objects.filter(couple=couple, author=partner, created_at__gte=since)[:3]:
+        kind = "기록" if t.category == Taste.PLACE else "순간"
+        news.append({"icon": "i-pin" if kind == "기록" else "i-note", "text": f"{kind} · {t.title}",
+                     "url": reverse("taste_detail", args=[t.pk]), "at": t.created_at})
+    for m in Memo.objects.filter(couple=couple, updated_by=partner, updated_at__gte=since).exclude(title="")[:3]:
+        news.append({"icon": "i-check-circle", "text": f"메모 · {m.title}",
+                     "url": reverse("memo_edit", args=[m.pk]), "at": m.updated_at})
+    photos = list(Photo.objects.filter(couple=couple, uploaded_by=partner, created_at__gte=since).only("pk", "created_at")[:50])
+    if photos:
+        url = reverse("photo_detail", args=[photos[0].pk]) if len(photos) == 1 else reverse("albums")
+        news.append({"icon": "i-album", "text": f"사진 {len(photos)}장", "url": url, "at": photos[0].created_at})
+    news.sort(key=lambda n: n["at"], reverse=True)
+    now = timezone.now()
+    for n in news:
+        n["ago"] = _ago(now - n["at"])
+    return news[:3]
+
+
+def _ago(delta):
+    minutes = int(delta.total_seconds() // 60)
+    if minutes < 1:
+        return "방금"
+    if minutes < 60:
+        return f"{minutes}분 전"
+    if minutes < 60 * 24:
+        return f"{minutes // 60}시간 전"
+    return f"{minutes // (60 * 24)}일 전"
 
 
 @login_required

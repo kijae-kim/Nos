@@ -166,13 +166,15 @@ class MemoHomeTests(TestCase):
     save = MemoTests.save
     new_memo = MemoTests.new_memo
 
-    def test_home_shows_recent_memos(self):
+    def test_home_shows_memo_partner_edited(self):
+        # 홈 '오늘' 카드: 상대가 고친 메모만 (내가 고친 건 이미 안다)
         m = self.new_memo()
+        self.client.force_login(self.b)
         self.save(m, L("오로라 보기"))
+        self.client.force_login(self.a)
         html = self.client.get(reverse("home")).content.decode()
         self.assertIn("오로라 보기", html)
         self.assertIn(reverse("memo_edit", args=[m.pk]), html)
-        self.assertIn(reverse("memos"), html)
 
     def test_quick_menu_has_memo_and_remembers_folder(self):
         html = self.client.get(reverse("home")).content.decode()
@@ -185,7 +187,7 @@ class MemoHomeTests(TestCase):
         self.assertEqual(Memo.objects.latest("pk").folder, trip)
 
     def test_empty_home_card(self):
-        self.assertContains(self.client.get(reverse("home")), "버킷리스트나 여행 계획을 적어 볼까요?")
+        self.assertContains(self.client.get(reverse("home")), "오늘은 일정이 없어요")
 
 
 class MemoReviewFixTests(TestCase):

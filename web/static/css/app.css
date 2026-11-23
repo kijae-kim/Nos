@@ -1191,3 +1191,18 @@ html.splash-on { background: var(--hero-bg); } /* 위·아래 안전 영역(상�
 .quick-add input[type="text"] { flex: 1; min-width: 0; height: auto; border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 8px 0; font-size: 15px; color: var(--text); outline: none; }
 .quick-add-go { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 0; display: grid; place-items: center; background: var(--primary); color: #fff; cursor: pointer; }
 .quick-add-go svg.i { width: 18px; height: 18px; }
+
+/* 홈 '오늘' 카드 */
+.today-card { display: grid; gap: 10px; padding: 16px; }
+.today-events, .today-news { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.today-events a { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; text-decoration: none; color: var(--text); background: color-mix(in srgb, var(--c, var(--sky)) 28%, var(--surface)); }
+.today-events em { font-style: normal; font-size: 12px; font-weight: 700; color: var(--muted); }
+.today-events strong { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.today-events small { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.today-empty { margin: 0; font-size: 14px; color: var(--muted); }
+.today-empty a { color: var(--text); font-weight: 600; }
+.today-sub { margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--muted); }
+.today-news a { display: flex; align-items: center; gap: 10px; padding: 6px 2px; text-decoration: none; color: var(--text); font-size: 14px; }
+.today-news svg.i { width: 18px; height: 18px; color: var(--primary); flex: none; }
+.today-news span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.today-news time { font-size: 12px; color: var(--muted); white-space: nowrap; }
