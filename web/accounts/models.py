@@ -3,7 +3,7 @@ from django.db import models
 from django.utils.functional import cached_property
 
 
-# 커플 앱과 같은 6색 (순환 import 를 피해 여기 둔다. couples.models.COLOR_CHOICES 와 같아야 한다)
+# 커플 앱과 같은 12색 (순환 import 를 피해 여기 둔다. couples.models.COLOR_CHOICES 와 같아야 한다)
 COLOR_CHOICES = [
     ("sky", "하늘"),
     ("rose", "장미"),
@@ -11,6 +11,12 @@ COLOR_CHOICES = [
     ("lav", "라벤더"),
     ("sage", "세이지"),
     ("peach", "복숭아"),
+    ("coral", "코랄"),
+    ("blue", "파랑"),
+    ("mint", "민트"),
+    ("lime", "라임"),
+    ("mauve", "모브"),
+    ("stone", "돌"),
 ]
 
 
@@ -25,6 +31,8 @@ class User(AbstractUser):
     # 기념일 알림. 당일 알림은 항상 보내고, 하루 전·일주일 전은 사람마다 고른다 (notifications 앱)
     notify_day_before = models.BooleanField("하루 전 알림", default=False)
     notify_week_before = models.BooleanField("일주일 전 알림", default=False)
+    # 상대가 메모를 고치고 나가면 알림 (memos.notify). 웹 푸시를 켠 기기가 있을 때만 실제로 간다
+    notify_memo = models.BooleanField("메모 알림", default=True)
     # 프로필: 내 색(일정 만든 사람 점·아바타 바탕), 이모지, 사진(256px JPEG 바이트, DB 에 둔다)
     color = models.CharField("내 색", max_length=10, choices=COLOR_CHOICES, default="sky")
     emoji = models.CharField("이모지", max_length=16, blank=True)

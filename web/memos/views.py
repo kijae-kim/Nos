@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db import IntegrityError
 from django.db.models import Count, ProtectedError, Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
@@ -15,6 +15,7 @@ from django.views.decorators.http import require_POST
 from .forms import FolderForm
 from .lines import MAX_TOTAL, clean_lines, ensure_default_folders, ordered_folders, title_and_preview
 from .models import Memo, MemoFolder
+from .notify import notify_partner
 
 
 def _folder(request, pk):
@@ -156,8 +157,19 @@ def memo_save(request, pk):
         memo.version += 1
         memo.updated_by = request.user
         memo.save()
+    # 쓰기 화면을 떠날 때의 마지막 저장: 저장이 끝난 뒤 상대에게 알린다 (memos.notify)
+    if body.get("notify") is True:
+        notify_partner(memo, request.user)
     return JsonResponse({"ok": True, "version": memo.version, "title": memo.title,
                          "updated": timezone.localtime(memo.updated_at).isoformat()})
+
+
+@login_required
+@require_POST
+def memo_notify(request, pk):
+    """쓰기 화면을 떠날 때 부른다. 고친 게 있으면 상대에게 알림 (memos.notify)."""
+    notify_partner(_memo(request, pk), request.user)
+    return HttpResponse(status=204)
 
 
 @login_required

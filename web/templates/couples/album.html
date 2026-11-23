@@ -12,6 +12,7 @@
   <a class="add-link" href="{% url 'photo_create' %}"><svg class="i"><use href="#i-plus"/></svg>사진 올리기</a>
 </header>
 {% endblock %}
+{% block fab %}aria-label="사진 올리기" data-fab-url="{% url 'photo_create' %}"{% endblock %}
 {% block content %}
 {% if memory %}
   <a class="memory art" href="{% url 'photo_detail' memory.pk %}" style="--photo: url('{{ memory.image.url }}')">

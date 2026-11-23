@@ -56,69 +56,34 @@
   {% endif %}
 </section>
 
+{# 오늘: 오늘·내일 일정과 상대가 최근에 남긴 것. 나머지는 각 탭에서 #}
 <section class="section">
   <div class="section-head">
-    <h2>메모</h2>
-    <a href="{% url 'memos' %}">전체 보기</a>
-  </div>
-  {% if memos %}
-    <ul class="memo-list card home-memos">
-      {% for m in memos %}
-        <li><a href="{% url 'memo_edit' m.pk %}"><strong>{{ m.title }}</strong><span class="memo-meta"><time>{{ m.folder.name }}</time> {{ m.preview|default:"추가 텍스트 없음" }}</span></a></li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <a class="empty" href="{% url 'memo_new' %}">버킷리스트나 여행 계획을 적어 볼까요?</a>
-  {% endif %}
-</section>
-
-<section class="section">
-  <div class="section-head">
-    <h2>다가오는 일정</h2>
+    <h2>오늘</h2>
     <a href="{% url 'calendar' %}">캘린더 보기</a>
   </div>
-  {% if events %}
-    <ul class="events">
-      {% for e in events %}{% include "couples/_event_item.html" with event=e %}{% endfor %}
-    </ul>
-  {% else %}
-    <a class="empty" href="{% url 'event_create' %}">이번 주에 함께 할 일정을 적어 보세요</a>
-  {% endif %}
-</section>
-
-<section class="section">
-  <div class="section-head">
-    <h2>최근 남긴 추억</h2>
-    <a href="{% url 'tastes' %}">전체 보기</a>
+  <div class="card today-card">
+    {% if today_events %}
+      <ul class="today-events">
+        {% for e in today_events %}
+          <li><a href="{% url 'event_update' e.pk %}" style="--c: var(--{{ e.color }})">
+            <em>{% if e.date <= today %}오늘{% else %}내일{% endif %}</em>
+            <strong>{{ e.title }}</strong>
+            <small>{% if e.start_time %}{{ e.start_time|time:"A g" }}시{% if e.start_time.minute %} {{ e.start_time.minute }}분{% endif %}{% else %}하루 종일{% endif %}</small>
+          </a></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="today-empty">오늘은 일정이 없어요.{% if next_event %} 다음은 <a href="{% url 'event_update' next_event.pk %}">{{ next_event.date|date:"n월 j일" }} {{ next_event.title }}</a>이에요.{% endif %}</p>
+    {% endif %}
+    {% if partner_news %}
+      <p class="today-sub">{{ partner.display_name }}님이 새로 남겼어요</p>
+      <ul class="today-news">
+        {% for n in partner_news %}
+          <li><a href="{{ n.url }}"><svg class="i" aria-hidden="true"><use href="#{{ n.icon }}"/></svg><span>{{ n.text }}</span><time>{{ n.ago }}</time></a></li>
+        {% endfor %}
+      </ul>
+    {% endif %}
   </div>
-  {% if tastes %}
-    <div class="feed">
-      {% for t in tastes %}
-        <a class="taste-card" href="{% url 'taste_detail' t.pk %}" style="--cat: var(--{{ t.color }})">
-          <span class="chip">{{ t.category }}</span>
-          <h3>{{ t.title }}</h3>
-          <small>{{ t.author.display_name }} · {{ t.created_at|date:"n월 j일" }}</small>
-        </a>
-      {% endfor %}
-    </div>
-  {% else %}
-    <a class="empty" href="{% url 'taste_create' %}">영화, 음악, 함께 간 곳을 하나 남겨 보세요</a>
-  {% endif %}
-</section>
-
-<section class="section">
-  <div class="section-head">
-    <h2>최근 사진</h2>
-    <a href="{% url 'albums' %}">앨범 보기</a>
-  </div>
-  {% if photos %}
-    <div class="photos recent">
-      {% for p in photos %}
-        <a class="tile" href="{% url 'photo_detail' p.pk %}" aria-label="{{ p.caption|default:'사진' }} 보기"><img src="{{ p.thumb_url }}" loading="lazy" decoding="async" alt=""></a>
-      {% endfor %}
-    </div>
-  {% else %}
-    <a class="empty" href="{% url 'photo_create' %}">데이트 사진을 올려 보세요</a>
-  {% endif %}
 </section>
 {% endblock %}

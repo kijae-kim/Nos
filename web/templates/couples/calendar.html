@@ -2,14 +2,22 @@
 {% load static %}
 {% block head_title %}캘린더 · {{ APP_NAME }}{% endblock %}
 {% block app_class %} wide{% endblock %}
+{% block fab %}aria-label="일정 추가" data-fab-url="{% url 'event_create' %}?date={{ selected|date:'Y-m-d' }}" data-fab-popup="{% url 'day_popup' selected|date:'Y-m-d' %}"{% endblock %}
 {% block content %}
 {% if last_move %}
   {# 끌어서 옮긴 뒤 한 번만 보이는 안내. 되돌리기는 같은 옮기기를 옛 날짜로 부른다 (calendar-drag.js) #}
   <p class="notice move-note" role="status">{{ last_move.text }}{% if last_move.undo_date %} <button type="button" class="link-btn" data-undo-event="{{ last_move.event }}" data-undo-date="{{ last_move.undo_date }}">되돌리기</button>{% endif %}</p>
 {% endif %}
+{% include "_brand_head.html" %}{# 넓은 화면에서는 숨는다 #}
+{# 글로 일정: 날짜를 알아들으면 그 날 팝업을 채워 연다 (calendar-popup.js). 스크립트가 없으면 일정 추가 화면으로 #}
+<form class="quick-add card" method="get" action="{% url 'event_create' %}" data-quick-url="{% url 'calendar_quick' %}">
+  <svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>
+  <input type="text" name="text" maxlength="200" autocomplete="off" enterkeyhint="go"
+    placeholder="예: 12월 25일 찜질방 가기" aria-label="글로 일정 추가: 무엇을 언제 할지 써 주세요">
+  <button type="submit" class="quick-add-go" aria-label="일정 만들기"><svg class="i"><use href="#i-right"/></svg></button>
+</form>
 {# 휴대폰: 달력과 선택한 날의 일정 #}
 <div class="mobile-only">
-  {% include "_brand_head.html" %}
   <header class="row-between cal-head">
     <h1 class="page-title">{{ first|date:"n월" }} <span>{{ first|date:"Y" }}</span></h1>
     <div class="arrows">
@@ -23,7 +31,7 @@
     <div class="days">
       {% for week in weeks %}{% for cell in week %}
         {# 누르면(꾹 눌러도) 그날 팝업. 스크립트가 없으면 일정 추가 화면 #}
-        <a class="day{% if forloop.first %} sun{% endif %}{% if not cell.in_month %} out{% endif %}{% if cell.is_today %} today{% endif %}{% if cell.is_selected %} sel{% endif %}"
+        <a class="day{% if forloop.first %} sun{% endif %}{% if not cell.in_month %} out{% endif %}{% if cell.is_today %} today{% endif %}"
            href="{% url 'event_create' %}?date={{ cell.date|date:'Y-m-d' }}" data-day-popup="{% url 'day_popup' cell.date|date:'Y-m-d' %}">
           <b>{{ cell.day }}</b>
           {% for p in cell.pieces %}{% if p %}<span class="piece{% if p.event.is_multi_day %} multi{% if p.start %} s{% endif %}{% if p.end %} e{% endif %}{% endif %}{% if label and p.event.pk not in label_event_ids %} dim{% endif %}" style="--c: var(--{{ p.event.color }})"{% if not p.title %} aria-hidden="true"{% endif %}>{% if p.title %}{{ p.event.title }}{% endif %}</span>{% else %}<span class="piece hole" aria-hidden="true"></span>{% endif %}{% endfor %}
@@ -94,7 +102,7 @@
     <div class="big-names"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
     <div class="big-days" data-today="{{ today|date:'Y-m-d' }}">
       {% for week in weeks %}{% for cell in week %}
-        <a class="cell{% if forloop.first %} sun{% endif %}{% if not cell.in_month %} out{% endif %}{% if cell.is_today %} today{% endif %}{% if cell.is_selected %} sel{% endif %}" data-drop-date="{{ cell.date|date:'Y-m-d' }}" href="{% url 'event_create' %}?date={{ cell.date|date:'Y-m-d' }}" data-day-popup="{% url 'day_popup' cell.date|date:'Y-m-d' %}">
+        <a class="cell{% if forloop.first %} sun{% endif %}{% if not cell.in_month %} out{% endif %}{% if cell.is_today %} today{% endif %}" data-drop-date="{{ cell.date|date:'Y-m-d' }}" href="{% url 'event_create' %}?date={{ cell.date|date:'Y-m-d' }}" data-day-popup="{% url 'day_popup' cell.date|date:'Y-m-d' %}">
           <b>{{ cell.day }}</b>
           {# 칸 높이를 고정하므로 줄 0·1 만, 나머지는 개수로. 여러 날 일정은 같은 줄에 조각으로 이어진다 #}
           {% for p in cell.pieces %}{% if p %}<span class="piece{% if p.event.is_multi_day %} multi{% if p.start %} s{% endif %}{% if p.end %} e{% endif %}{% endif %}{% if label and p.event.pk not in label_event_ids %} dim{% endif %}" style="--c: var(--{{ p.event.color }})" data-event-id="{{ p.event.pk }}"{% if p.event.is_past %} data-past{% elif p.title %} draggable="true" data-grab-date="{{ cell.date|date:'Y-m-d' }}" data-start="{{ p.event.date|date:'Y-m-d' }}" data-span="{{ p.event.span_days }}"{% endif %}{% if not p.title %} aria-hidden="true"{% endif %}>{% if p.title %}{{ p.event.title }}{% endif %}</span>{% else %}<span class="piece hole" aria-hidden="true"></span>{% endif %}{% endfor %}

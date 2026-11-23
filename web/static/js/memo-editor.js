@@ -71,7 +71,7 @@
   }
 
   // ---------- 고치기 ----------
-  function changed() { dirty = true; keepDraft(); schedule(); }
+  function changed() { dirty = true; editedHere = true; keepDraft(); schedule(); }
   // 글을 고른 채로 엔터·붙여 넣기를 하면 고른 글을 먼저 지운다 (바꾸기)
   function dropSelection() {
     var sel = window.getSelection();
@@ -134,7 +134,7 @@
   editor.addEventListener("compositionend", function () {
     composing = false;
     setTimeout(function () {
-      if (pendingSplit) { pendingSplit = false; splitAtCaret(); } else tidy();
+      if (pendingSplit) { pendingSplit = false; splitAtCaret(); } else { tidy(); shortcut(); }
     }, 0);
   });
   editor.addEventListener("beforeinput", function (e) {
@@ -169,8 +169,22 @@
       if (c) setCaret(c.line, c.offset);
     }
   }
+  // 글 줄 맨 앞에 "- " 나 "/todo " 를 치면 체크 줄로 (띄어쓰기까지 쳐야 바뀐다: "-5도" 는 그대로)
+  var SHORTCUTS = ["- ", "/todo "];
+  function shortcut() {
+    var c = caret();
+    var el = c && c.collapsed && editor.childNodes[c.line];
+    if (!el || !el.classList || el.classList.contains("todo")) return false;
+    var text = el.textContent.replace(/\u00a0/g, " "); // 브라우저는 끝 띄어쓰기를 nbsp 로 넣는다
+    var hit = SHORTCUTS.filter(function (p) { return c.offset === p.length && text.slice(0, p.length) === p; })[0];
+    if (!hit) return false;
+    var lines = serialize();
+    lines[c.line] = { t: "check", on: false, s: lines[c.line].s.slice(hit.length) };
+    render(lines); setCaret(c.line, 0);
+    return true;
+  }
   editor.addEventListener("input", function (e) {
-    if (!(e.isComposing || composing)) tidy();
+    if (!(e.isComposing || composing)) { tidy(); shortcut(); }
     changed();
   });
   // 줄 왼쪽 동그라미를 누르면 체크 (커서는 옮기지 않는다). 마우스는 mousedown, 터치는 touchend 에서
@@ -234,14 +248,15 @@
     clearTimeout(timer);
     timer = setTimeout(saveNow, 5000);
   }
-  function post(lines, keepalive) {
+  function post(lines, keepalive, notify) {
     return fetch(editor.dataset.saveUrl, {
       method: "POST", credentials: "same-origin", keepalive: !!keepalive,
       headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-      body: JSON.stringify({ lines: lines, version: version }),
+      body: JSON.stringify({ lines: lines, version: version, notify: !!notify }),
     });
   }
-  function saveNow(keepalive) {
+  // notify: 떠날 때의 마지막 저장이면 서버가 저장한 뒤 상대에게 알린다
+  function saveNow(keepalive, notify) {
     clearTimeout(timer);
     if (!dirty || gone) return;
     var mine = serialize();
@@ -249,12 +264,12 @@
     if (keepalive && JSON.stringify(mine).length > 60000) { keepDraft(); return; }
     if (saving) {
       // 떠나는 중이면 기다리지 않고 지금 것을 보낸다 (안 되면 기기에 남긴 글로 다음에 안내)
-      if (keepalive) post(mine, true).catch(function () {});
+      if (keepalive) post(mine, true, notify).catch(function () {});
       again = true;
       return;
     }
     saving = true; dirty = false;
-    post(mine, keepalive).then(function (r) {
+    post(mine, keepalive, notify).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (d) { return { status: r.status, data: d }; });
     }).then(function (res) {
       if (res.status === 200 && res.data.ok) {
@@ -302,8 +317,24 @@
   });
   var closeConflict = document.querySelector("[data-conflict-close]");
   if (closeConflict) closeConflict.addEventListener("click", function () { conflictBox.hidden = true; });
-  window.addEventListener("pagehide", function () { if (dirty) { keepDraft(); saveNow(true); } });
-  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden" && dirty) saveNow(true); });
+  // 이번에 고친 게 있으면 떠날 때 한 번 상대에게 알린다 (서버가 30분에 한 번으로 거른다)
+  var editedHere = false;
+  function notifyPartner() {
+    if (!editedHere || gone || !editor.dataset.notifyUrl) return;
+    editedHere = false;
+    fetch(editor.dataset.notifyUrl, { method: "POST", keepalive: true, credentials: "same-origin", headers: { "X-CSRFToken": csrf() } }).catch(function () {});
+  }
+  // 저장할 게 남았으면 알림을 그 저장에 실어 보낸다 (따로 보내면 저장보다 먼저 도착해 빈 제목으로 보일 수 있다)
+  function leave() {
+    if (dirty && !gone) {
+      var notify = editedHere;
+      editedHere = false;
+      keepDraft();
+      saveNow(true, notify);
+    } else notifyPartner();
+  }
+  window.addEventListener("pagehide", leave);
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") leave(); });
 
   render(data.lines || []);
   // 지난번에 저장하지 못한 내 글이 기기에 남아 있으면: 서버가 그대로면 이어서 저장, 그새 바뀌었으면 안내

@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from . import services
-from .models import Album, CalendarFeed, Couple, Event, Label, Photo, Taste, TasteComment, TasteLike
+from .models import Album, CalendarFeed, Couple, Event, Label, Photo, Taste, TasteComment, TasteLike, WishPlace
 
 User = get_user_model()
 
@@ -252,8 +252,8 @@ class HomeDataTests(TestCase):
         shared = self.add_event(self.a, "공통 데이트", Event.SHARED)
         mine = self.add_event(self.a, "내 운동", Event.PERSONAL)
         partners = self.add_event(self.b, "바다의 개인 약속", Event.PERSONAL)
-        response = self.client.get(reverse("home"))
-        events = list(response.context["events"])
+        response = self.client.get(reverse("calendar"))  # 홈은 '오늘' 카드만 (HomeTodayTests)
+        events = list(response.context["upcoming"])
         self.assertIn(shared, events)
         self.assertIn(mine, events)
         self.assertNotIn(partners, events)
@@ -261,9 +261,9 @@ class HomeDataTests(TestCase):
     def test_home_shows_recent_tastes_and_photos(self):
         Taste.objects.create(couple=self.couple, author=self.b, category="영화", title="헤어질 결심")
         Photo.objects.create(couple=self.couple, uploaded_by=self.b, image="photos/x.png")
-        response = self.client.get(reverse("home"))
+        response = self.client.get(reverse("home"))  # 상대가 새로 남긴 것은 '오늘' 카드에
         self.assertContains(response, "헤어질 결심")
-        self.assertEqual(len(response.context["photos"]), 1)
+        self.assertContains(response, "사진 1장")
 
     def test_home_empty_state_links_to_create_pages(self):
         response = self.client.get(reverse("home"))
@@ -571,7 +571,7 @@ class PolishTests(TestCase):
     def test_event_shows_who_made_it(self):
         self.add_event(self.a, "내가 만든 일정", 1)
         self.add_event(self.b, "바다가 만든 일정", 2)
-        response = self.client.get(reverse("home"))
+        response = self.client.get(reverse("calendar"))
         self.assertContains(response, 'title="내가 만든 일정"')
         self.assertContains(response, 'title="바다님이 만든 일정"')
 
@@ -1422,7 +1422,6 @@ class MemoriesScreenTests(TestCase):
         html = self.client.get(reverse("home")).content.decode()
         self.assertIn("<span>추억</span>", html)
         self.assertNotIn("<span>취향</span>", html)
-        self.assertIn("최근 남긴 추억", html)
         self.assertIn(">순간</a>", html)
         self.assertIn(">기록</a>", html)
 
@@ -1904,7 +1903,7 @@ class MultiDayEventTests(TestCase):
         trip = self.make(today - timedelta(days=1), today + timedelta(days=1))
         done = self.make(today - timedelta(days=2), today - timedelta(days=1), title="끝난 여행")
         self.assertIn(trip, list(self.client.get(reverse("calendar")).context["upcoming"]))
-        self.assertIn(trip, list(self.client.get(reverse("home")).context["events"]))
+        self.assertIn(trip, list(self.client.get(reverse("home")).context["today_events"]))
         self.assertFalse(trip.is_past)
         self.assertTrue(done.is_past)
         page = self.client.get(reverse("event_update", args=[trip.pk]))
@@ -2736,8 +2735,6 @@ class WideAlbumGridTests(TestCase):
         self.assertRegex(wide, r"\.photos \{ grid-template-columns: repeat\(5, 1fr\)")
         self.assertRegex(wide, r"\.photos\.recent \{ grid-template-columns: repeat\(4, 1fr\)")
         self.assertRegex(wide, r"\.albums \{ grid-template-columns: repeat\(4, 1fr\)")
-        home = (Path(__file__).resolve().parent.parent / "templates/couples/home.html").read_text()
-        self.assertIn('class="photos recent"', home)
 
 
 class TopBottomColorTests(TestCase):
@@ -2926,3 +2923,301 @@ class CalendarPopupMinorTests(TestCase):
         self.assertIn("seq", js)  # 늦게 온 응답 버리기
         self.assertIn("sheet-open", js)  # 뒤 화면 스크롤 막기
         self.assertIn('"start_time", "end_time", "end_date", "scope"', js)
+
+
+class DailyFixScreenTests(TestCase):
+    """써 보며 나온 것: 오늘 표시, 추억 누가 버튼, 색칠 지도의 가고 싶은 곳."""
+
+    setUp = ScreenTests.setUp
+
+    def test_calendar_today_is_not_selected_fill(self):
+        html = self.client.get(reverse("calendar")).content.decode()
+        self.assertIn(" today", html)
+        self.assertNotIn(" sel\"", html)
+
+    def test_moment_tab_has_small_who_pill(self):
+        html = self.client.get(reverse("tastes")).content.decode()
+        self.assertNotIn("segment three", html)
+        self.assertIn('class="who-pill"', html)
+        self.assertIn("둘 다", html)
+        self.assertIn(f'href="?who={self.a.pk}"', html)  # 다음은 나
+        html = self.client.get(reverse("tastes") + f"?who={self.a.pk}").content.decode()
+        self.assertIn(f'href="?who={self.b.pk}"', html)  # 다음은 상대
+        html = self.client.get(reverse("tastes") + f"?who={self.b.pk}&cat=영화").content.decode()
+        self.assertIn('href="?cat=%EC%98%81%ED%99%94"', html)  # 다음은 둘 다, 태그는 그대로
+
+    def test_record_tab_has_no_who_pill(self):
+        html = self.client.get(reverse("tastes") + "?tab=record").content.decode()
+        self.assertNotIn("who-pill", html)
+
+    def test_region_data_has_open_wishes_only(self):
+        from django.utils import timezone as tz
+
+        WishPlace.objects.create(couple=self.couple, name="갈 곳", latitude=35.1, longitude=129.0, created_by=self.a)
+        WishPlace.objects.create(couple=self.couple, name="다녀옴", latitude=33.5, longitude=126.5, created_by=self.a, visited_at=tz.now())
+        other = Couple.objects.create()
+        WishPlace.objects.create(couple=other, name="남의", latitude=36, longitude=127)
+        points = self.client.get(reverse("region_data")).json()["points"]
+        self.assertEqual([(p["lat"], p["lng"]) for p in points if p["kind"] == "wish"], [(35.1, 129.0)])
+        self.assertNotIn("name", points[0])
+
+
+class FabTests(TestCase):
+    """+ 버튼: 화면마다 그 화면의 추가, 홈은 메뉴."""
+
+    setUp = ScreenTests.setUp
+
+    def fab(self, url):
+        import re
+
+        html = self.client.get(url).content.decode()
+        m = re.search(r'<button class="fab"[^>]*>', html)
+        self.assertIsNotNone(m)
+        return m.group(0)
+
+    def test_home_is_menu(self):
+        tag = self.fab(reverse("home"))
+        self.assertIn('aria-label="추가"', tag)
+        self.assertNotIn("data-fab-url", tag)
+
+    def test_calendar_adds_event_today_or_first_of_month(self):
+        today = timezone.localdate()
+        tag = self.fab(reverse("calendar"))
+        self.assertIn('aria-label="일정 추가"', tag)
+        self.assertIn(f'data-fab-url="{reverse("event_create")}?date={today.isoformat()}"', tag)
+        self.assertIn(f'data-fab-popup="{reverse("day_popup", args=[today.isoformat()])}"', tag)
+        nxt = (today.replace(day=1) + timedelta(days=40)).replace(day=1)
+        tag = self.fab(reverse("calendar") + f"?month={nxt:%Y-%m}")
+        self.assertIn(f"?date={nxt.isoformat()}", tag)
+
+    def test_memories_tabs_and_album(self):
+        tag = self.fab(reverse("tastes"))
+        self.assertIn('aria-label="순간 남기기"', tag)
+        self.assertIn(f'data-fab-url="{reverse("taste_create")}"', tag)
+        tag = self.fab(reverse("tastes") + "?tab=record")
+        self.assertIn('aria-label="기록 남기기"', tag)
+        self.assertIn(f'data-fab-url="{reverse("taste_create")}?kind=place"', tag)
+        tag = self.fab(reverse("albums"))
+        self.assertIn('aria-label="사진 올리기"', tag)
+        self.assertIn(f'data-fab-url="{reverse("photo_create")}"', tag)
+
+
+class ColorPaletteTests(TestCase):
+    """색 12개, 고르는 칸은 이름 없이 동그라미만."""
+
+    setUp = ScreenTests.setUp
+
+    def test_twelve_colors_and_new_color_saves(self):
+        from .models import COLOR_CHOICES
+
+        self.assertEqual(len(COLOR_CHOICES), 12)
+        html = self.client.get(reverse("event_create")).content.decode()
+        self.assertEqual(html.count('class="swatch"'), 12)
+        self.assertIn('<span class="sr-only">코랄</span>', html)
+        self.client.post(reverse("event_create"), ScreenTests.event_form(self, color="coral"))
+        self.assertEqual(Event.objects.get().color, "coral")
+
+
+class QuickParseTests(TestCase):
+    """글로 일정: '12월 25일 찜질방가기' 같은 글에서 날짜·시간·이름을 찾는다."""
+
+    from datetime import date as _d
+
+    TODAY = _d(2026, 11, 23)  # 월요일
+
+    def p(self, text):
+        from .quickparse import parse
+
+        return parse(text, self.TODAY)
+
+    def test_month_day_and_title(self):
+        from datetime import date
+
+        r = self.p("12월 25일 찜질방가기")
+        self.assertEqual((r["date"], r["title"], r["start_time"], r["end_date"]), (date(2026, 12, 25), "찜질방가기", None, None))
+        self.assertEqual(self.p("12월 25일에 찜질방")["title"], "찜질방")
+
+    def test_past_date_goes_to_next_year_and_slash(self):
+        from datetime import date
+
+        self.assertEqual(self.p("3월 1일 등산")["date"], date(2027, 3, 1))
+        self.assertEqual(self.p("12/25 파티")["date"], date(2026, 12, 25))
+        self.assertEqual(self.p("11월 23일 오늘 것")["date"], date(2026, 11, 23))
+
+    def test_day_only_this_or_next_month(self):
+        from datetime import date
+
+        self.assertEqual(self.p("25일 영화")["date"], date(2026, 11, 25))
+        self.assertEqual(self.p("5일 병원")["date"], date(2026, 12, 5))
+
+    def test_relative_days_and_weekdays(self):
+        from datetime import date
+
+        self.assertEqual(self.p("내일 산책")["date"], date(2026, 11, 24))
+        self.assertEqual(self.p("모레 쇼핑")["date"], date(2026, 11, 25))
+        self.assertEqual(self.p("오늘 저녁")["date"], date(2026, 11, 23))
+        self.assertEqual(self.p("금요일 장보기")["date"], date(2026, 11, 27))
+        self.assertEqual(self.p("월요일 회의")["date"], date(2026, 11, 23))  # 오늘이 월요일
+        self.assertEqual(self.p("이번 주 토요일 캠핑")["date"], date(2026, 11, 28))
+        r = self.p("다음 주 금요일 여행")
+        self.assertEqual((r["date"], r["title"]), (date(2026, 12, 4), "여행"))
+
+    def test_times(self):
+        from datetime import time
+
+        r = self.p("내일 저녁 7시 영화")
+        self.assertEqual((r["start_time"], r["title"]), (time(19), "영화"))
+        self.assertEqual(self.p("내일 오후 3시 반 카페")["start_time"], time(15, 30))
+        self.assertEqual(self.p("내일 19:30 저녁")["start_time"], time(19, 30))
+        self.assertEqual(self.p("내일 오전 10시 20분 병원")["start_time"], time(10, 20))
+        self.assertEqual(self.p("내일 11시 브런치")["start_time"], time(11))
+        r = self.p("내일 3시~5시 스터디")
+        self.assertEqual((r["start_time"], r["end_time"], r["title"]), (time(15), time(17), "스터디"))
+
+    def test_ranges(self):
+        from datetime import date
+
+        r = self.p("12월 25일~27일 여행")
+        self.assertEqual((r["date"], r["end_date"], r["title"]), (date(2026, 12, 25), date(2026, 12, 27), "여행"))
+        r = self.p("25~27일 제주")
+        self.assertEqual((r["date"], r["end_date"]), (date(2026, 11, 25), date(2026, 11, 27)))
+        r = self.p("12월 30일~1월 2일 해돋이")
+        self.assertEqual((r["date"], r["end_date"]), (date(2026, 12, 30), date(2027, 1, 2)))
+
+    def test_no_date_and_labels_kept(self):
+        self.assertIsNone(self.p("그냥 글"))
+        self.assertIsNone(self.p(""))
+        self.assertIsNone(self.p("13월 40일 이상"))
+        self.assertEqual(self.p("@데이트 내일 산책 #공원")["title"], "@데이트 산책 #공원")
+        self.assertEqual(self.p("내일")["title"], "")
+
+
+class QuickParseReviewTests(TestCase):
+    """최종 검토: 흔한 말투에서 엉뚱한 날짜·시간을 고르지 않게."""
+
+    TODAY = QuickParseTests.TODAY
+    p = QuickParseTests.p
+
+    def test_hours_and_durations_are_not_dates_or_times(self):
+        from datetime import date
+
+        r = self.p("내일 2시간 산책")
+        self.assertEqual((r["date"], r["start_time"], r["title"]), (date(2026, 11, 24), None, "2시간 산책"))
+        self.assertIsNone(self.p("1박 2일 캠핑"))
+        self.assertIsNone(self.p("3일 동안 여행"))
+        self.assertEqual(self.p("12월 1일 1박 2일 캠핑")["title"], "1박 2일 캠핑")
+
+    def test_impossible_month_day_is_not_guessed(self):
+        self.assertIsNone(self.p("2월 30일 파티"))
+        self.assertIsNone(self.p("11월 31일 모임"))
+        self.assertIsNone(self.p("2/30 파티"))
+
+    def test_day_range_across_months(self):
+        from datetime import date
+
+        r = self.p("30일~2일 여행")
+        self.assertEqual((r["date"], r["end_date"], r["title"]), (date(2026, 11, 30), date(2026, 12, 2), "여행"))
+
+
+class CalendarQuickTests(TestCase):
+    """캘린더 위 글로 일정 입력칸."""
+
+    setUp = ScreenTests.setUp
+
+    def test_parsed_gives_day_and_fields(self):
+        res = self.client.get(reverse("calendar_quick"), {"q": "12월 25일 저녁 7시 찜질방"}).json()
+        year = timezone.localdate().year if timezone.localdate() <= timezone.localdate().replace(month=12, day=25) else timezone.localdate().year + 1
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["day"], f"{year}-12-25")
+        self.assertEqual(res["popup"], reverse("day_popup", args=[f"{year}-12-25"]))
+        self.assertEqual(res["fields"], {"text": "찜질방", "start_time": "19:00", "end_time": "", "end_date": ""})
+
+    def test_unparsed_goes_to_form_with_text(self):
+        res = self.client.get(reverse("calendar_quick"), {"q": "찜질방 가기"}).json()
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["url"], reverse("event_create") + "?text=%EC%B0%9C%EC%A7%88%EB%B0%A9+%EA%B0%80%EA%B8%B0")
+
+    def test_login_required_and_input_on_calendar(self):
+        html = self.client.get(reverse("calendar")).content.decode()
+        self.assertIn("data-quick-url", html)
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("calendar_quick"), {"q": "내일"}).status_code, 302)
+
+
+class HomeTodayTests(TestCase):
+    """홈: 기념일 아래 목록 넷 대신 '오늘' 카드 하나 (오늘·내일 일정, 상대가 새로 남긴 것)."""
+
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def setUp(self):
+        UploadStorageTests.setUp(self)
+        User.objects.create_user("b", password="pw", couple=self.couple, nickname="바다")
+
+    def ctx(self):
+        return self.client.get(reverse("home")).context
+
+    def test_today_and_tomorrow_events_only_visible_ones(self):
+        today = timezone.localdate()
+        partner = self.user.partner
+        mine = Event.objects.create(couple=self.couple, created_by=self.user, title="오늘 저녁", date=today)
+        tomorrow = Event.objects.create(couple=self.couple, created_by=self.user, title="내일 산책", date=today + timedelta(days=1))
+        Event.objects.create(couple=self.couple, created_by=partner, title="상대 개인", date=today, scope=Event.PERSONAL)
+        Event.objects.create(couple=self.couple, created_by=self.user, title="모레", date=today + timedelta(days=2))
+        ctx = self.ctx()
+        self.assertEqual([e.title for e in ctx["today_events"]], [mine.title, tomorrow.title])
+        self.assertIsNone(ctx["next_event"])
+        html = self.client.get(reverse("home")).content.decode()
+        for gone in ("최근 남긴 추억", "최근 사진", "<h2>메모</h2>", "다가오는 일정"):
+            self.assertNotIn(gone, html)
+        self.assertIn("오늘", html)
+
+    def test_next_event_when_nothing_today(self):
+        later = Event.objects.create(couple=self.couple, created_by=self.user, title="다음 주 여행", date=timezone.localdate() + timedelta(days=6))
+        ctx = self.ctx()
+        self.assertEqual(list(ctx["today_events"]), [])
+        self.assertEqual(ctx["next_event"], later)
+        self.assertContains(self.client.get(reverse("home")), "오늘은 일정이 없어요")
+
+    def test_partner_news_recent_only_partner_photos_grouped(self):
+        from memos.models import Memo, MemoFolder
+
+        partner = self.user.partner
+        folder = MemoFolder.objects.create(couple=self.couple, name="여행계획")
+        Memo.objects.create(couple=self.couple, folder=folder, title="부산", lines=[], created_by=self.user, updated_by=partner)
+        Memo.objects.create(couple=self.couple, folder=folder, title="내가 고침", lines=[], created_by=partner, updated_by=self.user)
+        Taste.objects.create(couple=self.couple, author=partner, category="영화", title="상대 영화")
+        Taste.objects.create(couple=self.couple, author=self.user, category="영화", title="내 영화")
+        old = Taste.objects.create(couple=self.couple, author=partner, category="음악", title="옛 노래")
+        Taste.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=4))
+        for _ in range(3):
+            Photo.objects.create(couple=self.couple, uploaded_by=partner, image=self.png())
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("z", password="pw", couple=other)
+        Taste.objects.create(couple=other, author=stranger, category="영화", title="남의 영화")
+        news = self.ctx()["partner_news"]
+        self.assertEqual(len(news), 3)
+        texts = " ".join(n["text"] for n in news)
+        self.assertIn("사진 3장", texts)
+        self.assertIn("상대 영화", texts)
+        self.assertIn("부산", texts)
+        for hidden in ("내가 고침", "내 영화", "옛 노래", "남의 영화"):
+            self.assertNotIn(hidden, texts)
+
+
+class HomeTodayTextTests(TestCase):
+    def test_ago_and_time_text(self):
+        from datetime import time
+
+        from .views import _ago
+
+        self.assertEqual([_ago(timedelta(seconds=20)), _ago(timedelta(minutes=5)), _ago(timedelta(hours=3)), _ago(timedelta(days=2))],
+                         ["방금", "5분 전", "3시간 전", "2일 전"])
+        couple = Couple.objects.create()
+        user = User.objects.create_user("a", password="pw", couple=couple)
+        self.client.force_login(user)
+        Event.objects.create(couple=couple, created_by=user, title="저녁", date=timezone.localdate(), start_time=time(19))
+        Event.objects.create(couple=couple, created_by=user, title="카페", date=timezone.localdate(), start_time=time(15, 30))
+        html = self.client.get(reverse("home")).content.decode()
+        self.assertIn("오후 7시<", html)
+        self.assertIn("오후 3시 30분", html)

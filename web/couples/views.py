@@ -21,7 +21,7 @@ from accounts.avatars import fix_color_on_join
 from anniversaries import services as anniversary_services
 from memos.models import Memo
 
-from . import ics, linkpreview, places, placesearch, quota, services
+from . import ics, linkpreview, places, placesearch, quickparse, quota, services
 from .storage import MAX_IMAGE_BYTES, delete_file
 from .forms import (
     AlbumForm, CreateForm, EventForm, JoinForm, LabelForm, MomentForm, QuickEventForm, PhotoForm, PlaceForm, ProfileForm, TasteCommentForm, WishListForm, WishPlaceForm,
@@ -103,23 +103,63 @@ def home(request):
     user, couple = request.user, request.user.couple
     today = timezone.localdate()
     upcoming, _ = anniversary_services.build(couple)
+    partner = user.partner
+    # '오늘' 카드: 오늘·내일 일정 (공통과 내 개인 일정만, 캘린더와 같은 규칙)
+    visible = Event.objects.visible_to(user).select_related("created_by").prefetch_related("labels")
+    tomorrow = today + timedelta(days=1)
+    today_events = list(visible.overlapping(today, tomorrow).order_by("date", F("start_time").asc(nulls_first=True), "pk")[:4])
+    next_event = None if today_events else visible.not_past(today).first()
     return render(
         request,
         "couples/home.html",
         {
             "couple": couple,
-            "partner": user.partner,
+            "partner": partner,
             "days": couple.days_together,
             "next_item": upcoming[0] if upcoming else None,
             "anniversaries": upcoming[:3],
-            # 공통 일정과 내 개인 일정만 보인다 (캘린더와 같은 규칙)
-            "events": Event.objects.visible_to(user).not_past(today).select_related("created_by").prefetch_related("labels")[:3],
-            "tastes": Taste.objects.filter(couple=couple).select_related("author")[:3],
-            "photos": Photo.objects.filter(couple=couple)[:4],
-            # 최근 고친 메모 (제목 있는 것만)
-            "memos": Memo.objects.filter(couple=couple).exclude(title="").select_related("folder")[:3],
+            "today": today,
+            "today_events": today_events,
+            "next_event": next_event,
+            "partner_news": _partner_news(couple, partner) if partner else [],
         },
     )
+
+
+NEWS_DAYS = 3
+
+
+def _partner_news(couple, partner):
+    """최근 3일 안에 상대가 새로 남긴 순간·기록·사진과 고친 메모. 최근순 3개. 사진은 한 줄로 묶는다."""
+    since = timezone.now() - timedelta(days=NEWS_DAYS)
+    news = []
+    for t in Taste.objects.filter(couple=couple, author=partner, created_at__gte=since)[:3]:
+        kind = "기록" if t.category == Taste.PLACE else "순간"
+        news.append({"icon": "i-pin" if kind == "기록" else "i-note", "text": f"{kind} · {t.title}",
+                     "url": reverse("taste_detail", args=[t.pk]), "at": t.created_at})
+    for m in Memo.objects.filter(couple=couple, updated_by=partner, updated_at__gte=since).exclude(title="")[:3]:
+        news.append({"icon": "i-check-circle", "text": f"메모 · {m.title}",
+                     "url": reverse("memo_edit", args=[m.pk]), "at": m.updated_at})
+    photos = list(Photo.objects.filter(couple=couple, uploaded_by=partner, created_at__gte=since).order_by("-created_at", "-pk").only("pk", "created_at")[:100])
+    if photos:
+        url = reverse("photo_detail", args=[photos[0].pk]) if len(photos) == 1 else reverse("albums")
+        news.append({"icon": "i-album", "text": f"사진 {len(photos)}장", "url": url, "at": photos[0].created_at})
+    news.sort(key=lambda n: n["at"], reverse=True)
+    now = timezone.now()
+    for n in news:
+        n["ago"] = _ago(now - n["at"])
+    return news[:3]
+
+
+def _ago(delta):
+    minutes = int(delta.total_seconds() // 60)
+    if minutes < 1:
+        return "방금"
+    if minutes < 60:
+        return f"{minutes}분 전"
+    if minutes < 60 * 24:
+        return f"{minutes // 60}시간 전"
+    return f"{minutes // (60 * 24)}일 전"
 
 
 @login_required
@@ -232,7 +272,6 @@ def calendar(request):
                 "day": d.day,
                 "in_month": d.month == first.month,
                 "is_today": d == today,
-                "is_selected": d == selected,
                 "events": by_date.get(d, []),
                 "pieces": shown,
                 "more": sum(1 for p in lanes[i] if p["lane"] >= 2),
@@ -408,6 +447,28 @@ def event_create(request):
 
 
 @login_required
+def calendar_quick(request):
+    """글로 일정: ?q=12월 25일 찜질방 → 날짜 팝업 주소와 채울 칸. 날짜를 못 찾으면 일정 추가 화면 주소."""
+    q = request.GET.get("q", "")[:200]
+    found = quickparse.parse(q, timezone.localdate())
+    if not found:
+        return JsonResponse({"ok": False, "url": reverse("event_create") + "?" + urlencode({"text": q.strip()})})
+    hhmm = lambda t: t.strftime("%H:%M") if t else ""
+    day = found["date"].isoformat()
+    return JsonResponse({
+        "ok": True,
+        "day": day,
+        "popup": reverse("day_popup", args=[day]),
+        "fields": {
+            "text": found["title"],
+            "start_time": hhmm(found["start_time"]),
+            "end_time": hhmm(found["end_time"]),
+            "end_date": found["end_date"].isoformat() if found["end_date"] else "",
+        },
+    })
+
+
+@login_required
 def day_popup(request, day):
     """캘린더 날짜 팝업(조각 HTML): 그날에 걸친 일정 + 빠른 추가. 저장 성공이면 JSON 으로 돌아갈 주소."""
     try:
@@ -578,6 +639,15 @@ def taste(request):
     who_options = [("all", "둘 다"), (str(user.pk), user.display_name)]
     if partner:
         who_options.append((str(partner.pk), partner.display_name))
+    # 머리 줄 작은 버튼: 지금 값을 보여 주고, 누르면 다음 값(둘 다 → 나 → 상대 → 둘 다)
+    values = [v for v, _ in who_options]
+    at = values.index(who) if who in values else 0
+    who_label = who_options[at][1]
+    who_next = values[(at + 1) % len(values)]
+    params = {} if who_next == "all" else {"who": who_next}
+    if category != "전체":
+        params["cat"] = category
+    who_next_query = "?" + urlencode(params) if params else "?"
     return render(
         request,
         "couples/taste.html",
@@ -586,8 +656,9 @@ def taste(request):
             "tastes": tastes,
             "categories": ["전체", *Taste.MOMENT_TAGS],
             "category": category,
-            "who_options": who_options,
             "who": who,
+            "who_label": who_label,
+            "who_next_query": who_next_query,
         },
     )
 
@@ -829,6 +900,9 @@ def region_data(request):
     photos = couple.photos.filter(latitude__isnull=False, longitude__isnull=False)
     points = [{"lat": p.latitude, "lng": p.longitude, "kind": "place"} for p in places.only("latitude", "longitude")]
     points += [{"lat": p.latitude, "lng": p.longitude, "kind": "photo"} for p in photos.only("latitude", "longitude")]
+    # 아직 안 다녀온 가고 싶은 곳: 다녀온 곳과 다른 색(옅게·빗금)으로 칠한다
+    wishes = couple.wish_places.filter(visited_at__isnull=True).only("latitude", "longitude")
+    points += [{"lat": w.latitude, "lng": w.longitude, "kind": "wish"} for w in wishes]
     marks = [{"level": m.level, "code": m.code, "state": m.state} for m in couple.region_marks.order_by("level", "code")]
     return JsonResponse({"points": points, "marks": marks})
 

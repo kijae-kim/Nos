@@ -30,6 +30,7 @@ class Memo(models.Model):
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    notified_at = models.DateTimeField(null=True, blank=True)  # 상대에게 마지막으로 알린 때 (30분에 한 번)
 
     class Meta:
         ordering = ["-updated_at", "-pk"]

@@ -15,6 +15,7 @@
   var crumbs = root.querySelector("[data-crumbs]");
   var summary = root.querySelector("[data-color-summary]");
   var note = root.querySelector("[data-color-note]");
+  var legend = root.querySelector("[data-color-legend]");
   var panel = root.querySelector("[data-region-panel]");
 
   var data = null; // { kr, dongs, counts: {sigungu:{}, dong:{}}, marks: {} , dongGu: {} }
@@ -26,7 +27,7 @@
   function sido(code) { return SIDO[String(code).slice(0, 2)] || ""; }
   function isSeoul(code) { return String(code).slice(0, 2) === "11"; }
   function key(level, code) { return level + ":" + code; }
-  function count(level, code) { return data.counts[level][code] || { place: 0, photo: 0 }; }
+  function count(level, code) { return data.counts[level][code] || { place: 0, photo: 0, wish: 0 }; }
   function colored(level, code) {
     var mark = data.marks[key(level, code)];
     if (mark === "on") return true;
@@ -36,6 +37,15 @@
     // 서울 구: 그 안의 동이 하나라도 칠해지면 구도 칠한다
     if (level === "sigungu" && isSeoul(code)) {
       return data.dongs.some(function (d) { return data.dongGu[d.properties.code] === code && colored("dong", d.properties.code); });
+    }
+    return false;
+  }
+  // 칠하지 않은 지역 가운데 가고 싶은 곳이 있는 곳 (서울 구는 그 안의 동에 있으면)
+  function wished(level, code) {
+    if (colored(level, code)) return false;
+    if (count(level, code).wish > 0) return true;
+    if (level === "sigungu" && isSeoul(code)) {
+      return data.dongs.some(function (d) { return data.dongGu[d.properties.code] === code && count("dong", d.properties.code).wish > 0; });
     }
     return false;
   }
@@ -86,7 +96,7 @@
     });
     var counts = { sigungu: {}, dong: {} };
     var add = function (level, code, kind) {
-      var c = counts[level][code] || (counts[level][code] = { place: 0, photo: 0 });
+      var c = counts[level][code] || (counts[level][code] = { place: 0, photo: 0, wish: 0 });
       c[kind] += 1;
     };
     res[0].points.forEach(function (p) {
@@ -164,29 +174,23 @@
     var view = build();
     svg.setAttribute("viewBox", "0 0 " + W + " " + view.height);
     svg.innerHTML = "";
-    var shapes = el("g", {}), labels = el("g", { "class": "region-labels" });
-    // 글자는 화면에서 같은 크기로 보이게 viewBox 비율로 키운다
-    var px = (svg.clientWidth || 340);
-    var fontSize = (stage.name === "nation" ? 9 : 11) * W / px;
-    labels.setAttribute("font-size", fontSize.toFixed(1));
+    // 지도 위에는 이름을 쓰지 않고 색으로만 (이름은 지역을 누르면 아래 판에)
+    var shapes = el("g", {});
+    var anyWish = false;
     view.items.forEach(function (it) {
       var on = colored(view.level, it.code);
+      var wish = !on && wished(view.level, it.code);
+      if (wish) anyWish = true;
       var sel = selected && selected.level === view.level && selected.code === it.code;
-      var p = el("path", { d: it.d, "class": "region" + (on ? " on" : "") + (sel ? " sel" : ""), "data-code": it.code, tabindex: "0", role: "button" });
-      p.setAttribute("aria-label", regionName(view.level, it.f) + (on ? " 칠함" : ""));
+      var p = el("path", { d: it.d, "class": "region" + (on ? " on" : "") + (wish ? " wish" : "") + (sel ? " sel" : ""), "data-code": it.code, tabindex: "0", role: "button" });
+      p.setAttribute("aria-label", regionName(view.level, it.f) + (on ? " 칠함" : wish ? " 가고 싶은 곳" : ""));
       shapes.appendChild(p);
-      // 전국은 칠해진 곳만 이름, 서울·구는 모두
-      if (stage.name !== "nation" || on) {
-        var t = el("text", { x: it.label[0].toFixed(1), y: it.label[1].toFixed(1) });
-        t.textContent = it.f.properties.name;
-        labels.appendChild(t);
-      }
     });
+    if (legend) legend.hidden = !anyWish;
     // 고른 지역은 위에 다시 그려 테두리가 가려지지 않게
     var selPath = shapes.querySelector(".sel");
     if (selPath) shapes.appendChild(selPath);
     svg.appendChild(shapes);
-    svg.appendChild(labels);
     drawCrumbs();
     drawSummary();
     note.hidden = stage.name === "nation";
@@ -228,7 +232,10 @@
     var title = document.createElement("strong");
     title.textContent = regionName(selected.level, f);
     var why = document.createElement("small");
-    why.textContent = c.place + c.photo ? "장소 " + c.place + "곳 · 사진 " + c.photo + "장" : "기록 없음";
+    var parts = [];
+    if (c.place + c.photo) parts.push("장소 " + c.place + "곳 · 사진 " + c.photo + "장");
+    if (c.wish) parts.push("가고 싶은 곳 " + c.wish + "곳");
+    why.textContent = parts.length ? parts.join(" · ") : "기록 없음";
     var buttons = document.createElement("div");
     buttons.className = "chips region-actions";
     [["on", "칠하기"], ["off", "지우기"], ["auto", "자동으로"]].forEach(function (pair) {
