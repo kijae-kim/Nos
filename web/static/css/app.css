@@ -1206,3 +1206,53 @@ html.splash-on { background: var(--hero-bg); } /* 위·아래 안전 영역(상�
 .today-news svg.i { width: 18px; height: 18px; color: var(--primary); flex: none; }
 .today-news span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .today-news time { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+/* + 추가 팝업 (폰): 아래 바 위에 올라오는 판. 모달이 아니라 아래 바와 + 가 위에 남고, + 는 × 가 된다 */
+@media (max-width: 899px) {
+  .day-sheet {
+    position: fixed; z-index: 4; inset: auto 0 calc(100px + env(safe-area-inset-bottom)) 0;
+    margin: 0 auto; width: min(480px, calc(100vw - 16px)); border-radius: 26px;
+    max-height: calc(100dvh - 124px - env(safe-area-inset-bottom) - env(safe-area-inset-top));
+  }
+  .day-sheet.page { height: calc(100dvh - 124px - env(safe-area-inset-bottom) - env(safe-area-inset-top)); overflow: hidden; }
+  .sheet-open .dim { opacity: 1; pointer-events: auto; z-index: 3; }
+  .sheet-open .fab { background: var(--fab-open); color: #fff; }
+  .sheet-open .fab svg.i { transform: rotate(45deg); }
+}
+.day-sheet.page .day-sheet-body { padding: 0; height: 100%; }
+.sheet-frame { display: block; width: 100%; height: 100%; border: 0; background: transparent; }
+@media (min-width: 900px) { .day-sheet.page { width: min(560px, 92vw); max-width: none; height: 80vh; overflow: hidden; } }
+
+/* 팝업 안(iframe)에 띄운 등록 화면: 옆 메뉴·아래 바 없이, 위아래 여백만 */
+.in-sheet .page { padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }
+.in-sheet .brand-head { display: none; }
+
+
+/* NÓS 사이드바 (폰) */
+.drawer {
+  position: fixed; z-index: 7; top: 0; bottom: 0; left: 0; width: min(300px, 82vw); overflow-y: auto;
+  padding: calc(20px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));
+  background: var(--surface); color: var(--text); box-shadow: var(--shadow);
+  transform: translateX(-105%); transition: transform .26s var(--ease);
+}
+.drawer-open .drawer { transform: none; }
+.drawer-open .dim { opacity: 1; pointer-events: auto; z-index: 6; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.drawer-title { margin: 18px 2px 10px; font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+.drawer-new { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 8px; }
+.drawer-new a { display: grid; justify-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text); text-decoration: none; }
+.drawer-new i { width: 50px; height: 50px; border-radius: 16px; display: grid; place-items: center; color: var(--on-pastel); }
+.drawer-new i svg.i { width: 22px; height: 22px; }
+.drawer-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.drawer-links a { display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-radius: 12px; color: var(--text); text-decoration: none; font-size: 15px; font-weight: 600; }
+.drawer-links a:active { background: var(--tile); }
+.drawer-links svg.i { width: 20px; height: 20px; color: var(--muted); }
+@media (min-width: 900px) { .drawer { display: none; } }
+
+/* 아래 바: 페이지 바탕과 구분되게. 라이트는 짙은 바(밝은 글자), 다크는 한 단계 밝은 바 + 위 경계 */
+html[data-mode="light"] { --bar-bg: color-mix(in srgb, var(--text) 88%, var(--primary)); --bar-fg: rgba(255, 255, 255, .62); --bar-on: #fff; --bar-line: transparent; }
+html[data-mode="dark"] { --bar-bg: color-mix(in srgb, var(--surface), #fff 9%); --bar-fg: var(--muted); --bar-on: var(--primary); --bar-line: rgba(255, 255, 255, .1); }
+.tabbar .bar { fill: var(--bar-bg, var(--surface)); stroke: var(--bar-line, transparent); stroke-width: 1; }
+.tab { color: var(--bar-fg, var(--faint)); }
+.tab.on { color: var(--bar-on, var(--primary)); }
+.day-sheet:not([open]) { display: none; } /* 닫힌 판은 그리지 않는다 (다른 dialog 규칙이 display 를 바꿔도) */

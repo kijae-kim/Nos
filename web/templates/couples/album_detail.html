@@ -7,6 +7,7 @@
   <span class="spacer"></span>
 </header>
 {% endblock %}
+{% block fab %}aria-label="사진 올리기" href="{% url 'photo_create' %}" data-fab-page="{% url 'photo_create' %}"{% endblock %}
 {% block content %}
 <div class="photos">
   {% for p in photos %}

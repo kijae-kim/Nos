@@ -2,7 +2,7 @@
 {% load static %}
 {% block head_title %}캘린더 · {{ APP_NAME }}{% endblock %}
 {% block app_class %} wide{% endblock %}
-{% block fab %}aria-label="일정 추가" data-fab-url="{% url 'event_create' %}?date={{ selected|date:'Y-m-d' }}" data-fab-popup="{% url 'day_popup' selected|date:'Y-m-d' %}"{% endblock %}
+{% block fab %}aria-label="일정 추가" href="{% url 'event_create' %}?date={{ selected|date:'Y-m-d' }}" data-fab-popup="{% url 'day_popup' selected|date:'Y-m-d' %}"{% endblock %}
 {% block content %}
 {% if last_move %}
   {# 끌어서 옮긴 뒤 한 번만 보이는 안내. 되돌리기는 같은 옮기기를 옛 날짜로 부른다 (calendar-drag.js) #}
@@ -114,8 +114,5 @@
 </div>
 {% endblock %}
 {% block extra_body %}
-{# 날짜 팝업: 폰은 아래에서 올라오는 판, 넓은 화면은 가운데 창 (내용은 calendar-popup.js 가 받아 넣는다) #}
-<dialog class="day-sheet" aria-label="그날 일정"><div class="day-sheet-body" data-popup-body></div></dialog>
 <script src="{% static 'js/calendar-drag.js' %}" defer></script>
-<script src="{% static 'js/calendar-popup.js' %}" defer></script>
 {% endblock %}
