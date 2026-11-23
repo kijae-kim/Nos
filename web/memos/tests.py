@@ -414,3 +414,39 @@ class MemoNotifyTests(TestCase):
         self.assertTrue(User.objects.create_user("n", password="pw").notify_memo)
         html = self.client.get(reverse("memo_edit", args=[self.memo().pk])).content.decode()
         self.assertIn("data-notify-url", html)
+
+
+class MemoNotifyWithSaveTests(TestCase):
+    """떠날 때 마지막 저장에 notify 를 실어 보낸다 (따로 보내면 저장보다 먼저 도착해 알림이 사라질 수 있다)."""
+
+    setUp = MemoTests.setUp
+    memo = MemoNotifyTests.memo
+
+    def save(self, memo, notify):
+        from unittest import mock
+
+        body = {"lines": [{"t": "text", "on": False, "s": "장보기"}], "version": memo.version}
+        if notify is not None:
+            body["notify"] = notify
+        with mock.patch("memos.notify.send_to_user", return_value=1) as sent:
+            res = self.client.post(reverse("memo_save", args=[memo.pk]), json.dumps(body), content_type="application/json")
+        return res, sent
+
+    def test_last_save_with_notify_sends_after_title_is_saved(self):
+        memo = self.memo(title="", lines=[], updated_by=self.b)  # 새 메모·상대가 마지막으로 고친 메모도
+        res, sent = self.save(memo, True)
+        self.assertEqual(res.status_code, 200)
+        sent.assert_called_once()
+        self.assertEqual(sent.call_args.args[1]["body"], "여행계획 · 장보기")
+
+    def test_plain_save_does_not_notify(self):
+        for flag in (None, False, "yes"):
+            memo = self.memo()
+            _, sent = self.save(memo, flag)
+            sent.assert_not_called()
+
+    def test_editor_sends_notify_with_leaving_save(self):
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
+        self.assertIn("notify: !!notify", js)

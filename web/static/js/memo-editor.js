@@ -248,14 +248,15 @@
     clearTimeout(timer);
     timer = setTimeout(saveNow, 5000);
   }
-  function post(lines, keepalive) {
+  function post(lines, keepalive, notify) {
     return fetch(editor.dataset.saveUrl, {
       method: "POST", credentials: "same-origin", keepalive: !!keepalive,
       headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-      body: JSON.stringify({ lines: lines, version: version }),
+      body: JSON.stringify({ lines: lines, version: version, notify: !!notify }),
     });
   }
-  function saveNow(keepalive) {
+  // notify: 떠날 때의 마지막 저장이면 서버가 저장한 뒤 상대에게 알린다
+  function saveNow(keepalive, notify) {
     clearTimeout(timer);
     if (!dirty || gone) return;
     var mine = serialize();
@@ -263,12 +264,12 @@
     if (keepalive && JSON.stringify(mine).length > 60000) { keepDraft(); return; }
     if (saving) {
       // 떠나는 중이면 기다리지 않고 지금 것을 보낸다 (안 되면 기기에 남긴 글로 다음에 안내)
-      if (keepalive) post(mine, true).catch(function () {});
+      if (keepalive) post(mine, true, notify).catch(function () {});
       again = true;
       return;
     }
     saving = true; dirty = false;
-    post(mine, keepalive).then(function (r) {
+    post(mine, keepalive, notify).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (d) { return { status: r.status, data: d }; });
     }).then(function (res) {
       if (res.status === 200 && res.data.ok) {
@@ -323,12 +324,17 @@
     editedHere = false;
     fetch(editor.dataset.notifyUrl, { method: "POST", keepalive: true, credentials: "same-origin", headers: { "X-CSRFToken": csrf() } }).catch(function () {});
   }
-  window.addEventListener("pagehide", function () { if (dirty) { keepDraft(); saveNow(true); } notifyPartner(); });
-  document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState !== "hidden") return;
-    if (dirty) saveNow(true);
-    notifyPartner();
-  });
+  // 저장할 게 남았으면 알림을 그 저장에 실어 보낸다 (따로 보내면 저장보다 먼저 도착해 빈 제목으로 보일 수 있다)
+  function leave() {
+    if (dirty && !gone) {
+      var notify = editedHere;
+      editedHere = false;
+      keepDraft();
+      saveNow(true, notify);
+    } else notifyPartner();
+  }
+  window.addEventListener("pagehide", leave);
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") leave(); });
 
   render(data.lines || []);
   // 지난번에 저장하지 못한 내 글이 기기에 남아 있으면: 서버가 그대로면 이어서 저장, 그새 바뀌었으면 안내

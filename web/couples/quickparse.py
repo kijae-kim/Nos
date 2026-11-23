@@ -11,11 +11,11 @@ import re
 from datetime import date, time, timedelta
 
 PERIOD = r"(오전|오후|아침|점심|저녁|밤|새벽)"
-HOUR = PERIOD + r"?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분|\s*(반))?"
+HOUR = PERIOD + r"?\s*(\d{1,2})\s*시(?!간)(?:\s*(\d{1,2})\s*분|\s*(반))?"  # "2시간" 은 시간이 아니다
 WEEKDAYS = "월화수목금토일"
 
 RE_RANGE_MD = re.compile(r"(\d{1,2})\s*월\s*(\d{1,2})\s*일?\s*[~\-–]\s*(?:(\d{1,2})\s*월\s*)?(\d{1,2})\s*일")
-RE_RANGE_D = re.compile(r"(?<!\d)(\d{1,2})\s*[~\-–]\s*(\d{1,2})\s*일")
+RE_RANGE_D = re.compile(r"(?<!\d)(\d{1,2})\s*일?\s*[~\-–]\s*(\d{1,2})\s*일")
 RE_MD = re.compile(r"(\d{1,2})\s*월\s*(\d{1,2})\s*일")
 RE_SLASH = re.compile(r"(?<![\d/])(\d{1,2})/(\d{1,2})(?![\d/])")
 RE_D = re.compile(r"(?<!\d)(\d{1,2})\s*일(?!\s*[~\-–])")
@@ -24,6 +24,8 @@ RE_WEEK = re.compile(r"(?:(이번|다음|담)\s*주\s*)?([월화수목금토일]
 RE_TIME_RANGE = re.compile(HOUR + r"\s*(?:[~\-–]|부터)\s*" + HOUR + r"(?:\s*까지)?")
 RE_TIME = re.compile(HOUR)
 RE_CLOCK = re.compile(r"(?<!\d)(\d{1,2}):(\d{2})(?:\s*[~\-–]\s*(\d{1,2}):(\d{2}))?")
+# 기간을 말하는 글("1박 2일", "3일 동안")은 날짜로 보지 않는다
+RE_DURATION = re.compile(r"\d{1,2}\s*박\s*\d{1,2}\s*일|\d{1,2}\s*일\s*(?:동안|간|째)")
 RE_PARTICLE = re.compile(r"(^|\s)(에|에는|부터|까지)(?=\s|$)")
 
 REL_DAYS = {"오늘": 0, "내일": 1, "모레": 2, "글피": 3}
@@ -71,8 +73,10 @@ def _cut(text, m):
 
 
 def _find_date(text, today):
-    """(시작, 끝 날짜 또는 None, 남은 글). 못 찾으면 None."""
-    m = RE_RANGE_MD.search(text)
+    """(시작, 끝 날짜 또는 None, 남은 글). 못 찾으면 None.
+    기간 글은 같은 길이의 # 로 가린 사본에서 찾고, 자르기는 원래 글에서 한다 (위치가 같다)."""
+    masked = RE_DURATION.sub(lambda d: "#" * len(d[0]), text)
+    m = RE_RANGE_MD.search(masked)
     if m:
         start = _upcoming_md(int(m[1]), int(m[2]), today)
         if start:
@@ -82,24 +86,29 @@ def _find_date(text, today):
                 end = _safe(start.year + 1, end_month, int(m[4])) if m[3] else None
             if end:
                 return start, end, _cut(text, m)
-    m = RE_RANGE_D.search(text)
+    m = RE_RANGE_D.search(masked)
     if m:
         start = _upcoming_d(int(m[1]), today)
         end = start and _safe(start.year, start.month, int(m[2]))
-        if start and end and end >= start:
+        if start and end and end < start:  # 30일~2일: 끝은 다음 달
+            nxt = (start.replace(day=1) + timedelta(days=32)).replace(day=1)
+            end = _safe(nxt.year, nxt.month, int(m[2]))
+        if start and end:
             return start, end, _cut(text, m)
-    for regex, make in (
-        (RE_MD, lambda m: _upcoming_md(int(m[1]), int(m[2]), today)),
-        (RE_SLASH, lambda m: _upcoming_md(int(m[1]), int(m[2]), today)),
-        (RE_REL, lambda m: today + timedelta(days=REL_DAYS[m[0]])),
-        (RE_WEEK, lambda m: _weekday(m[1], m[2], today)),
-        (RE_D, lambda m: _upcoming_d(int(m[1]), today)),
+    for regex, make, strict in (
+        (RE_MD, lambda m: _upcoming_md(int(m[1]), int(m[2]), today), True),
+        (RE_SLASH, lambda m: _upcoming_md(int(m[1]), int(m[2]), today), True),
+        (RE_REL, lambda m: today + timedelta(days=REL_DAYS[m[0]]), False),
+        (RE_WEEK, lambda m: _weekday(m[1], m[2], today), False),
+        (RE_D, lambda m: _upcoming_d(int(m[1]), today), False),
     ):
-        m = regex.search(text)
+        m = regex.search(masked)
         if m:
             found = make(m)
             if found:
                 return found, None, _cut(text, m)
+            if strict:  # 2월 30일처럼 없는 날짜를 분명히 썼으면 다른 날로 짐작하지 않는다
+                return None
     return None
 
 

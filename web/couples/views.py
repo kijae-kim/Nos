@@ -140,7 +140,7 @@ def _partner_news(couple, partner):
     for m in Memo.objects.filter(couple=couple, updated_by=partner, updated_at__gte=since).exclude(title="")[:3]:
         news.append({"icon": "i-check-circle", "text": f"메모 · {m.title}",
                      "url": reverse("memo_edit", args=[m.pk]), "at": m.updated_at})
-    photos = list(Photo.objects.filter(couple=couple, uploaded_by=partner, created_at__gte=since).only("pk", "created_at")[:50])
+    photos = list(Photo.objects.filter(couple=couple, uploaded_by=partner, created_at__gte=since).order_by("-created_at", "-pk").only("pk", "created_at")[:100])
     if photos:
         url = reverse("photo_detail", args=[photos[0].pk]) if len(photos) == 1 else reverse("albums")
         news.append({"icon": "i-album", "text": f"사진 {len(photos)}장", "url": url, "at": photos[0].created_at})

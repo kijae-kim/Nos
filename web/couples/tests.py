@@ -3092,6 +3092,33 @@ class QuickParseTests(TestCase):
         self.assertEqual(self.p("내일")["title"], "")
 
 
+class QuickParseReviewTests(TestCase):
+    """최종 검토: 흔한 말투에서 엉뚱한 날짜·시간을 고르지 않게."""
+
+    TODAY = QuickParseTests.TODAY
+    p = QuickParseTests.p
+
+    def test_hours_and_durations_are_not_dates_or_times(self):
+        from datetime import date
+
+        r = self.p("내일 2시간 산책")
+        self.assertEqual((r["date"], r["start_time"], r["title"]), (date(2026, 11, 24), None, "2시간 산책"))
+        self.assertIsNone(self.p("1박 2일 캠핑"))
+        self.assertIsNone(self.p("3일 동안 여행"))
+        self.assertEqual(self.p("12월 1일 1박 2일 캠핑")["title"], "1박 2일 캠핑")
+
+    def test_impossible_month_day_is_not_guessed(self):
+        self.assertIsNone(self.p("2월 30일 파티"))
+        self.assertIsNone(self.p("11월 31일 모임"))
+        self.assertIsNone(self.p("2/30 파티"))
+
+    def test_day_range_across_months(self):
+        from datetime import date
+
+        r = self.p("30일~2일 여행")
+        self.assertEqual((r["date"], r["end_date"], r["title"]), (date(2026, 11, 30), date(2026, 12, 2), "여행"))
+
+
 class CalendarQuickTests(TestCase):
     """캘린더 위 글로 일정 입력칸."""
 

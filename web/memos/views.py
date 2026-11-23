@@ -157,6 +157,9 @@ def memo_save(request, pk):
         memo.version += 1
         memo.updated_by = request.user
         memo.save()
+    # 쓰기 화면을 떠날 때의 마지막 저장: 저장이 끝난 뒤 상대에게 알린다 (memos.notify)
+    if body.get("notify") is True:
+        notify_partner(memo, request.user)
     return JsonResponse({"ok": True, "version": memo.version, "title": memo.title,
                          "updated": timezone.localtime(memo.updated_at).isoformat()})
 
