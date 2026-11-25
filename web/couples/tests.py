@@ -3362,3 +3362,36 @@ class MemoriesTabIconTests(TestCase):
         self.assertIn('id="i-journal"', html)
         tab = html[html.index('<span>추억</span>') - 120:html.index('<span>추억</span>')]
         self.assertIn("#i-journal", tab)
+
+
+class AnnotatedOrderTests(TestCase):
+    """좋아요·댓글 수를 세는(annotate) 쿼리는 모델 기본 정렬을 쓰지 않는다 (Django 3.1+) → 정렬을 직접 쓴다."""
+
+    setUp = ScreenTests.setUp
+
+    def test_moments_newest_first(self):
+        old = Taste.objects.create(couple=self.couple, author=self.a, category="영화", title="옛 영화")
+        new = Taste.objects.create(couple=self.couple, author=self.a, category="음악", title="새 노래")
+        Taste.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=3))
+        self.assertEqual([t.pk for t in self.client.get(reverse("tastes")).context["tastes"]], [new.pk, old.pk])
+
+    def test_wish_lists_by_name(self):
+        from .models import WishList
+
+        for name in ("하와이", "강릉", "부산"):
+            WishList.objects.create(couple=self.couple, name=name)
+        lists = self.client.get(reverse("tastes") + "?tab=record").context["wish_lists"]
+        self.assertEqual([l.name for l in lists], ["강릉", "부산", "하와이"])
+
+
+class PhoneOverflowGuardTests(TestCase):
+    """아이폰 사파리: 긴 한 줄 글이 화면 격자를 넓혀 오른쪽이 잘리던 것, 작은 입력 칸 확대를 막는다."""
+
+    def test_css_guards(self):
+        from pathlib import Path
+
+        css = (Path(__file__).resolve().parent.parent / "static/css/app.css").read_text()
+        self.assertIn(".page { grid-template-columns: minmax(0, 1fr); }", css)
+        self.assertIn(".page > * { min-width: 0; }", css)
+        self.assertIn("grid-template-columns: auto minmax(0, 1fr) auto", css)  # 오늘 카드 일정 줄
+        self.assertIn("input, textarea, select { font-size: max(16px, 1em) !important; }", css)

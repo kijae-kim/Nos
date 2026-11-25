@@ -1199,7 +1199,7 @@ html.splash-on { background: var(--hero-bg); } /* 위·아래 안전 영역(상�
 /* 홈 '오늘' 카드 */
 .today-card { display: grid; gap: 10px; padding: 16px; }
 .today-events, .today-news { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.today-events a { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; text-decoration: none; color: var(--text); background: color-mix(in srgb, var(--c, var(--sky)) 28%, var(--surface)); }
+.today-events a { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; text-decoration: none; color: var(--text); background: color-mix(in srgb, var(--c, var(--sky)) 28%, var(--surface)); }
 .today-events em { font-style: normal; font-size: 12px; font-weight: 700; color: var(--muted); }
 .today-events strong { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .today-events small { font-size: 12px; color: var(--muted); white-space: nowrap; }
@@ -1281,3 +1281,10 @@ html[data-mode="dark"] .cat { box-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
 .dock-item i { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: var(--on-pastel); box-shadow: 0 4px 12px rgba(var(--shadow-rgb), .2); }
 .dock-item i svg.i { width: 22px; height: 22px; }
 @keyframes dock-pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+
+/* 아이폰 사파리: 칸 안의 긴 한 줄 글(줄바꿈 안 함)이 화면 격자를 글 길이만큼 넓혀 오른쪽이 잘렸다.
+   격자 칸을 화면 폭 안으로 묶고, 칸 안 요소도 줄어들 수 있게 */
+.page { grid-template-columns: minmax(0, 1fr); }
+.page > * { min-width: 0; }
+/* 아이폰은 16px 보다 작은 입력 칸을 누르면 화면을 확대하고 그대로 둔다 (잘려 보이는 원인) */
+@media (max-width: 899px) { input, textarea, select { font-size: max(16px, 1em) !important; } }
