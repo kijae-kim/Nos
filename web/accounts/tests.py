@@ -526,3 +526,55 @@ class InstallButtonTests(TestCase):
         js = (Path(__file__).resolve().parent.parent / "static/js/app.js").read_text()
         self.assertIn('matchMedia("(display-mode: standalone)")', js)
         self.assertIn("beforeinstallprompt", js)
+
+
+class OnboardingTests(TestCase):
+    """처음 한 번 튜토리얼, 새 소식이 있으면 한 번 팝업. 본 것은 계정에 기억."""
+
+    def setUp(self):
+        from couples.models import Couple
+
+        self.u = User.objects.create_user("o", password="pw", couple=Couple.objects.create())
+        self.client.force_login(self.u)
+
+    def test_tutorial_once_then_news(self):
+        from accounts.news import LATEST
+
+        html = self.client.get(reverse("home")).content.decode()
+        self.assertIn("data-tutorial", html)
+        self.assertNotIn("data-news-popup", html)  # 튜토리얼이 먼저
+        self.assertEqual(self.client.post(reverse("tutorial_done")).status_code, 204)
+        self.u.refresh_from_db()
+        self.assertTrue(self.u.tutorial_done)
+        self.assertEqual(self.u.news_seen, LATEST)  # 처음 온 사람은 지난 소식까지 볼 필요 없다
+        html = self.client.get(reverse("home")).content.decode()
+        self.assertNotIn("data-tutorial", html)
+        self.assertNotIn("data-news-popup", html)
+
+    def test_news_popup_once_when_new(self):
+        from accounts.news import LATEST
+
+        User.objects.filter(pk=self.u.pk).update(tutorial_done=True, news_seen="old")
+        html = self.client.get(reverse("calendar")).content.decode()
+        self.assertIn("data-news-popup", html)
+        self.client.post(reverse("news_seen"))
+        self.u.refresh_from_db()
+        self.assertEqual(self.u.news_seen, LATEST)
+        self.assertNotIn("data-news-popup", self.client.get(reverse("calendar")).content.decode())
+
+    def test_pages_and_links(self):
+        from accounts.news import NEWS
+
+        html = self.client.get(reverse("us")).content.decode()
+        self.assertIn(reverse("guide"), html)
+        self.assertIn(reverse("news"), html)
+        guide = self.client.get(reverse("guide")).content.decode()
+        self.assertIn("data-tutorial-replay", guide)
+        news = self.client.get(reverse("news")).content.decode()
+        self.assertIn(NEWS[0]["title"], news)
+        self.assertEqual(self.client.get(reverse("tutorial_done")).status_code, 405)
+
+    def test_not_in_sheet_or_logged_out(self):
+        self.assertNotIn("data-tutorial", self.client.get(reverse("taste_create") + "?sheet=1").content.decode())
+        self.client.logout()
+        self.assertNotIn("data-tutorial", self.client.get(reverse("account_login")).content.decode())

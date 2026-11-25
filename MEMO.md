@@ -136,7 +136,11 @@
 
 - [x] 1단계 배포: 메모 펜 버튼이 끌 때 손가락을 따라오게(아이폰 자판), 캘린더 태그를 누르면 목록만 바꿔 끼우기, 화면 문구 통일(수정·삭제·전체 보기·태그, 표 docs/superpowers/specs/2026-11-25-wording.md)
 - [x] 2단계 배포: 앨범 대표 사진(사진 화면에서 정함, couples 0017 → Neon 확인 숫자 **59**), 앱처럼 쓰기 버튼(로그인 화면·우리, 안드로이드는 설치 창·아이폰은 안내 판)
-- [ ] 3단계: 처음 한 번 튜토리얼, 업데이트 소식 팝업
+- [ ] 3단계 (진행 중, 브랜치 feat/feedback-step3): 처음 한 번 튜토리얼, 업데이트 소식 팝업
+  - 한 것: 소식 목록 `web/accounts/news.py`(NEWS·LATEST), 테스트 `accounts/tests.py` OnboardingTests (아직 실패하는 상태)
+  - 남은 것: User.tutorial_done(Bool)·news_seen(Char 20) + 마이그레이션(→ Neon 60), POST me/tutorial/done/·me/news/seen/ (204, 튜토리얼 끝내면 news_seen=LATEST),
+    context processor 로 show_tutorial/show_news(로그인·커플·?sheet=1 아님), layout_app 에 장면 넘기기 dialog(data-tutorial, 5장)·소식 팝업(data-news-popup),
+    우리 › 사용법(me/guide/, data-tutorial-replay)·업데이트 소식(me/news/) 링크, CSS, 375px·라이트/다크 확인
 - 폰에서 확인: 펜 버튼 끌기(자판 떠 있을 때), 태그 누르기
 
 ## git 기록 다시 씀 (2026-11-25) — 학원 PC 먼저 할 일
