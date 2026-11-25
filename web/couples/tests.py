@@ -3352,3 +3352,13 @@ class PersonalEventNameTests(TestCase):
         self.assertIn('야근<span class="kind">바다</span>', html)
         self.assertIn('운동<span class="kind">하늘</span>', html)
         self.assertNotIn('<span class="kind">개인</span>', html)
+
+
+class MemoriesTabIconTests(TestCase):
+    setUp = ScreenTests.setUp
+
+    def test_memories_tab_uses_journal_icon(self):
+        html = self.client.get(reverse("home")).content.decode()
+        self.assertIn('id="i-journal"', html)
+        tab = html[html.index('<span>추억</span>') - 120:html.index('<span>추억</span>')]
+        self.assertIn("#i-journal", tab)
