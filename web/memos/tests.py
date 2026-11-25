@@ -451,8 +451,8 @@ class MemoNotifyWithSaveTests(TestCase):
         self.assertIn("notify: !!notify", js)
 
 
-class MemoInMemoriesTests(TestCase):
-    """메모는 추억 › 순간의 '메모' 칩으로 (사이드바 없앰, 2026-11-25)."""
+class MemoTabTests(TestCase):
+    """메모는 아래 바의 '메모' 탭 (2026-11-25, 추억의 메모 칩에서 옮김)."""
 
     setUp = MemoTests.setUp
 
@@ -461,35 +461,30 @@ class MemoInMemoriesTests(TestCase):
         return Memo.objects.create(couple=self.couple, folder=folder, lines=lines, title=title, version=1,
                                    created_by=self.a, updated_by=self.a, **kw)
 
-    def board(self, **params):
-        from urllib.parse import urlencode
+    def folders(self):
+        self.client.get(reverse("memos"))
+        return MemoFolder.objects.get(couple=self.couple, name="여행계획"), MemoFolder.objects.get(couple=self.couple, name="버킷리스트")
 
-        return self.client.get(reverse("tastes") + "?" + urlencode({"cat": "메모", **params}))
-
-    def test_memo_chip_lists_folders_and_recent_memos(self):
-        res = self.board()
-        trip = MemoFolder.objects.get(couple=self.couple, name="여행계획")
-        bucket = MemoFolder.objects.get(couple=self.couple, name="버킷리스트")
+    def test_memo_tab_lists_folders_and_recent_memos(self):
+        trip, bucket = self.folders()
         self.make(trip, "부산 여행")
         self.make(bucket, "오로라 보기")
-        html = self.board().content.decode()
-        self.assertIn('>메모</a>', html)
+        res = self.client.get(reverse("memos"))
+        html = res.content.decode()
+        self.assertEqual(res.status_code, 200)
         self.assertIn("부산 여행", html)
         self.assertIn("오로라 보기", html)
-        self.assertIn(f"folder={trip.pk}", html)
+        self.assertIn(f"?folder={trip.pk}", html)
         self.assertIn(reverse("memo_folder_create"), html)
-        self.assertNotIn("who-pill", html)
-        self.assertEqual(res.status_code, 200)
+        self.assertIn('class="tab on" style="left:71.3%" href="/memos/"', html)  # 아래 바 메모 탭이 켜짐
 
     def test_folder_filter_and_plus_writes_memo_there(self):
         import re
 
-        self.board()
-        trip = MemoFolder.objects.get(couple=self.couple, name="여행계획")
-        bucket = MemoFolder.objects.get(couple=self.couple, name="버킷리스트")
+        trip, bucket = self.folders()
         self.make(trip, "부산 여행")
         self.make(bucket, "오로라 보기")
-        html = self.board(folder=trip.pk).content.decode()
+        html = self.client.get(reverse("memos"), {"folder": trip.pk}).content.decode()
         self.assertIn("부산 여행", html)
         self.assertNotIn("오로라 보기", html)
         self.assertIn(reverse("memo_folder_update", args=[trip.pk]), html)
@@ -497,31 +492,61 @@ class MemoInMemoriesTests(TestCase):
         self.assertIn(f'href="{reverse("memo_new")}?folder={trip.pk}"', fab)
         self.assertNotIn("data-fab-page", fab)
 
-    def test_memos_not_in_all_and_old_addresses_redirect(self):
-        self.board()
-        trip = MemoFolder.objects.get(couple=self.couple, name="여행계획")
+    def test_memories_has_no_memo_chip_and_old_addresses_redirect(self):
+        trip, _ = self.folders()
         self.make(trip, "부산 여행")
-        self.assertNotIn("부산 여행", self.client.get(reverse("tastes")).content.decode())
-        self.assertRedirects(self.client.get(reverse("memos")), reverse("tastes") + "?cat=%EB%A9%94%EB%AA%A8", fetch_redirect_response=False)
+        html = self.client.get(reverse("tastes")).content.decode()
+        self.assertNotIn("부산 여행", html)
+        self.assertNotIn(">메모</a>", html.split('class="cats"')[1].split("</nav>")[0])
+        self.assertRedirects(self.client.get(reverse("tastes") + "?cat=%EB%A9%94%EB%AA%A8"), reverse("memos"), fetch_redirect_response=False)
+        self.assertRedirects(self.client.get(reverse("tastes") + f"?cat=%EB%A9%94%EB%AA%A8&folder={trip.pk}"),
+                             reverse("memos") + f"?folder={trip.pk}", fetch_redirect_response=False)
         self.assertRedirects(self.client.get(reverse("memo_folder", args=[trip.pk])),
-                             reverse("tastes") + f"?cat=%EB%A9%94%EB%AA%A8&folder={trip.pk}", fetch_redirect_response=False)
+                             reverse("memos") + f"?folder={trip.pk}", fetch_redirect_response=False)
 
-    def test_editor_back_goes_to_memories_folder(self):
-        self.board()
-        trip = MemoFolder.objects.get(couple=self.couple, name="여행계획")
+    def test_editor_back_goes_to_memo_tab_folder(self):
+        trip, _ = self.folders()
         m = self.make(trip, "부산 여행")
         html = self.client.get(reverse("memo_edit", args=[m.pk])).content.decode()
-        self.assertIn(f'href="{reverse("tastes")}?cat=%EB%A9%94%EB%AA%A8&amp;folder={trip.pk}"', html)
+        self.assertIn(f'href="{reverse("memos")}?folder={trip.pk}"', html)
 
     def test_empty_old_memos_cleaned_and_hidden(self):
-        self.board()
-        trip = MemoFolder.objects.get(couple=self.couple, name="여행계획")
+        trip, _ = self.folders()
         old = Memo.objects.create(couple=self.couple, folder=trip, lines=[], title="", created_by=self.a, updated_by=self.a)
         Memo.objects.filter(pk=old.pk).update(updated_at=timezone.now() - timedelta(hours=2))
-        self.board(folder=trip.pk)
+        self.client.get(reverse("memos"), {"folder": trip.pk})
         self.assertFalse(Memo.objects.filter(pk=old.pk).exists())
 
-    def test_no_sidebar(self):
-        html = self.client.get(reverse("home")).content.decode()
+    def test_no_home_tab_and_logo_goes_home(self):
+        html = self.client.get(reverse("calendar")).content.decode()
+        self.assertNotIn("<span>홈</span>", html)
+        for name in ("캘린더", "추억", "메모", "앨범"):
+            self.assertIn(f"<span>{name}</span>", html)
+        self.assertIn(f'class="home-brand" href="{reverse("home")}"', html)
         self.assertNotIn('id="drawer"', html)
-        self.assertNotIn("data-drawer-open", html)
+
+
+class MemoDockTests(TestCase):
+    """메모 쓰기: 아래 도구줄 대신 화면 가장자리에 붙는 도구 버튼 (누르면 도구가 펼쳐짐, 끌어서 옮김)."""
+
+    setUp = MemoTests.setUp
+    new_memo = MemoTests.new_memo
+
+    def test_dock_button_with_tools_and_no_toolbar(self):
+        html = self.client.get(reverse("memo_edit", args=[self.new_memo().pk])).content.decode()
+        self.assertNotIn("memo-toolbar", html)
+        self.assertIn('class="memo-dock"', html)
+        self.assertIn('data-dock-toggle aria-label="메모 도구" aria-expanded="false"', html)
+        menu = html[html.index('class="memo-dock-menu"'):]
+        self.assertIn("data-make-check", menu)
+        self.assertIn("체크 항목", menu)
+        self.assertIn("data-done", menu)
+        self.assertIn('id="i-pen"', html)
+
+    def test_dock_script_snaps_to_edges_and_remembers(self):
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
+        self.assertIn('"nos.memoDock"', js)  # 위치 기억
+        self.assertIn('innerWidth / 2 ? "left" : "right"', js)  # 놓으면 가까운 쪽 끝에 붙는다
+        self.assertIn("visualViewport", js)  # 자판에 가리지 않게

@@ -13,6 +13,7 @@
       <a class="{% if tab == 'home' %}on{% endif %}" href="{% url 'home' %}" aria-label="홈"><svg class="i"><use href="#i-home"/></svg></a>
       <a class="{% if tab == 'calendar' %}on{% endif %}" href="{% url 'calendar' %}" aria-label="캘린더"><svg class="i"><use href="#i-cal"/></svg></a>
       <a class="{% if tab == 'tastes' %}on{% endif %}" href="{% url 'tastes' %}" aria-label="추억"><svg class="i"><use href="#i-journal"/></svg></a>
+      <a class="{% if tab == 'memos' %}on{% endif %}" href="{% url 'memos' %}" aria-label="메모"><svg class="i"><use href="#i-list"/></svg></a>
       <a class="{% if tab == 'albums' %}on{% endif %}" href="{% url 'albums' %}" aria-label="앨범"><svg class="i"><use href="#i-album"/></svg></a>
       <a href="{% url 'anniversary_index' %}" aria-label="기념일"><svg class="i"><use href="#i-gift"/></svg></a>
     </nav>
@@ -31,17 +32,19 @@
   {% if sheet != "1" %}
   <div class="dim" id="dim"></div>
   <nav class="tabbar" aria-label="주 메뉴">
-    <svg class="bar" viewBox="0 0 342 64" aria-hidden="true"><path d="M22 0H126Q133 0 134 6A38 38 0 0 0 208 6Q209 0 216 0H320A22 22 0 0 1 342 22V42A22 22 0 0 1 320 64H22A22 22 0 0 1 0 42V22A22 22 0 0 1 22 0Z"/></svg>
+    {# 아래 바: 화면 폭에 맞춰 늘고 줄어든다. 가운데 + 자리 홈은 CSS 로 오려 낸다 (예전 SVG 는 342px 고정이었다) #}
+    <span class="bar-wrap" aria-hidden="true"><i class="bar"></i></span>
 
 
-    <a class="tab{% if tab == 'home' %} on{% endif %}" style="left:11.7%" href="{% url 'home' %}"{% if tab == 'home' %} aria-current="page"{% endif %}>
-      <svg class="i" aria-hidden="true"><use href="#i-home"/></svg><span>홈</span>
-    </a>
-    <a class="tab{% if tab == 'calendar' %} on{% endif %}" style="left:28.7%" href="{% url 'calendar' %}"{% if tab == 'calendar' %} aria-current="page"{% endif %}>
+    {# 홈은 왼쪽 위 NÓS 로 간다 (2026-11-25). 아래 바는 캘린더·추억 | + | 메모·앨범 #}
+    <a class="tab{% if tab == 'calendar' %} on{% endif %}" style="left:11.7%" href="{% url 'calendar' %}"{% if tab == 'calendar' %} aria-current="page"{% endif %}>
       <svg class="i" aria-hidden="true"><use href="#i-cal"/></svg><span>캘린더</span>
     </a>
-    <a class="tab{% if tab == 'tastes' %} on{% endif %}" style="left:71.3%" href="{% url 'tastes' %}"{% if tab == 'tastes' %} aria-current="page"{% endif %}>
+    <a class="tab{% if tab == 'tastes' %} on{% endif %}" style="left:28.7%" href="{% url 'tastes' %}"{% if tab == 'tastes' %} aria-current="page"{% endif %}>
       <svg class="i" aria-hidden="true"><use href="#i-journal"/></svg><span>추억</span>
+    </a>
+    <a class="tab{% if tab == 'memos' or tab == 'memo_edit' or tab == 'memo_folder_create' or tab == 'memo_folder_update' %} on{% endif %}" style="left:71.3%" href="{% url 'memos' %}"{% if tab == 'memos' %} aria-current="page"{% endif %}>
+      <svg class="i" aria-hidden="true"><use href="#i-list"/></svg><span>메모</span>
     </a>
     <a class="tab{% if tab == 'albums' %} on{% endif %}" style="left:88.3%" href="{% url 'albums' %}"{% if tab == 'albums' %} aria-current="page"{% endif %}>
       <svg class="i" aria-hidden="true"><use href="#i-album"/></svg><span>앨범</span>
