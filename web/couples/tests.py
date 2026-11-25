@@ -3183,30 +3183,42 @@ class HomeTodayTests(TestCase):
         self.assertEqual(ctx["next_event"], later)
         self.assertContains(self.client.get(reverse("home")), "오늘은 일정이 없어요")
 
-    def test_partner_news_recent_only_partner_photos_grouped(self):
+    def test_recent_news_from_both_newest_first_with_who(self):
+        """오늘 카드: 최근 3일 동안 두 사람이 남기거나 고친 것, 최근순, 누가 했는지 (2026-11-25)."""
         from memos.models import Memo, MemoFolder
 
         partner = self.user.partner
+        now = timezone.now()
         folder = MemoFolder.objects.create(couple=self.couple, name="여행계획")
-        Memo.objects.create(couple=self.couple, folder=folder, title="부산", lines=[], created_by=self.user, updated_by=partner)
-        Memo.objects.create(couple=self.couple, folder=folder, title="내가 고침", lines=[], created_by=partner, updated_by=self.user)
-        Taste.objects.create(couple=self.couple, author=partner, category="영화", title="상대 영화")
-        Taste.objects.create(couple=self.couple, author=self.user, category="영화", title="내 영화")
-        old = Taste.objects.create(couple=self.couple, author=partner, category="음악", title="옛 노래")
-        Taste.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=4))
-        for _ in range(3):
-            Photo.objects.create(couple=self.couple, uploaded_by=partner, image=self.png())
+        mine_memo = Memo.objects.create(couple=self.couple, folder=folder, title="건의사항", lines=[], created_by=self.user, updated_by=self.user)
+        their_memo = Memo.objects.create(couple=self.couple, folder=folder, title="테스트1", lines=[], created_by=self.user, updated_by=partner)
+        Memo.objects.filter(pk=their_memo.pk).update(updated_at=now - timedelta(hours=5))
+        Memo.objects.filter(pk=mine_memo.pk).update(updated_at=now - timedelta(minutes=1))
+        movie = Taste.objects.create(couple=self.couple, author=partner, category="영화", title="상대 영화")
+        Taste.objects.filter(pk=movie.pk).update(created_at=now - timedelta(hours=2))
+        old = Taste.objects.create(couple=self.couple, author=self.user, category="음악", title="옛 노래")
+        Taste.objects.filter(pk=old.pk).update(created_at=now - timedelta(days=4))
+        for _ in range(2):
+            p = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png())
+            Photo.objects.filter(pk=p.pk).update(created_at=now - timedelta(hours=1))
+        p = Photo.objects.create(couple=self.couple, uploaded_by=partner, image=self.png())
+        Photo.objects.filter(pk=p.pk).update(created_at=now - timedelta(hours=3))
         other = Couple.objects.create()
         stranger = User.objects.create_user("z", password="pw", couple=other)
         Taste.objects.create(couple=other, author=stranger, category="영화", title="남의 영화")
-        news = self.ctx()["partner_news"]
-        self.assertEqual(len(news), 3)
-        texts = " ".join(n["text"] for n in news)
-        self.assertIn("사진 3장", texts)
-        self.assertIn("상대 영화", texts)
-        self.assertIn("부산", texts)
-        for hidden in ("내가 고침", "내 영화", "옛 노래", "남의 영화"):
-            self.assertNotIn(hidden, texts)
+        news = self.ctx()["recent_news"]
+        self.assertEqual([(n["who"], n["text"]) for n in news], [
+            ("나", "메모 · 건의사항"),
+            ("나", "사진 2장"),
+            ("바다", "순간 · 상대 영화"),
+            ("바다", "사진 1장"),
+            ("바다", "메모 · 테스트1"),
+        ])
+        html = self.client.get(reverse("home")).content.decode()
+        self.assertIn("최근에 남긴 것", html)
+        for hidden in ("옛 노래", "남의 영화"):
+            self.assertNotIn(hidden, html)
+
 
 
 class HomeTodayTextTests(TestCase):
