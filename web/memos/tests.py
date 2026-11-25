@@ -550,3 +550,25 @@ class MemoDockTests(TestCase):
         self.assertIn('"nos.memoDock"', js)  # 위치 기억
         self.assertIn('innerWidth / 2 ? "left" : "right"', js)  # 놓으면 가까운 쪽 끝에 붙는다
         self.assertIn("visualViewport", js)  # 자판에 가리지 않게
+
+
+class MemoShareTests(TestCase):
+    """메모 도구 '공유': 아이폰 공유 창으로 보내 메모 앱 등에 복사 (한 방향)."""
+
+    setUp = MemoTests.setUp
+    new_memo = MemoTests.new_memo
+
+    def test_share_tool_in_dock(self):
+        html = self.client.get(reverse("memo_edit", args=[self.new_memo().pk])).content.decode()
+        menu = html[html.index('class="memo-dock-menu"'):]
+        self.assertIn("data-share", menu)
+        self.assertIn("<span>공유</span>", menu)
+        self.assertIn('id="i-share"', html)
+
+    def test_share_script_uses_share_sheet_and_falls_back_to_copy(self):
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
+        self.assertIn("navigator.share", js)
+        self.assertIn("navigator.clipboard", js)  # 공유 창이 없는 브라우저는 복사
+        self.assertIn('"data-share": shareMemo', js)

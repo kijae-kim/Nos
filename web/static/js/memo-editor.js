@@ -229,7 +229,22 @@
   var dock = document.querySelector("[data-memo-dock]");
   var dockBtn = dock && dock.querySelector("[data-dock-toggle]");
   var dockMenu = dock && dock.querySelector(".memo-dock-menu");
-  var TOOLS = { "data-make-check": toggleCheckLine }; // todo: 지금 줄을 체크 항목 ↔ 글로 (자판 내리기는 아이폰 자판의 '완료'가 해서 뺐다)
+  // 공유: 아이폰 공유 창으로 메모 앱 등에 보낸다 (한 방향 복사. 아이폰 메모와 자동으로 맞추는 길은 애플이 열어 두지 않았다).
+  // todo 는 ☐/☑ 로. 공유 창이 없는 브라우저는 클립보드에 복사한다
+  function shareMemo() {
+    var lines = serialize();
+    var text = asText(lines).trim();
+    if (!text) { show("보낼 글이 없어요"); return; }
+    var title = (lines.filter(function (l) { return l.s.trim(); })[0] || { s: "메모" }).s.trim();
+    if (navigator.share) {
+      navigator.share({ title: title, text: text }).catch(function () { /* 사용자가 닫음 */ });
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(function () { show("복사했어요. 원하는 곳에 붙여 넣으세요"); },
+        function () { show("복사하지 못했어요"); });
+    } else show("이 브라우저에서는 공유할 수 없어요");
+  }
+  // todo: 지금 줄을 체크 항목 ↔ 글로 (자판 내리기는 아이폰 자판의 '완료'가 해서 뺐다)
+  var TOOLS = { "data-make-check": toggleCheckLine, "data-share": shareMemo };
   function runTool(item) {
     Object.keys(TOOLS).forEach(function (attr) { if (item.hasAttribute(attr)) TOOLS[attr](); });
     setMenu(false);
