@@ -1252,3 +1252,10 @@ html[data-mode="dark"] { --bar-bg: color-mix(in srgb, var(--surface), #fff 9%); 
 .day.today { border-radius: 10px; }
 .day.today b, .cell.today b { box-shadow: none; color: var(--primary); font-weight: 700; }
 .today-news .who { flex: none; font-size: 12px; font-weight: 700; color: var(--muted); }
+
+/* 추억 태그·메모 폴더 칩: 가로로 넘기는 줄은 바깥이 잘려서 큰 그림자(--shadow)가 띠처럼 보였다.
+   칩 모양에 붙는 작은 그림자로, 줄 아래에 그림자가 들어갈 여백 */
+.cats { padding-top: 4px; padding-bottom: 8px; }
+.cat { box-shadow: 0 1px 2px rgba(var(--shadow-rgb), .08), 0 2px 6px rgba(var(--shadow-rgb), .08); }
+html[data-mode="dark"] .cat { box-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
+.cat.on { box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 35%, transparent); }
