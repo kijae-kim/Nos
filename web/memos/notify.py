@@ -24,7 +24,7 @@ def notify_partner(memo, editor) -> bool:
     # 먼저 시각을 적어 두어 두 요청이 겹쳐도 한 번만 보낸다
     type(memo).objects.filter(pk=memo.pk).update(notified_at=now)
     payload = {
-        "title": f"{editor.display_name}님이 메모를 고쳤어요",
+        "title": f"{editor.display_name}님이 메모를 수정했어요",
         "body": f"{memo.folder.name} · {memo.title}",
         "url": reverse("memo_edit", args=[memo.pk]),
         "tag": f"memo-{memo.pk}",

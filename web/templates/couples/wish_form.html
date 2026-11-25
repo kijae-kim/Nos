@@ -1,11 +1,11 @@
 {% extends "layout_app.html" %}
 {% load static %}
-{% block head_title %}{% if wish %}가고 싶은 곳 고치기{% else %}가고 싶은 곳 저장{% endif %} · {{ APP_NAME }}{% endblock %}
+{% block head_title %}{% if wish %}가고 싶은 곳 수정{% else %}가고 싶은 곳 저장{% endif %} · {{ APP_NAME }}{% endblock %}
 {% block extra_head %}<meta name="referrer" content="strict-origin-when-cross-origin">{% endblock %}
 {% block header %}
 <header class="row-between bar-head">
   <a class="circle" href="{{ back_url }}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
-  <h1 class="bar-title">{% if wish %}가고 싶은 곳 고치기{% else %}가고 싶은 곳 저장{% endif %}</h1>
+  <h1 class="bar-title">{% if wish %}가고 싶은 곳 수정{% else %}가고 싶은 곳 저장{% endif %}</h1>
   <span class="spacer"></span>
 </header>
 {% endblock %}
@@ -36,9 +36,9 @@
   <button type="submit" class="btn primary">{% if wish %}저장{% else %}가고 싶은 곳에 저장{% endif %}</button>
 </form>
 {% if wish %}
-  <form method="post" action="{% url 'wish_delete' wish.pk %}" class="danger-form" data-confirm="가고 싶은 곳에서 지울까요?">
+  <form method="post" action="{% url 'wish_delete' wish.pk %}" class="danger-form" data-confirm="가고 싶은 곳에서 삭제할까요?">
     {% csrf_token %}
-    <button type="submit" class="btn danger">지우기</button>
+    <button type="submit" class="btn danger">삭제</button>
   </form>
 {% endif %}
 <script src="{% static 'js/map.js' %}" defer></script>

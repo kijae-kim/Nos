@@ -1,16 +1,16 @@
 {% extends "layout_app.html" %}
-{% block head_title %}{% if locked %}지난 일정{% elif event %}일정 고치기{% else %}일정 추가{% endif %} · {{ APP_NAME }}{% endblock %}
+{% block head_title %}{% if locked %}지난 일정{% elif event %}일정 수정{% else %}일정 추가{% endif %} · {{ APP_NAME }}{% endblock %}
 {% block header %}
 <header class="row-between bar-head">
   <a class="circle" href="{% url 'calendar' %}{% if event %}?month={{ event.date|date:'Y-m' }}&amp;day={{ event.date|date:'Y-m-d' }}{% endif %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
-  <h1 class="bar-title">{% if locked %}지난 일정{% elif event %}일정 고치기{% else %}일정 추가{% endif %}</h1>
+  <h1 class="bar-title">{% if locked %}지난 일정{% elif event %}일정 수정{% else %}일정 추가{% endif %}</h1>
   <span class="spacer"></span>
 </header>
 {% endblock %}
 {% block content %}
 <form method="post" class="card form-card">
   {% csrf_token %}
-  {% if locked %}<p class="notice">지난 일정은 고칠 수 없어요. 잘못 넣었다면 아래에서 지울 수 있어요.</p>{% endif %}
+  {% if locked %}<p class="notice">지난 일정은 수정할 수 없어요. 잘못 넣었다면 아래에서 삭제할 수 있어요.</p>{% endif %}
   {# 지난 일정은 모든 칸을 막는다 (서버도 POST 를 받지 않는다) #}
   <fieldset{% if locked %} disabled{% endif %} class="plain-fieldset">
   {% if form.non_field_errors %}{% for e in form.non_field_errors %}<p class="error">{{ e }}</p>{% endfor %}{% endif %}
@@ -24,7 +24,7 @@
 
   {% if labels %}
     <div class="field">
-      <span class="field-label">이름표 바로 넣기</span>
+      <span class="field-label">태그 바로 넣기</span>
       <div class="chips">
         {% for l in labels %}
           <button type="button" class="label-chip pick" style="--c: var(--{{ l.color }})" data-insert="{{ l.token }}">{{ l.token }}</button>
@@ -66,9 +66,9 @@
 </form>
 
 {% if event %}
-  <form method="post" action="{% url 'event_delete' event.pk %}" class="danger-form" data-confirm="이 일정을 지울까요?">
+  <form method="post" action="{% url 'event_delete' event.pk %}" class="danger-form" data-confirm="이 일정을 삭제할까요?">
     {% csrf_token %}
-    <button type="submit" class="btn danger">일정 지우기</button>
+    <button type="submit" class="btn danger">일정 삭제</button>
   </form>
 {% endif %}
 {% endblock %}

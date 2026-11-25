@@ -21,11 +21,11 @@
 <form method="post" class="card form-card">
   {% csrf_token %}
   {% include "_field.html" with field=form.title %}
-  <button type="submit" class="btn">앨범 이름 바꾸기</button>
+  <button type="submit" class="btn">앨범 이름 수정</button>
 </form>
 
-<form method="post" action="{% url 'album_delete' album.pk %}" class="danger-form" data-confirm="앨범만 지워요. 안의 사진은 '앨범 없음'으로 남아요. 지울까요?">
+<form method="post" action="{% url 'album_delete' album.pk %}" class="danger-form" data-confirm="앨범만 삭제해요. 안의 사진은 '앨범 없음'으로 남아요. 삭제할까요?">
   {% csrf_token %}
-  <button type="submit" class="btn danger">앨범 지우기</button>
+  <button type="submit" class="btn danger">앨범 삭제</button>
 </form>
 {% endblock %}

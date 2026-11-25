@@ -267,7 +267,9 @@
       var bottom = (vv ? vv.offsetTop + vv.height : window.innerHeight) - SIZE - 16;
       return [top, Math.max(top, bottom)];
     }
+    var drag = null;
     function place() {
+      if (drag && drag.moved) return; // 끄는 동안 자판·스크롤 때문에 저장된 자리로 되돌리지 않는다
       var lim = limits();
       var y = Math.min(Math.max(pos.y, lim[0]), lim[1]);
       dock.dataset.side = pos.side;
@@ -280,12 +282,13 @@
     if (window.visualViewport) window.visualViewport.addEventListener("resize", place);
     if (window.visualViewport) window.visualViewport.addEventListener("scroll", place);
 
-    var drag = null;
     dock.addEventListener("touchstart", function (e) { e.preventDefault(); }, { passive: false }); // 화면 스크롤·커서 잃기 막기
     dock.addEventListener("mousedown", function (e) { e.preventDefault(); });
     dockBtn.addEventListener("pointerdown", function (e) {
       e.preventDefault();
-      drag = { x: e.clientX, y: e.clientY, top: dock.getBoundingClientRect().top, moved: false };
+      // 시작 위치는 실제로 옮기는 값(style.top·left, 전체 화면 기준)으로 읽는다. getBoundingClientRect 는 아이폰에서 자판이 뜨면
+      // 보이는 화면 기준이라 자판 높이만큼 어긋나 버튼이 손가락에서 떨어졌다
+      drag = { x: e.clientX, y: e.clientY, top: dock.offsetTop, left: dock.offsetLeft, moved: false };
       try { dockBtn.setPointerCapture(e.pointerId); } catch (err) { /* 괜찮다 */ }
     });
     dockBtn.addEventListener("pointermove", function (e) {
@@ -294,7 +297,7 @@
       if (!drag.moved) { drag.moved = true; setMenu(false); dock.classList.add("dragging"); }
       dock.style.top = (drag.top + e.clientY - drag.y) + "px";
       dock.style.right = "";
-      dock.style.left = Math.min(Math.max(e.clientX - SIZE / 2, 0), window.innerWidth - SIZE) + "px";
+      dock.style.left = Math.min(Math.max(drag.left + e.clientX - drag.x, 0), window.innerWidth - SIZE) + "px";
     });
     dockBtn.addEventListener("pointerup", function (e) {
       if (!drag) return;
@@ -302,8 +305,9 @@
       drag = null;
       dock.classList.remove("dragging");
       if (!moved) { setMenu(dockMenu.hidden); return; } // 누름: 도구 펼치기·접기
-      // 놓으면 가까운 쪽 끝에 붙는다
-      pos = { side: e.clientX < window.innerWidth / 2 ? "left" : "right", y: dock.getBoundingClientRect().top };
+      // 놓으면 가까운 쪽 끝에 붙는다 (버튼 가운데가 화면 왼쪽 절반이면 왼쪽)
+      var center = dock.offsetLeft + SIZE / 2;
+      pos = { side: center < window.innerWidth / 2 ? "left" : "right", y: dock.offsetTop };
       place();
       pos.y = parseFloat(dock.style.top);
       try { localStorage.setItem("nos.memoDock", JSON.stringify(pos)); } catch (err) { /* 저장 못 해도 괜찮다 */ }
@@ -365,7 +369,7 @@
         version = res.data.version; show("저장했어요");
         if (!dirty) clearDraft(); else keepDraft();
       } else if (res.status === 409) conflict(res.data);
-      else if (res.status === 404) { gone = true; show("메모가 지워졌어요"); } // 쓴 글은 기기에 남겨 둔다
+      else if (res.status === 404) { gone = true; show("메모가 삭제됐어요"); } // 쓴 글은 기기에 남겨 둔다
       else if (res.status === 400) { dirty = false; show(res.data.error || "저장하지 못했어요"); } // 너무 긴 글 등: 고쳐야 저장
       else retryLater();
     }).catch(retryLater)

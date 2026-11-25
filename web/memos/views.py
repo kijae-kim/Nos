@@ -69,16 +69,16 @@ def folder_delete(request, pk):
     folder = _folder(request, pk)
     # 목록에 안 보이는 빈 메모(쓰다 만 것)는 폴더와 함께 지운다. 글이 있는 메모가 있으면 못 지운다
     if folder.memos.exclude(title="").exists():
-        messages.error(request, "메모를 옮기거나 지운 뒤에 지울 수 있어요.")
+        messages.error(request, "메모를 옮기거나 삭제한 뒤에 삭제할 수 있어요.")
         return redirect(board_url(folder.pk))
     try:
         with transaction.atomic():
             folder.memos.filter(title="").delete()
             folder.delete()
     except ProtectedError:  # 그 사이 상대가 메모를 쓴 경우
-        messages.error(request, "메모를 옮기거나 지운 뒤에 지울 수 있어요.")
+        messages.error(request, "메모를 옮기거나 삭제한 뒤에 삭제할 수 있어요.")
         return redirect(board_url(folder.pk))
-    messages.success(request, "폴더를 지웠어요.")
+    messages.success(request, "폴더를 삭제했어요.")
     return redirect(board_url())
 
 
@@ -179,5 +179,5 @@ def memo_delete(request, pk):
     memo = _memo(request, pk)
     folder_pk = memo.folder_id
     memo.delete()
-    messages.success(request, "메모를 지웠어요.")
+    messages.success(request, "메모를 삭제했어요.")
     return redirect(board_url(folder_pk))

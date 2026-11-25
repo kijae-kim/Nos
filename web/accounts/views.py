@@ -41,7 +41,7 @@ def social_login_cancelled(request):
 
 @login_required
 def profile(request):
-    """프로필 바꾸기: 사진·이모지·내 색."""
+    """프로필 수정: 사진·이모지·내 색."""
     user = request.user
     partner = user.partner
     if request.method == "POST":

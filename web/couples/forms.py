@@ -47,7 +47,7 @@ class EventForm(forms.Form):
     text = forms.CharField(
         label="일정",
         max_length=140,
-        help_text="@카테고리 #태그 를 함께 적으면 그 이름표에 바로 묶여요. 예: 전시 보러 가기 @데이트 #성수",
+        help_text="@카테고리 #해시태그 를 함께 적으면 그 태그에 바로 묶여요. 예: 전시 보러 가기 @데이트 #성수",
         widget=forms.TextInput(attrs={"placeholder": "무슨 일정인가요?", "autocomplete": "off"}),
     )
     date = forms.DateField(label="날짜", widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
@@ -78,7 +78,7 @@ class EventForm(forms.Form):
         if text:
             title, _ = split_text(text)
             if not title:
-                self.add_error("text", "이름표만 적으면 일정 이름이 없어요. 일정 이름을 먼저 적어 주세요.")
+                self.add_error("text", "태그만 적으면 일정 이름이 없어요. 일정 이름을 먼저 적어 주세요.")
         start_day, end_day = cleaned.get("date"), cleaned.get("end_date")
         if start_day and end_day:
             if end_day == start_day:
@@ -134,10 +134,10 @@ class TasteForm(forms.ModelForm):
         # 순간의 태그는 넷 중 하나 (장소는 기록에서 따로 쓴다). 빈 선택지("---------")는 빼고, 이름도 한국어로
         if "category" in self.fields:
             category = self.fields["category"]
-            category.label = "태그"
+            category.label = "분류"  # 캘린더의 태그와 헷갈리지 않게
             category.choices = [(c, c) for c in Taste.MOMENT_TAGS]
-            category.error_messages["required"] = "태그를 하나 골라 주세요."
-            category.error_messages["invalid_choice"] = "태그를 하나 골라 주세요."
+            category.error_messages["required"] = "분류를 하나 골라 주세요."
+            category.error_messages["invalid_choice"] = "분류를 하나 골라 주세요."
         # 검사하면서 새 사진이 인스턴스에 들어가므로, 바꾸기 전 이름과 크기를 미리 적어 둔다
         self.old_image_name = self.instance.image.name if self.instance.pk else None
         self.old_image_size = self.instance.image_size if self.instance.pk else 0
@@ -250,7 +250,7 @@ class PhotoForm(forms.ModelForm):
     # 브라우저가 줄이기 전에 읽은 촬영 위치 (app.js). 없으면 서버가 사진에서 읽는다.
     latitude = forms.CharField(required=False, widget=forms.HiddenInput)
     longitude = forms.CharField(required=False, widget=forms.HiddenInput)
-    # 사진 고치기에서만: 이 사진을 찍은 장소 (자동으로 / 없음 / 장소 하나)
+    # 사진 수정에서만: 이 사진을 찍은 장소 (자동으로 / 없음 / 장소 하나)
     place_choice = forms.ChoiceField(label="장소", required=False, widget=forms.RadioSelect)
 
     class Meta:
@@ -433,7 +433,7 @@ class LabelForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.couple = couple
         self.merge_into = None
-        self.fields["kind"].choices = [(Label.CATEGORY, "@ 카테고리"), (Label.TAG, "# 태그")]
+        self.fields["kind"].choices = [(Label.CATEGORY, "@ 카테고리"), (Label.TAG, "# 해시태그")]
         self.fields["kind"].initial = Label.TAG
         self.fields["color"].choices = COLOR_CHOICES
         if self.instance.pk:
@@ -442,7 +442,7 @@ class LabelForm(forms.ModelForm):
     def clean_name(self):
         name = self.cleaned_data["name"].strip()
         if not name or any(ch.isspace() for ch in name) or "@" in name or "#" in name:
-            raise forms.ValidationError("이름표에는 띄어쓰기와 @·# 를 넣을 수 없어요.")
+            raise forms.ValidationError("태그에는 띄어쓰기와 @·# 를 넣을 수 없어요.")
         return name
 
     def clean(self):
@@ -452,7 +452,7 @@ class LabelForm(forms.ModelForm):
         if name and kind:
             same = Label.objects.filter(couple=self.couple, kind=kind, name=name).exclude(pk=self.instance.pk).first()
             if same and not self.instance.pk:
-                self.add_error("name", "이미 있는 이름표예요.")
+                self.add_error("name", "이미 있는 태그예요.")
             self.merge_into = same if self.instance.pk else None
         return cleaned
 

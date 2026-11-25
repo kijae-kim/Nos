@@ -60,7 +60,7 @@ class MemoTests(TestCase):
         memo = Memo.objects.get()
         self.save(memo, L("오로라 보기"))
         res = self.client.post(reverse("memo_folder_delete", args=[bucket.pk]), follow=True)
-        self.assertContains(res, "메모를 옮기거나 지운 뒤에 지울 수 있어요.")
+        self.assertContains(res, "메모를 옮기거나 삭제한 뒤에 삭제할 수 있어요.")
         self.assertTrue(MemoFolder.objects.filter(pk=bucket.pk).exists())
         empty = MemoFolder.objects.get(name="데이트")
         self.client.post(reverse("memo_folder_delete", args=[empty.pk]))
@@ -221,7 +221,7 @@ class MemoReviewFixTests(TestCase):
         self.assertIn("localStorage", js)  # 떠날 때·저장 중 끊겨도 내 글을 기기에 남김
         self.assertIn("compositionend", js)  # 한글 입력 중에는 다시 그리지 않음
         self.assertIn("deleteContents", js)  # 고른 글 위에 붙여 넣기·엔터
-        self.assertIn("메모가 지워졌어요", js)  # 404
+        self.assertIn("메모가 삭제됐어요", js)  # 404
         self.assertIn("var mineNow = serialize()", js)  # 충돌 때 저장 중에 친 글까지
 
 
@@ -369,7 +369,7 @@ class MemoNotifyTests(TestCase):
         sent.assert_called_once()
         user, payload = sent.call_args.args
         self.assertEqual(user, self.b)
-        self.assertEqual(payload["title"], "하늘님이 메모를 고쳤어요")
+        self.assertEqual(payload["title"], "하늘님이 메모를 수정했어요")
         self.assertEqual(payload["body"], "여행계획 · 부산 여행")
         self.assertEqual(payload["url"], reverse("memo_edit", args=[memo.pk]))
         memo.refresh_from_db()
@@ -587,3 +587,12 @@ class MemoNewCrossSiteTests(TestCase):
         self.client.get(reverse("memo_new"), HTTP_SEC_FETCH_SITE="none")  # 주소창·홈 화면 앱
         self.client.get(reverse("memo_new"))  # 헤더 없는 오래된 브라우저
         self.assertEqual(Memo.objects.count(), 1)  # 방금 만든 빈 메모를 다시 연다
+
+
+class MemoDockDragTests(TestCase):
+    def test_drag_uses_layout_coords_and_ignores_viewport_events(self):
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
+        self.assertIn("top: dock.offsetTop, left: dock.offsetLeft", js)  # 아이폰 자판이 떠도 어긋나지 않게
+        self.assertIn("if (drag && drag.moved) return;", js)  # 끄는 동안 되돌리지 않음

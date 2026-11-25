@@ -1,9 +1,9 @@
 {% extends "layout_app.html" %}
-{% block head_title %}{% if taste %}순간 고치기{% else %}순간 남기기{% endif %} · {{ APP_NAME }}{% endblock %}
+{% block head_title %}{% if taste %}순간 수정{% else %}순간 남기기{% endif %} · {{ APP_NAME }}{% endblock %}
 {% block header %}
 <header class="row-between bar-head">
   <a class="circle" href="{% if taste %}{% url 'taste_detail' taste.pk %}{% else %}{% url 'tastes' %}{% endif %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
-  <h1 class="bar-title">{% if taste %}순간 고치기{% else %}순간 남기기{% endif %}</h1>
+  <h1 class="bar-title">{% if taste %}순간 수정{% else %}순간 남기기{% endif %}</h1>
   <span class="spacer"></span>
 </header>
 {% endblock %}

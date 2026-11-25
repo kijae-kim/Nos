@@ -354,7 +354,7 @@ def calendar(request):
 
 @login_required
 def labels(request):
-    """이름표 관리: @카테고리와 #태그, 각각 붙은 일정 수 (내가 볼 수 있는 일정만 센다)."""
+    """태그 관리: @카테고리와 #태그, 각각 붙은 일정 수 (내가 볼 수 있는 일정만 센다)."""
     user = request.user
     all_labels = list(user.couple.labels.all())
     counts = {l.pk: 0 for l in all_labels}
@@ -376,7 +376,7 @@ def label_create(request):
         label = form.save(commit=False)
         label.couple = request.user.couple
         label.save()
-        messages.success(request, f"{label.token} 이름표를 만들었어요.")
+        messages.success(request, f"{label.token} 태그를 만들었어요.")
         return redirect("labels")
     return render(request, "couples/label_form.html", {"form": form, "label": None})
 
@@ -399,7 +399,7 @@ def label_update(request, pk):
             messages.success(request, f"{target.token}에 합쳤어요.")  # '에' 는 받침과 상관없이 자연스럽다
         else:
             form.save()
-            messages.success(request, "이름표를 고쳤어요.")
+            messages.success(request, "태그를 수정했어요.")
         return redirect("labels")
     return render(request, "couples/label_form.html", {"form": form, "label": label})
 
@@ -410,7 +410,7 @@ def label_delete(request, pk):
     """이름표만 지운다. 붙어 있던 일정은 그대로 남는다."""
     label = get_object_or_404(Label, pk=pk, couple=request.user.couple)
     label.delete()
-    messages.success(request, "이름표를 지웠어요. 일정은 그대로 남아 있어요.")
+    messages.success(request, "태그를 삭제했어요. 일정은 그대로 남아 있어요.")
     return redirect("labels")
 
 
@@ -537,7 +537,7 @@ def event_update(request, pk):
     # 지난 일정(오늘보다 전)은 보기만 한다. 지우기는 따로(event_delete) 된다
     locked = event.is_past
     if locked and request.method == "POST":
-        messages.error(request, "지난 일정은 고칠 수 없어요.")
+        messages.error(request, "지난 일정은 수정할 수 없어요.")
         return redirect(_calendar_url(event.date))
     if request.method == "POST":
         form = EventForm(request.POST)
@@ -615,7 +615,7 @@ def event_delete(request, pk):
     event = _event_for_user(request, pk)
     day = event.date
     event.delete()
-    messages.success(request, "일정을 지웠어요.")
+    messages.success(request, "일정을 삭제했어요.")
     return redirect(_calendar_url(day))
 
 
@@ -829,7 +829,7 @@ def wish_update(request, pk):
 @require_POST
 def wish_delete(request, pk):
     get_object_or_404(WishPlace, pk=pk, couple=request.user.couple).delete()
-    messages.success(request, "가고 싶은 곳에서 지웠어요.")
+    messages.success(request, "가고 싶은 곳에서 삭제했어요.")
     return redirect("wishes")
 
 
@@ -927,7 +927,7 @@ def wishlist_update(request, pk):
 def wishlist_delete(request, pk):
     """목록만 지운다. 그 안의 가고 싶은 곳은 남는다."""
     get_object_or_404(WishList, pk=pk, couple=request.user.couple).delete()
-    messages.success(request, "목록을 지웠어요. 장소는 그대로 남아 있어요.")
+    messages.success(request, "목록을 삭제했어요. 장소는 그대로 남아 있어요.")
     return redirect("wishes")
 
 
@@ -1082,7 +1082,7 @@ def taste_comment_delete(request, pk):
     comment = get_object_or_404(TasteComment, pk=pk, taste__couple=request.user.couple, author=request.user)
     taste_pk = comment.taste_id
     comment.delete()
-    messages.success(request, "댓글을 지웠어요.")
+    messages.success(request, "댓글을 삭제했어요.")
     return redirect(f"{reverse('taste_detail', args=[taste_pk])}#comments")
 
 
@@ -1111,7 +1111,7 @@ def taste_delete(request, pk):
     taste.delete()
     if was_place:
         places.relink(request.user.couple)  # 그 장소에 붙어 있던 자동 사진을 다른 가까운 장소로
-    messages.success(request, "지웠어요.")
+    messages.success(request, "삭제했어요.")
     return redirect(f"{reverse('tastes')}?tab=record" if was_place else "tastes")
 
 
@@ -1187,7 +1187,7 @@ def album_detail(request, pk):
 def album_delete(request, pk):
     """앨범만 지운다. 안에 있던 사진은 '앨범 없음'으로 남는다."""
     get_object_or_404(Album, pk=pk, couple=request.user.couple).delete()
-    messages.success(request, "앨범을 지웠어요. 사진은 그대로 남아 있어요.")
+    messages.success(request, "앨범을 삭제했어요. 사진은 그대로 남아 있어요.")
     return redirect("albums")
 
 
@@ -1251,5 +1251,5 @@ def photo_delete(request, pk):
         delete_file(photo.thumb.name)
     photo.image.delete(save=False)
     photo.delete()
-    messages.success(request, "사진을 지웠어요.")
+    messages.success(request, "사진을 삭제했어요.")
     return redirect("albums")

@@ -963,7 +963,7 @@ class EventMemoAndAlbumTabTests(TestCase):
         event = Event.objects.create(couple=self.couple, created_by=self.a, title="지난 전시", date=yesterday)
         url = reverse("event_update", args=[event.pk])
         page = self.client.get(url)
-        self.assertContains(page, "지난 일정은 고칠 수 없어요")
+        self.assertContains(page, "지난 일정은 수정할 수 없어요")
         self.assertContains(page, "<fieldset disabled")
         self.assertNotContains(page, '<button type="submit" class="btn primary">')
         res = self.client.post(url, self.event_form(text="바꾼 이름", date=timezone.localdate().isoformat()))
@@ -976,7 +976,7 @@ class EventMemoAndAlbumTabTests(TestCase):
     def test_today_event_still_editable(self):
         event = Event.objects.create(couple=self.couple, created_by=self.a, title="오늘 일정", date=timezone.localdate())
         page = self.client.get(reverse("event_update", args=[event.pk]))
-        self.assertNotContains(page, "지난 일정은 고칠 수 없어요")
+        self.assertNotContains(page, "지난 일정은 수정할 수 없어요")
         self.client.post(reverse("event_update", args=[event.pk]), self.event_form(text="바꾼 오늘 일정"))
         event.refresh_from_db()
         self.assertEqual(event.title, "바꾼 오늘 일정")
@@ -1305,7 +1305,7 @@ class MomentPlaceFormTests(TestCase):
 
     def test_moment_needs_tag(self):
         res = self.client.post(reverse("taste_create"), {"title": "노래"})
-        self.assertContains(res, "태그를 하나 골라 주세요.")
+        self.assertContains(res, "분류를 하나 골라 주세요.")
         res = self.client.post(reverse("taste_create"), {"title": "곳", "category": "장소"})
         self.assertFalse(Taste.objects.exists())
 
@@ -1443,7 +1443,7 @@ class MemoriesScreenTests(TestCase):
 
 
 class PlacePhotoTests(TestCase):
-    """장소 화면의 사진 모음·고르기, 사진 고치기의 장소 칸, 사진에서 위치 가져오기 목록."""
+    """장소 화면의 사진 모음·고르기, 사진 수정의 장소 칸, 사진에서 위치 가져오기 목록."""
 
     setUp = UploadStorageTests.setUp
     tearDown = UploadStorageTests.tearDown
@@ -1909,12 +1909,12 @@ class MultiDayEventTests(TestCase):
         self.assertFalse(trip.is_past)
         self.assertTrue(done.is_past)
         page = self.client.get(reverse("event_update", args=[trip.pk]))
-        self.assertNotContains(page, "지난 일정은 고칠 수 없어요")
+        self.assertNotContains(page, "지난 일정은 수정할 수 없어요")
         self.client.post(reverse("event_update", args=[trip.pk]), self.event_form(
             text="부산 여행", date=trip.date.isoformat(), end_date=trip.end_date.isoformat()))
         trip.refresh_from_db()
         self.assertEqual(trip.title, "부산 여행")
-        self.assertContains(self.client.get(reverse("event_update", args=[done.pk])), "지난 일정은 고칠 수 없어요")
+        self.assertContains(self.client.get(reverse("event_update", args=[done.pk])), "지난 일정은 수정할 수 없어요")
 
     def test_edit_form_prefills_end_date(self):
         today = timezone.localdate()
@@ -2168,12 +2168,12 @@ class LabelManageTests(TestCase):
     def test_create_duplicate_and_bad_names(self):
         self.label("카페")
         res = self.client.post(reverse("label_create"), {"kind": "tag", "name": " 카페 ", "color": "rose"})
-        self.assertContains(res, "이미 있는 이름표예요.")
+        self.assertContains(res, "이미 있는 태그예요.")
         for bad in ("동네 카페", "@카페", "#카페", ""):
             res = self.client.post(reverse("label_create"), {"kind": "category", "name": bad, "color": "rose"})
             self.assertEqual(res.status_code, 200, bad)
         self.assertContains(self.client.post(reverse("label_create"), {"kind": "tag", "name": "동네 카페", "color": "sky"}),
-                            "이름표에는 띄어쓰기와 @·# 를 넣을 수 없어요.")
+                            "태그에는 띄어쓰기와 @·# 를 넣을 수 없어요.")
         # 종류가 다르면 같은 이름도 된다
         self.client.post(reverse("label_create"), {"kind": "category", "name": "카페", "color": "sky"})
         self.assertEqual(Label.objects.filter(name="카페").count(), 2)
@@ -2225,7 +2225,7 @@ class LabelManageTests(TestCase):
         self.assertContains(self.client.get(reverse("calendar")), reverse("labels"))
         lab = self.label("성수")
         self.event(lab)
-        self.assertContains(self.client.get(reverse("calendar")), "이름표 관리")
+        self.assertContains(self.client.get(reverse("calendar")), "태그 관리")
 
     def test_merge_queries_do_not_grow_with_events(self):
         """합치기는 일정 수와 상관없이 같은 수의 쿼리로."""
@@ -2808,7 +2808,7 @@ class DayPopupTests(TestCase):
         day = timezone.localdate() + timedelta(days=3)
         res = self.client.post(self.url(day), {"text": "@데이트", "date": day.isoformat(), "scope": "shared"})
         self.assertEqual(res.status_code, 400)
-        self.assertContains(res, "이름표만 적으면", status_code=400)
+        self.assertContains(res, "태그만 적으면", status_code=400)
         res = self.client.post(self.url(day), {"text": "여행", "date": day.isoformat(), "end_date": (day - timedelta(days=1)).isoformat(), "scope": "shared"})
         self.assertContains(res, "끝나는 날은 시작하는 날보다 뒤여야 해요.", status_code=400)
         self.assertFalse(Event.objects.exists())
@@ -3452,3 +3452,14 @@ class SecurityReviewTests(TestCase):
 
         settings_py = (Path(__file__).resolve().parent.parent / "config/settings.py").read_text()
         self.assertIn("SECURE_HSTS_SECONDS = 60 * 60 * 24 * 365", settings_py)
+
+
+class CalendarLabelZoneTests(TestCase):
+    """태그를 누르면 태그 줄·목록만 바꿔 끼운다 (calendar-labels.js)."""
+
+    setUp = ScreenTests.setUp
+
+    def test_zones_and_script(self):
+        html = self.client.get(reverse("calendar")).content.decode()
+        self.assertEqual(html.count("data-label-zone"), 2)  # 폰·넓은 화면
+        self.assertIn("js/calendar-labels.js", html)

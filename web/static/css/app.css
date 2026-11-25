@@ -1280,3 +1280,7 @@ html[data-mode="dark"] .cat { box-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
 .page > * { min-width: 0; }
 /* 아이폰은 16px 보다 작은 입력 칸을 누르면 화면을 확대하고 그대로 둔다 (잘려 보이는 원인) */
 @media (max-width: 899px) { input, textarea, select { font-size: max(16px, 1em) !important; } }
+
+/* 캘린더 태그 모아 보기: 모바일 묶음은 레이아웃에 끼지 않게, 바꾸는 동안은 목록을 살짝 흐리게 */
+.mobile-only .label-zone { display: contents; }
+.label-loading [data-label-zone] .events { opacity: .55; transition: opacity .15s; }
