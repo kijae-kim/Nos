@@ -229,7 +229,7 @@
   var dock = document.querySelector("[data-memo-dock]");
   var dockBtn = dock && dock.querySelector("[data-dock-toggle]");
   var dockMenu = dock && dock.querySelector(".memo-dock-menu");
-  var TOOLS = { "data-make-check": toggleCheckLine, "data-done": function () { editor.blur(); saveNow(); } };
+  var TOOLS = { "data-make-check": toggleCheckLine }; // todo: 지금 줄을 체크 항목 ↔ 글로 (자판 내리기는 아이폰 자판의 '완료'가 해서 뺐다)
   function runTool(item) {
     Object.keys(TOOLS).forEach(function (attr) { if (item.hasAttribute(attr)) TOOLS[attr](); });
     setMenu(false);

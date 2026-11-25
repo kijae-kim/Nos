@@ -539,8 +539,8 @@ class MemoDockTests(TestCase):
         self.assertIn('data-dock-toggle aria-label="메모 도구" aria-expanded="false"', html)
         menu = html[html.index('class="memo-dock-menu"'):]
         self.assertIn("data-make-check", menu)
-        self.assertIn("체크 항목", menu)
-        self.assertIn("data-done", menu)
+        self.assertIn("<span>todo</span>", menu)
+        self.assertNotIn("data-done", menu)  # 자판 내리기는 아이폰 자판의 '완료'로 (2026-11-25)
         self.assertIn('id="i-pen"', html)
 
     def test_dock_script_snaps_to_edges_and_remembers(self):
