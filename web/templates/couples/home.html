@@ -76,11 +76,11 @@
     {% else %}
       <p class="today-empty">오늘은 일정이 없어요.{% if next_event %} 다음은 <a href="{% url 'event_update' next_event.pk %}">{{ next_event.date|date:"n월 j일" }} {{ next_event.title }}</a>이에요.{% endif %}</p>
     {% endif %}
-    {% if partner_news %}
-      <p class="today-sub">{{ partner.display_name }}님이 새로 남겼어요</p>
+    {% if recent_news %}
+      <p class="today-sub">최근에 남긴 것</p>
       <ul class="today-news">
-        {% for n in partner_news %}
-          <li><a href="{{ n.url }}"><svg class="i" aria-hidden="true"><use href="#{{ n.icon }}"/></svg><span>{{ n.text }}</span><time>{{ n.ago }}</time></a></li>
+        {% for n in recent_news %}
+          <li><a href="{{ n.url }}"><svg class="i" aria-hidden="true"><use href="#{{ n.icon }}"/></svg><b class="who">{{ n.who|truncatechars:6 }}</b><span>{{ n.text }}</span><time>{{ n.ago }}</time></a></li>
         {% endfor %}
       </ul>
     {% endif %}

@@ -123,7 +123,7 @@ def home(request):
             "today": today,
             "today_events": today_events,
             "next_event": next_event,
-            "partner_news": _partner_news(couple, partner) if partner else [],
+            "recent_news": _recent_news(couple, user, partner),
         },
     )
 
@@ -131,26 +131,34 @@ def home(request):
 NEWS_DAYS = 3
 
 
-def _partner_news(couple, partner):
-    """최근 3일 안에 상대가 새로 남긴 순간·기록·사진과 고친 메모. 최근순 3개. 사진은 한 줄로 묶는다."""
+NEWS_MAX = 5
+
+
+def _recent_news(couple, user, partner):
+    """최근 3일 동안 두 사람이 새로 남긴 순간·기록·사진과 고친 메모. 최근순, 누가 했는지 붙인다.
+    사진은 사람마다 한 줄로 묶는다 (한 번에 여러 장 올리면 목록을 다 차지하지 않게)."""
     since = timezone.now() - timedelta(days=NEWS_DAYS)
+    people = [p for p in (user, partner) if p]
+    who = {p.pk: ("나" if p.pk == user.pk else p.display_name) for p in people}
     news = []
-    for t in Taste.objects.filter(couple=couple, author=partner, created_at__gte=since)[:3]:
+    for t in Taste.objects.filter(couple=couple, author__in=people, created_at__gte=since).order_by("-created_at")[:NEWS_MAX]:
         kind = "기록" if t.category == Taste.PLACE else "순간"
-        news.append({"icon": "i-pin" if kind == "기록" else "i-note", "text": f"{kind} · {t.title}",
+        news.append({"icon": "i-pin" if kind == "기록" else "i-note", "who": who[t.author_id], "text": f"{kind} · {t.title}",
                      "url": reverse("taste_detail", args=[t.pk]), "at": t.created_at})
-    for m in Memo.objects.filter(couple=couple, updated_by=partner, updated_at__gte=since).exclude(title="")[:3]:
-        news.append({"icon": "i-check-circle", "text": f"메모 · {m.title}",
+    memos = Memo.objects.filter(couple=couple, updated_by__in=people, updated_at__gte=since).exclude(title="").order_by("-updated_at")
+    for m in memos[:NEWS_MAX]:
+        news.append({"icon": "i-check-circle", "who": who[m.updated_by_id], "text": f"메모 · {m.title}",
                      "url": reverse("memo_edit", args=[m.pk]), "at": m.updated_at})
-    photos = list(Photo.objects.filter(couple=couple, uploaded_by=partner, created_at__gte=since).order_by("-created_at", "-pk").only("pk", "created_at")[:100])
-    if photos:
-        url = reverse("photo_detail", args=[photos[0].pk]) if len(photos) == 1 else reverse("albums")
-        news.append({"icon": "i-album", "text": f"사진 {len(photos)}장", "url": url, "at": photos[0].created_at})
+    for p in people:
+        photos = list(Photo.objects.filter(couple=couple, uploaded_by=p, created_at__gte=since).order_by("-created_at", "-pk").only("pk", "created_at")[:100])
+        if photos:
+            url = reverse("photo_detail", args=[photos[0].pk]) if len(photos) == 1 else reverse("albums")
+            news.append({"icon": "i-album", "who": who[p.pk], "text": f"사진 {len(photos)}장", "url": url, "at": photos[0].created_at})
     news.sort(key=lambda n: n["at"], reverse=True)
     now = timezone.now()
     for n in news:
         n["ago"] = _ago(now - n["at"])
-    return news[:3]
+    return news[:NEWS_MAX]
 
 
 def _ago(delta):

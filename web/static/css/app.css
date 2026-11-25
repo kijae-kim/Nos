@@ -1251,3 +1251,4 @@ html[data-mode="dark"] { --bar-bg: color-mix(in srgb, var(--surface), #fff 9%); 
 .day.today, .cell.today { background: color-mix(in srgb, var(--primary) 14%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--primary) 55%, transparent); }
 .day.today { border-radius: 10px; }
 .day.today b, .cell.today b { box-shadow: none; color: var(--primary); font-weight: 700; }
+.today-news .who { flex: none; font-size: 12px; font-weight: 700; color: var(--muted); }
