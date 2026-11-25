@@ -454,3 +454,30 @@ class ProfilePaletteTests(TestCase):
         self.assertIn('<span class="sr-only">민트</span>', html)
         self.assertIn('<span class="sr-only">코랄 · 상대 색</span>', html)
         self.assertIn('value="coral" disabled', html)
+
+
+class SignupClosedTests(TestCase):
+    """새 회원은 카카오·구글로만 시작한다 (이메일 회원가입 막음, 2026-11-25). 기존 이메일 계정은 그대로 로그인."""
+
+    def test_email_signup_closed(self):
+        res = self.client.get(reverse("account_signup"))
+        self.assertContains(res, "카카오나 Google로 시작해 주세요")
+        self.assertNotContains(res, 'name="password1"')
+        self.client.post(reverse("account_signup"), {"email": "new@test.com", "password1": "Abcd!2345xyz", "password2": "Abcd!2345xyz"})
+        self.assertFalse(User.objects.filter(email="new@test.com").exists())
+
+    def test_login_page_has_no_signup_link_and_existing_user_logs_in(self):
+        self.assertNotContains(self.client.get(reverse("account_login")), reverse("account_signup"))
+        User.objects.create_user("old", email="old@test.com", password="Abcd!2345xyz")
+        res = self.client.post(reverse("account_login"), {"login": "old@test.com", "password": "Abcd!2345xyz"})
+        self.assertEqual(res.status_code, 302)
+        self.assertIn("_auth_user_id", self.client.session)
+
+    def test_social_signup_still_open(self):
+        from django.test import RequestFactory
+
+        from .adapters import AccountAdapter, SocialAccountAdapter
+
+        request = RequestFactory().get("/")
+        self.assertFalse(AccountAdapter().is_open_for_signup(request))
+        self.assertTrue(SocialAccountAdapter().is_open_for_signup(request, sociallogin=None))

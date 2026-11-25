@@ -1,10 +1,8 @@
 {% extends "layout_auth.html" %}
 {% block head_title %}로그인 · {{ APP_NAME }}{% endblock %}
 {% block content %}
-<div class="segment two">
-  <a class="on" href="{% url 'account_login' %}">로그인</a>
-  <a href="{% url 'account_signup' %}">회원가입</a>
-</div>
+{# 이메일 회원가입은 막았다. 새로 시작은 아래 카카오·Google, 이메일은 이미 가입한 계정의 로그인만 #}
+<h1 class="auth-title">로그인</h1>
 <form method="post" action="{% url 'account_login' %}">
   {% csrf_token %}
   {% for error in form.non_field_errors %}<p class="error">{{ error }}</p>{% endfor %}

@@ -1,3 +1,4 @@
+from allauth.account.adapter import DefaultAccountAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 
 from .models import User
@@ -19,7 +20,17 @@ def nickname_from(provider, extra_data):
     return (name or "").strip()[:NICKNAME_MAX]
 
 
+class AccountAdapter(DefaultAccountAdapter):
+    def is_open_for_signup(self, request):
+        """이메일 회원가입은 막는다 (2026-11-25). 새 회원은 카카오·구글로 시작하고, 이미 있는 이메일 계정은 그대로 로그인한다."""
+        return False
+
+
 class SocialAccountAdapter(DefaultSocialAccountAdapter):
+    def is_open_for_signup(self, request, sociallogin):
+        """소셜 로그인으로 처음 오면 가입시킨다 (기본값은 이메일 가입 설정을 따라 막혀 버린다)."""
+        return True
+
     def populate_user(self, request, sociallogin, data):
         """소셜 로그인으로 처음 가입할 때, 그 계정의 이름을 닉네임으로 넣어 둔다. 나중에 '우리'에서 바꿀 수 있다."""
         user = super().populate_user(request, sociallogin, data)

@@ -122,6 +122,7 @@ SOCIALACCOUNT_EMAIL_REQUIRED = False
 SOCIALACCOUNT_AUTO_SIGNUP = True
 # 소셜 가입 때 카카오 닉네임·구글 이름을 앱 닉네임으로 넣는다
 SOCIALACCOUNT_ADAPTER = "accounts.adapters.SocialAccountAdapter"
+ACCOUNT_ADAPTER = "accounts.adapters.AccountAdapter"  # 이메일 회원가입 막기
 # 같은 이메일이라도 소셜 계정을 기존 계정에 저절로 붙이지 않는다.
 # 이메일 인증을 하지 않으므로, 남이 내 이메일로 먼저 가입해 둔 계정에 내가 들어가게 되는 일을 막기 위해서다.
 # 여러 로그인 방법은 로그인한 뒤 '우리 > 연결된 계정'에서 직접 이어 붙인다.
