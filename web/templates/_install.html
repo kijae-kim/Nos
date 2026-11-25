@@ -1,0 +1,7 @@
+{# 앱처럼 쓰기 버튼: 홈 화면 앱으로 이미 열려 있으면 숨긴다 (app.js 가 보이게 한다) #}
+<div class="install-card card" data-install hidden>
+  <span class="icon-tile" style="background:var(--sky)"><svg class="i" aria-hidden="true"><use href="#i-home"/></svg></span>
+  <span class="main"><strong>앱처럼 쓰기</strong><small>홈 화면에 추가하면 앱처럼 바로 열려요</small></span>
+  <button type="button" class="btn small-btn" data-install-open>추가</button>
+</div>
+{% include "_install_guide.html" %}

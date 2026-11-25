@@ -640,6 +640,51 @@
     setTimeout(leaveSplash, reduceMotion() ? 800 : 2400);
   }
 
+  // ---------- 앱처럼 쓰기 (홈 화면에 추가) ----------
+  // 홈 화면 앱으로 열려 있으면 버튼을 숨긴다. 안드로이드 크롬은 브라우저가 주는 설치 창을 바로 열고,
+  // 아이폰처럼 설치 창이 없는 곳은 '공유 → 홈 화면에 추가' 안내 판을 연다
+  (function () {
+    var standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    var cards = $$("[data-install]");
+    if (!cards.length || standalone) return;
+    var deferred = null;
+    window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); deferred = e; });
+    window.addEventListener("appinstalled", function () { cards.forEach(function (c) { c.hidden = true; }); });
+    cards.forEach(function (c) { c.hidden = false; });
+    var guide = document.querySelector("[data-install-guide]");
+    var ua = navigator.userAgent || "";
+    var inAppBrowser = /KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|NAVER\(inapp|DaumApps|; wv\)/i.test(ua);
+    var apple = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    function openGuide() {
+      if (!guide) return;
+      var ios = guide.querySelector('[data-install-steps="ios"]');
+      var android = guide.querySelector('[data-install-steps="android"]');
+      var inapp = guide.querySelector("[data-install-inapp]");
+      if (inapp) inapp.hidden = !inAppBrowser;
+      if (ios) ios.hidden = inAppBrowser || !apple;
+      if (android) android.hidden = inAppBrowser || apple;
+      if (typeof guide.showModal === "function") guide.showModal(); else guide.setAttribute("open", "");
+    }
+    $$("[data-install-open]").forEach(function (b) {
+      b.addEventListener("click", function (e) {
+        e.preventDefault();
+        if (deferred) {
+          var p = deferred;
+          deferred = null;
+          p.prompt();
+          p.userChoice.then(function (choice) {
+            if (choice && choice.outcome === "accepted") cards.forEach(function (c) { c.hidden = true; });
+          });
+        } else openGuide();
+      });
+    });
+    if (guide) {
+      var close = guide.querySelector("[data-install-close]");
+      if (close) close.addEventListener("click", function () { guide.close(); });
+      guide.addEventListener("click", function (e) { if (e.target === guide) guide.close(); });
+    }
+  })();
+
   // ---------- 로딩 화면 ----------
   // 화면을 옮기거나 저장할 때, 다음 화면이 0.35초 안에 안 뜨면 보여 준다.
   var loadTimer = null, giveUpTimer = null;

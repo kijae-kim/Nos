@@ -1,0 +1,18 @@
+{# '앱처럼 쓰기' 안내 판. 안드로이드 크롬은 버튼이 바로 설치 창을 열고, 그 밖(아이폰 등)은 이 판을 연다 (app.js) #}
+<dialog class="install-guide" data-install-guide aria-labelledby="install-title">
+  <div class="install-guide-body">
+    <h2 id="install-title">홈 화면에 추가해 앱처럼 쓰기</h2>
+    <p class="muted">한 번 추가하면 홈 화면 아이콘으로 주소창 없이 열리고, 알림도 받을 수 있어요.</p>
+    <ol class="install-steps" data-install-steps="ios">
+      <li><span class="step-icon"><svg class="i" aria-hidden="true"><use href="#i-share"/></svg></span><span><strong>공유 버튼</strong>을 눌러요<small>크롬은 주소창 오른쪽, 사파리는 화면 아래에 있어요</small></span></li>
+      <li><span class="step-icon"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></span><span><strong>'홈 화면에 추가'</strong>를 골라요<small>안 보이면 목록을 아래로 내려 보세요</small></span></li>
+      <li><span class="step-icon"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg></span><span>오른쪽 위 <strong>'추가'</strong>를 누르면 끝</span></li>
+    </ol>
+    <ol class="install-steps" data-install-steps="android" hidden>
+      <li><span class="step-icon"><svg class="i" aria-hidden="true"><use href="#i-dots"/></svg></span><span>오른쪽 위 <strong>⋮ 메뉴</strong>를 눌러요</span></li>
+      <li><span class="step-icon"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></span><span><strong>'홈 화면에 추가'</strong> 또는 <strong>'앱 설치'</strong>를 골라요</span></li>
+    </ol>
+    <p class="install-inapp" data-install-inapp hidden>지금은 카카오톡 같은 앱 안의 브라우저라 추가할 수 없어요. 메뉴(⋯)에서 <strong>'다른 브라우저로 열기'</strong>로 크롬이나 사파리에서 열어 주세요.</p>
+    <button type="button" class="btn" data-install-close>닫기</button>
+  </div>
+</dialog>

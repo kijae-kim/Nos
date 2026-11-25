@@ -1284,3 +1284,29 @@ html[data-mode="dark"] .cat { box-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
 /* 캘린더 태그 모아 보기: 모바일 묶음은 레이아웃에 끼지 않게, 바꾸는 동안은 목록을 살짝 흐리게 */
 .mobile-only .label-zone { display: contents; }
 .label-loading [data-label-zone] .events { opacity: .55; transition: opacity .15s; }
+
+/* 앨범 대표 사진: 정했으면 한 장을 크게 */
+.album .cover.one { display: block; }
+.album .cover.one img { width: 100%; height: 100%; object-fit: cover; }
+.cover-note { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0; }
+.cover-note svg.i { width: 16px; height: 16px; color: var(--primary); }
+form > button.add-link { background: none; border: 0; padding: 0; cursor: pointer; }
+
+/* 앱처럼 쓰기 */
+.install-card { display: flex; align-items: center; gap: 12px; padding: 13px 14px; margin-top: 6px; }
+.install-card[hidden], [data-install][hidden] { display: none; }
+.install-card .small-btn { width: auto; flex: none; padding: 9px 16px; margin: 0; }
+.install-guide { border: 0; padding: 0; width: min(420px, calc(100vw - 24px)); border-radius: 24px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.install-guide::backdrop { background: var(--scrim); }
+.install-guide-body { display: grid; gap: 14px; padding: 22px 20px 20px; }
+.install-guide h2 { font-size: 19px; font-weight: 800; }
+.install-guide .muted { font-size: 13px; margin: -6px 0 0; }
+.install-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.install-steps[hidden] { display: none; }
+.install-steps li { display: flex; align-items: center; gap: 12px; font-size: 15px; }
+.install-steps li > span:last-child { display: block; line-height: 1.4; }
+.install-steps small { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
+.step-icon { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; background: var(--tile); color: var(--primary); }
+.step-icon svg.i { width: 20px; height: 20px; }
+.install-inapp { font-size: 14px; margin: 0; }
+.install-inapp[hidden] { display: none; }

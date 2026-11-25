@@ -48,10 +48,17 @@
   <div class="albums">
     {% for a in albums %}
       <a class="album" href="{% url 'album_detail' a.pk %}">
+        {% with cover=a.cover_photo %}
+        {% if cover %}
+          {# 대표 사진을 정했으면 그 한 장 #}
+          <span class="cover one"><img src="{{ cover.thumb_url }}" loading="lazy" decoding="async" alt=""></span>
+        {% else %}
         <span class="cover">
           {% for p in a.photos.all %}{% if forloop.counter <= 3 %}<img src="{{ p.thumb_url }}" loading="lazy" decoding="async" alt="">{% endif %}{% endfor %}
           {% if not a.photos.all %}<span class="cover-empty"></span>{% endif %}
         </span>
+        {% endif %}
+        {% endwith %}
         <span class="album-text"><strong>{{ a.title }}</strong><small>{{ a.photos.all|length }}장</small></span>
       </a>
     {% empty %}

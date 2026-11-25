@@ -3463,3 +3463,53 @@ class CalendarLabelZoneTests(TestCase):
         html = self.client.get(reverse("calendar")).content.decode()
         self.assertEqual(html.count("data-label-zone"), 2)  # 폰·넓은 화면
         self.assertIn("js/calendar-labels.js", html)
+
+
+class AlbumCoverTests(TestCase):
+    """앨범 대표 사진: 사진 화면에서 '앨범 대표 사진으로'. 정하지 않으면 예전처럼 최근 사진들."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def test_set_cover_from_photo_and_shown_on_album_list(self):
+        album = Album.objects.create(couple=self.couple, title="제주")
+        a = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png(), album=album)
+        b = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png(), album=album)
+        html = self.client.get(reverse("photo_detail", args=[a.pk])).content.decode()
+        self.assertIn(reverse("photo_set_cover", args=[a.pk]), html)
+        self.assertIn("앨범 대표 사진으로", html)
+        self.client.post(reverse("photo_set_cover", args=[a.pk]))
+        album.refresh_from_db()
+        self.assertEqual(album.cover, a)
+        self.assertIn("대표 사진이에요", self.client.get(reverse("photo_detail", args=[a.pk])).content.decode())
+        res = self.client.get(reverse("albums"))
+        self.assertContains(res, 'class="cover one"')
+        self.assertEqual(res.context["albums"][0].cover_photo, a)
+        self.assertIsNotNone(b)
+
+    def test_cover_ignored_when_photo_left_album_and_rules(self):
+        album = Album.objects.create(couple=self.couple, title="제주")
+        other = Album.objects.create(couple=self.couple, title="부산")
+        a = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png(), album=album)
+        album.cover = a
+        album.save()
+        Photo.objects.filter(pk=a.pk).update(album=other)  # 다른 앨범으로 옮김
+        album.refresh_from_db()
+        self.assertIsNone(album.cover_photo)
+        loose = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png())
+        self.assertNotIn("앨범 대표 사진으로", self.client.get(reverse("photo_detail", args=[loose.pk])).content.decode())
+        self.assertEqual(self.client.get(reverse("photo_set_cover", args=[a.pk])).status_code, 405)
+        stranger_couple = Couple.objects.create()
+        stranger = User.objects.create_user("z", password="pw", couple=stranger_couple)
+        self.client.force_login(stranger)
+        self.assertEqual(self.client.post(reverse("photo_set_cover", args=[a.pk])).status_code, 404)
+
+    def test_deleting_cover_photo_clears_cover(self):
+        album = Album.objects.create(couple=self.couple, title="제주")
+        a = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png(), album=album)
+        album.cover = a
+        album.save()
+        self.client.post(reverse("photo_delete", args=[a.pk]))
+        album.refresh_from_db()
+        self.assertIsNone(album.cover)

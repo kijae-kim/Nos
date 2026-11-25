@@ -79,6 +79,14 @@
     </a>
   </li>
   {% endif %}
+  {# 앱처럼 쓰기: 홈 화면 앱으로 열려 있으면 숨긴다 (app.js) #}
+  <li data-install hidden>
+    <a href="#" data-install-open>
+      <span class="icon-tile" style="background:var(--sky)"><svg class="i"><use href="#i-home"/></svg></span>
+      <span class="main"><strong>앱처럼 쓰기</strong><small>홈 화면에 추가하면 앱처럼 바로 열려요</small></span>
+      <svg class="i chev"><use href="#i-right"/></svg>
+    </a>
+  </li>
   {% get_social_accounts user as connected %}
   <li>
     <a href="{% url 'socialaccount_connections' %}">
@@ -100,4 +108,5 @@
   </form>
 </div>
 <p class="muted" style="text-align:center">{{ user.email|default:user.username }}</p>
+{% include "_install_guide.html" %}
 {% endblock %}

@@ -502,3 +502,27 @@ class SecurityAccountTests(TestCase):
         self.assertEqual(settings.ADMIN_ENABLED, os.getenv("DJANGO_DEBUG", "0") == "1" or os.getenv("DJANGO_ADMIN", "0") == "1")
         if not settings.ADMIN_ENABLED:
             self.assertEqual(self.client.get("/admin/").status_code, 404)
+
+
+class InstallButtonTests(TestCase):
+    """앱처럼 쓰기: 로그인 화면과 우리 화면 (홈 화면 앱이면 app.js 가 숨긴다)."""
+
+    def test_login_and_us_have_install(self):
+        from couples.models import Couple
+
+        html = self.client.get(reverse("account_login")).content.decode()
+        self.assertIn("data-install hidden", html)
+        self.assertIn("data-install-guide", html)
+        self.assertIn("홈 화면에 추가", html)
+        u = User.objects.create_user("i", password="pw", couple=Couple.objects.create())
+        self.client.force_login(u)
+        html = self.client.get(reverse("us")).content.decode()
+        self.assertIn('<li data-install hidden>', html)
+        self.assertEqual(html.count("data-install-guide"), 1)
+
+    def test_script_hides_in_standalone_and_uses_install_prompt(self):
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/app.js").read_text()
+        self.assertIn('matchMedia("(display-mode: standalone)")', js)
+        self.assertIn("beforeinstallprompt", js)

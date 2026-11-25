@@ -25,6 +25,16 @@
     <small class="muted">위치 없음</small>
   {% endif %}
 </article>
+{% if photo.album %}
+  {% if photo.album.cover_id == photo.pk %}
+    <p class="cover-note muted"><svg class="i" aria-hidden="true"><use href="#i-check-circle"/></svg>'{{ photo.album.title }}' 앨범의 대표 사진이에요</p>
+  {% else %}
+    <form method="post" action="{% url 'photo_set_cover' photo.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="add-link"><svg class="i" aria-hidden="true"><use href="#i-album"/></svg>'{{ photo.album.title }}' 앨범 대표 사진으로</button>
+    </form>
+  {% endif %}
+{% endif %}
 <div class="action-row">
   <a class="btn" href="{% url 'photo_update' photo.pk %}">수정</a>
   <form method="post" action="{% url 'photo_delete' photo.pk %}" data-confirm="이 사진을 삭제할까요? 되돌릴 수 없어요.">
