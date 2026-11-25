@@ -91,13 +91,15 @@ input:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visibl
   background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
   overflow-x: hidden;
 }
+/* 화면 양옆 여백: 아이폰 15·16(393px) 에서 24px, SE·mini(375px) 23px, Pro Max(440px) 26px, 더 작은 폰은 16px 까지 */
+:root { --gutter: clamp(16px, 6.1vw, 26px); }
 .page {
   display: grid; gap: 18px;
-  padding: calc(28px + env(safe-area-inset-top)) 24px calc(130px + env(safe-area-inset-bottom));
+  padding: calc(28px + env(safe-area-inset-top)) var(--gutter) calc(130px + env(safe-area-inset-bottom));
 }
-.pad { padding-left: 24px; padding-right: 24px; }
+.pad { padding-left: var(--gutter); padding-right: var(--gutter); }
 .row-between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.page-title { font-size: 28px; font-weight: 800; letter-spacing: -.03em; }
+.page-title { font-size: clamp(24px, 7.1vw, 30px); font-weight: 800; letter-spacing: -.03em; }
 .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
 .bar-head { min-height: 44px; }
 .bar-title { font-size: 17px; font-weight: 700; }
@@ -397,9 +399,16 @@ img.av { object-fit: cover; background: var(--tile); display: block; }
 /* ---------- 하단 탭 · + 버튼 ---------- */
 .tabbar {
   position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%);
-  width: min(342px, calc(100vw - 48px)); height: 94px; z-index: 5;
+  width: min(calc(100vw - 2 * var(--gutter)), 420px); height: 94px; z-index: 5;
 }
-.tabbar .bar { position: absolute; left: 0; bottom: 0; width: 100%; height: 64px; fill: var(--surface); filter: drop-shadow(0 8px 16px rgba(var(--shadow-rgb), .1)); }
+/* 바 그림자는 바깥 틀에(오려 낸 홈 모양을 따라 그림자가 진다), 바는 둥근 막대에서 가운데 원을 오려 낸다 */
+.tabbar .bar-wrap { position: absolute; left: 0; bottom: 0; width: 100%; height: 64px; filter: drop-shadow(0 8px 16px rgba(var(--shadow-rgb), .1)); }
+.tabbar .bar {
+  display: block; width: 100%; height: 100%; border-radius: 22px; background: var(--bar-bg, var(--surface));
+  box-shadow: inset 0 0 0 1px var(--bar-line, transparent);
+  -webkit-mask: radial-gradient(circle at 50% -3px, transparent 38px, #000 38.6px);
+  mask: radial-gradient(circle at 50% -3px, transparent 38px, #000 38.6px);
+}
 .tab {
   position: absolute; bottom: 7px; width: 56px; height: 50px; margin-left: -28px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
@@ -574,7 +583,7 @@ html.sheet-open, html.sheet-open body { overflow: hidden; } /* 팝업이 열린 
 .sidebar { display: none; }
 
 /* ---------- 취향 ---------- */
-.cats { display: flex; gap: 8px; margin: 0 -24px; padding: 4px 24px; overflow-x: auto; scrollbar-width: none; }
+.cats { display: flex; gap: 8px; margin: 0 calc(-1 * var(--gutter)); padding: 4px var(--gutter); overflow-x: auto; scrollbar-width: none; }
 .cats::-webkit-scrollbar { display: none; }
 .cat { flex: none; padding: 9px 14px; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow); font-size: 13px; font-weight: 600; color: var(--muted); }
 .cat.on { background: var(--primary); color: #fff; }
@@ -1237,7 +1246,6 @@ html.splash-on { background: var(--hero-bg); } /* 위·아래 안전 영역(상�
 /* 아래 바: 페이지 바탕과 구분되게. 라이트는 짙은 바(밝은 글자), 다크는 한 단계 밝은 바 + 위 경계 */
 html[data-mode="light"] { --bar-bg: color-mix(in srgb, var(--text) 88%, var(--primary)); --bar-fg: rgba(255, 255, 255, .62); --bar-on: #fff; --bar-line: transparent; }
 html[data-mode="dark"] { --bar-bg: color-mix(in srgb, var(--surface), #fff 9%); --bar-fg: var(--muted); --bar-on: var(--primary); --bar-line: rgba(255, 255, 255, .1); }
-.tabbar .bar { fill: var(--bar-bg, var(--surface)); stroke: var(--bar-line, transparent); stroke-width: 1; }
 .tab { color: var(--bar-fg, var(--faint)); }
 .tab.on { color: var(--bar-on, var(--primary)); }
 .day-sheet:not([open]) { display: none; } /* 닫힌 판은 그리지 않는다 (다른 dialog 규칙이 display 를 바꿔도) */

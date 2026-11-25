@@ -31,7 +31,8 @@
   {% if sheet != "1" %}
   <div class="dim" id="dim"></div>
   <nav class="tabbar" aria-label="주 메뉴">
-    <svg class="bar" viewBox="0 0 342 64" aria-hidden="true"><path d="M22 0H126Q133 0 134 6A38 38 0 0 0 208 6Q209 0 216 0H320A22 22 0 0 1 342 22V42A22 22 0 0 1 320 64H22A22 22 0 0 1 0 42V22A22 22 0 0 1 22 0Z"/></svg>
+    {# 아래 바: 화면 폭에 맞춰 늘고 줄어든다. 가운데 + 자리 홈은 CSS 로 오려 낸다 (예전 SVG 는 342px 고정이었다) #}
+    <span class="bar-wrap" aria-hidden="true"><i class="bar"></i></span>
 
 
     <a class="tab{% if tab == 'home' %} on{% endif %}" style="left:11.7%" href="{% url 'home' %}"{% if tab == 'home' %} aria-current="page"{% endif %}>
