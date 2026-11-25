@@ -627,7 +627,8 @@ def taste(request):
         # 가고 싶은 곳 카드를 누르면 바로 아래에 펼쳐 보이는 목록(태그)들. 숫자는 아직 안 다녀온 곳
         from django.db.models import Q
 
-        wish_lists = couple.wish_lists.annotate(open_count=Count("places", filter=Q(places__visited_at__isnull=True)))
+        # 수를 세는(annotate) 쿼리는 모델 기본 정렬을 쓰지 않으니 직접 정렬한다
+        wish_lists = couple.wish_lists.annotate(open_count=Count("places", filter=Q(places__visited_at__isnull=True))).order_by("name")
         wish_open_count = WishPlace.objects.filter(couple=couple, visited_at__isnull=True).count()
         return render(request, "couples/taste.html", {
             **common, "places": places, "wish_open_count": wish_open_count, "wish_lists": wish_lists,
@@ -644,7 +645,7 @@ def taste(request):
         like_count=Count("likes", distinct=True),
         comment_count=Count("comments", distinct=True),
         liked=Exists(TasteLike.objects.filter(taste=OuterRef("pk"), user=user)),
-    )
+    ).order_by("-created_at", "-pk")  # 최근 남긴 것이 위. 수를 세는 쿼리는 모델 기본 정렬을 쓰지 않는다 (Django 3.1+)
     if category != "전체":
         tastes = tastes.filter(category=category)
     if who.isdigit():
