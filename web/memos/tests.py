@@ -587,3 +587,12 @@ class MemoNewCrossSiteTests(TestCase):
         self.client.get(reverse("memo_new"), HTTP_SEC_FETCH_SITE="none")  # 주소창·홈 화면 앱
         self.client.get(reverse("memo_new"))  # 헤더 없는 오래된 브라우저
         self.assertEqual(Memo.objects.count(), 1)  # 방금 만든 빈 메모를 다시 연다
+
+
+class MemoDockDragTests(TestCase):
+    def test_drag_uses_layout_coords_and_ignores_viewport_events(self):
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
+        self.assertIn("top: dock.offsetTop, left: dock.offsetLeft", js)  # 아이폰 자판이 떠도 어긋나지 않게
+        self.assertIn("if (drag && drag.moved) return;", js)  # 끄는 동안 되돌리지 않음
