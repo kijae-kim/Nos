@@ -291,6 +291,8 @@ class Album(models.Model):
     couple = models.ForeignKey(Couple, on_delete=models.CASCADE, related_name="albums")
     title = models.CharField("앨범 이름", max_length=50)
     created_at = models.DateTimeField(auto_now_add=True)
+    # 대표 사진 (사진 화면에서 정한다). 비어 있거나 그 사진이 다른 앨범으로 옮겨지면 최근 사진들로 보여 준다
+    cover = models.ForeignKey("Photo", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     class Meta:
         ordering = ["-created_at", "-pk"]
@@ -298,6 +300,12 @@ class Album(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def cover_photo(self):
+        """지금도 이 앨범에 있는 대표 사진. 없으면 None."""
+        cover = self.cover
+        return cover if cover and cover.album_id == self.pk else None
 
 
 class Photo(models.Model):

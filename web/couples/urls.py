@@ -58,4 +58,5 @@ urlpatterns = [
     path("albums/photos/<int:pk>/", views.photo_detail, name="photo_detail"),
     path("albums/photos/<int:pk>/edit/", views.photo_update, name="photo_update"),
     path("albums/photos/<int:pk>/delete/", views.photo_delete, name="photo_delete"),
+    path("albums/photos/<int:pk>/cover/", views.photo_set_cover, name="photo_set_cover"),
 ]

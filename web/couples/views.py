@@ -1159,7 +1159,7 @@ def album(request):
         request,
         "couples/album.html",
         {
-            "albums": couple.albums.prefetch_related("photos"),
+            "albums": couple.albums.select_related("cover").prefetch_related("photos"),
             "unassigned_count": couple.photos.filter(album__isnull=True).count(),
             "memory": _memory(couple, today),
             "photo_groups": [{"month": m, "photos": ps} for m, ps in by_month.items()],
@@ -1229,6 +1229,16 @@ def photo_create(request):
 def photo_detail(request, pk):
     photo = get_object_or_404(Photo, pk=pk, couple=request.user.couple)
     return render(request, "couples/photo_detail.html", {"photo": photo})
+
+
+@login_required
+@require_POST
+def photo_set_cover(request, pk):
+    """이 사진을 앨범 대표 사진으로."""
+    photo = get_object_or_404(Photo, pk=pk, couple=request.user.couple, album__isnull=False)
+    Album.objects.filter(pk=photo.album_id, couple=request.user.couple).update(cover=photo)
+    messages.success(request, "앨범 대표 사진으로 정했어요.")
+    return redirect("photo_detail", pk=photo.pk)
 
 
 @login_required
