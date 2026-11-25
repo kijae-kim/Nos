@@ -167,17 +167,18 @@ def _recent_news(couple, user, partner):
     news = []
     for t in Taste.objects.filter(couple=couple, author__in=people, created_at__gte=since).order_by("-created_at")[:NEWS_MAX]:
         kind = "기록" if t.category == Taste.PLACE else "순간"
-        news.append({"icon": "i-pin" if kind == "기록" else "i-note", "who": who[t.author_id], "text": f"{kind} · {t.title}",
+        news.append({"icon": "i-pin" if kind == "기록" else "i-note", "color": "peach" if kind == "기록" else "rose",
+                     "who": who[t.author_id], "text": f"{kind} · {t.title}",
                      "url": reverse("taste_detail", args=[t.pk]), "at": t.created_at})
     memos = Memo.objects.filter(couple=couple, updated_by__in=people, updated_at__gte=since).exclude(title="").order_by("-updated_at")
     for m in memos[:NEWS_MAX]:
-        news.append({"icon": "i-check-circle", "who": who[m.updated_by_id], "text": f"메모 · {m.title}",
+        news.append({"icon": "i-check-circle", "color": "sage", "who": who[m.updated_by_id], "text": f"메모 · {m.title}",
                      "url": reverse("memo_edit", args=[m.pk]), "at": m.updated_at})
     for p in people:
         photos = list(Photo.objects.filter(couple=couple, uploaded_by=p, created_at__gte=since).order_by("-created_at", "-pk").only("pk", "created_at")[:100])
         if photos:
             url = reverse("photo_detail", args=[photos[0].pk]) if len(photos) == 1 else reverse("albums")
-            news.append({"icon": "i-album", "who": who[p.pk], "text": f"사진 {len(photos)}장", "url": url, "at": photos[0].created_at})
+            news.append({"icon": "i-album", "color": "lav", "who": who[p.pk], "text": f"사진 {len(photos)}장", "url": url, "at": photos[0].created_at})
     news.sort(key=lambda n: n["at"], reverse=True)
     now = timezone.now()
     for n in news:
