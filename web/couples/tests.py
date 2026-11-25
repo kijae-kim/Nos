@@ -578,7 +578,7 @@ class PolishTests(TestCase):
 
     def test_tabbar_has_text_and_flash_notice(self):
         response = self.client.get(reverse("home"))
-        for text in ["홈", "캘린더", "추억", "앨범"]:
+        for text in ["캘린더", "추억", "메모", "앨범"]:
             self.assertContains(response, f"<span>{text}</span>")
         from django.contrib.messages import get_messages  # noqa: F401
         response = self.client.post(reverse("event_create"), {"text": "확인용", "date": timezone.localdate().isoformat(), "scope": "shared", "color": "sky"}, follow=True)

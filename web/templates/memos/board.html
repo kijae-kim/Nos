@@ -1,0 +1,37 @@
+{% extends "layout_app.html" %}
+{% block head_title %}메모 · {{ APP_NAME }}{% endblock %}
+{% block header %}
+{% include "_brand_head.html" %}
+<header class="row-between">
+  <div>
+    <h1 class="page-title">메모</h1>
+    <p class="sub">버킷리스트와 여행 계획</p>
+  </div>
+  {# 넓은 화면에는 + 가 없으므로 쓰기 링크 #}
+  <a class="btn primary wide-add" href="{% url 'memo_new' %}{% if memo_folder %}?folder={{ memo_folder.pk }}{% endif %}">메모 쓰기</a>
+</header>
+{% endblock %}
+{% block fab %}aria-label="메모 쓰기" href="{% url 'memo_new' %}{% if memo_folder %}?folder={{ memo_folder.pk }}{% endif %}"{% endblock %}
+{% block content %}
+{# 폴더 칩(누르면 그 폴더만) · 새 폴더 · 고른 폴더 고치기, 아래 메모 목록 (최근 고친 순) #}
+<nav class="cats memo-folder-chips" aria-label="메모 폴더">
+  <a class="cat{% if not memo_folder %} on{% endif %}" href="{% url 'memos' %}">모든 폴더</a>
+  {% for f in memo_folders %}
+    <a class="cat{% if memo_folder and f.pk == memo_folder.pk %} on{% endif %}" href="?folder={{ f.pk }}"><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg>{{ f.name }} <small>{{ f.count }}</small></a>
+  {% endfor %}
+  <a class="cat add" href="{% url 'memo_folder_create' %}" aria-label="새 폴더"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>폴더</a>
+</nav>
+{% if memo_folder %}<a class="add-link memo-folder-edit" href="{% url 'memo_folder_update' memo_folder.pk %}"><svg class="i"><use href="#i-dots"/></svg>'{{ memo_folder.name }}' 폴더 고치기</a>{% endif %}
+{% if memo_items %}
+  <ul class="memo-list card">
+    {% for m in memo_items %}
+      <li><a href="{% url 'memo_edit' m.pk %}">
+        <strong>{{ m.title }}</strong>
+        <span class="memo-meta"><time>{{ m.updated_at|date:"n. j." }}</time>{% if not memo_folder %}{{ m.folder.name }} · {% endif %}{{ m.preview|default:"추가 텍스트 없음" }}</span>
+      </a></li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="empty">아직 메모가 없어요. + 를 눌러 버킷리스트나 여행 계획을 적어 볼까요?</p>
+{% endif %}
+{% endblock %}

@@ -9,15 +9,15 @@
     <h1 class="page-title">추억</h1>
     <p class="sub"><span class="t-boat">함께 남긴 것들</span><span class="t-journey">길 위에서 모은 것들</span></p>
   </div>
-  {% if tab_name != "record" and category != "메모" %}
+  {% if tab_name != "record" %}
     {# 누가 남겼는지: 누를 때마다 둘 다 → 나 → 상대 #}
     <a class="who-pill" href="{{ who_next_query }}" aria-label="누가 남겼는지: {{ who_label }}. 눌러서 바꾸기">{{ who_label }}<svg class="i" aria-hidden="true"><use href="#i-repeat"/></svg></a>
   {% endif %}
   {# 넓은 화면에는 + 가 없으므로 남기기 링크 #}
-  {% if category == "메모" %}<a class="btn primary wide-add" href="{% url 'memo_new' %}{% if memo_folder %}?folder={{ memo_folder.pk }}{% endif %}">메모 쓰기</a>{% elif tab_name == "record" %}<a class="btn primary wide-add" href="{% url 'taste_create' %}?kind=place">기록 남기기</a>{% else %}<a class="btn primary wide-add" href="{% url 'taste_create' %}">순간 남기기</a>{% endif %}
+  {% if tab_name == "record" %}<a class="btn primary wide-add" href="{% url 'taste_create' %}?kind=place">기록 남기기</a>{% else %}<a class="btn primary wide-add" href="{% url 'taste_create' %}">순간 남기기</a>{% endif %}
 </header>
 {% endblock %}
-{% block fab %}{% if category == "메모" %}aria-label="메모 쓰기" href="{% url 'memo_new' %}{% if memo_folder %}?folder={{ memo_folder.pk }}{% endif %}"{% elif tab_name == "record" %}aria-label="기록 남기기" href="{% url 'taste_create' %}?kind=place" data-fab-page="{% url 'taste_create' %}?kind=place"{% else %}aria-label="순간 남기기" href="{% url 'taste_create' %}" data-fab-page="{% url 'taste_create' %}"{% endif %}{% endblock %}
+{% block fab %}{% if tab_name == "record" %}aria-label="기록 남기기" href="{% url 'taste_create' %}?kind=place" data-fab-page="{% url 'taste_create' %}?kind=place"{% else %}aria-label="순간 남기기" href="{% url 'taste_create' %}" data-fab-page="{% url 'taste_create' %}"{% endif %}{% endblock %}
 {% block content %}
 <nav class="segment two" aria-label="순간과 기록">
   <i class="thumb"{% if tab_name == "record" %} style="transform: translateX(100%)"{% endif %}></i>
@@ -116,33 +116,10 @@
 {# 순간: 태그(영화·음악·영상·책)로 걸러 본다 #}
 <nav class="cats" aria-label="태그">
   {% for c in categories %}
-    <a class="cat{% if c == category %} on{% endif %}" href="?cat={{ c|urlencode }}{% if who and who != 'all' and c != '메모' %}&amp;who={{ who }}{% endif %}">{{ c }}</a>
+    <a class="cat{% if c == category %} on{% endif %}" href="?cat={{ c|urlencode }}{% if who != 'all' %}&amp;who={{ who }}{% endif %}">{{ c }}</a>
   {% endfor %}
 </nav>
 
-{% if category == "메모" %}
-{# 메모: 폴더 칩(누르면 그 폴더만) · 새 폴더 · 고른 폴더 고치기, 아래 메모 목록 (최근 고친 순) #}
-<nav class="cats memo-folder-chips" aria-label="메모 폴더">
-  <a class="cat{% if not memo_folder %} on{% endif %}" href="?cat=%EB%A9%94%EB%AA%A8">모든 폴더</a>
-  {% for f in memo_folders %}
-    <a class="cat{% if memo_folder and f.pk == memo_folder.pk %} on{% endif %}" href="?cat=%EB%A9%94%EB%AA%A8&amp;folder={{ f.pk }}"><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg>{{ f.name }} <small>{{ f.count }}</small></a>
-  {% endfor %}
-  <a class="cat add" href="{% url 'memo_folder_create' %}" aria-label="새 폴더"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>폴더</a>
-</nav>
-{% if memo_folder %}<a class="add-link memo-folder-edit" href="{% url 'memo_folder_update' memo_folder.pk %}"><svg class="i"><use href="#i-dots"/></svg>'{{ memo_folder.name }}' 폴더 고치기</a>{% endif %}
-{% if memo_items %}
-  <ul class="memo-list card">
-    {% for m in memo_items %}
-      <li><a href="{% url 'memo_edit' m.pk %}">
-        <strong>{{ m.title }}</strong>
-        <span class="memo-meta"><time>{{ m.updated_at|date:"n. j." }}</time>{% if not memo_folder %}{{ m.folder.name }} · {% endif %}{{ m.preview|default:"추가 텍스트 없음" }}</span>
-      </a></li>
-    {% endfor %}
-  </ul>
-{% else %}
-  <p class="empty">아직 메모가 없어요. + 를 눌러 버킷리스트나 여행 계획을 적어 볼까요?</p>
-{% endif %}
-{% else %}
 
 <div class="feed">
   {% for t in tastes %}
@@ -166,6 +143,5 @@
     <p class="empty">아직 남긴 순간이 없어요. 영화, 음악, 영상, 책을 하나 남겨 보세요.</p>
   {% endfor %}
 </div>
-{% endif %}
 {% endif %}
 {% endblock %}

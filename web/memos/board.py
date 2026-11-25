@@ -1,4 +1,4 @@
-"""추억 › 순간의 '메모' 칩: 폴더 칩과 메모 목록 (사이드바를 없애고 메모를 추억에 합침, 2026-11-25)."""
+"""메모 탭: 폴더 칩과 메모 목록. 아래 바의 '메모' (2026-11-25, 추억의 메모 칩에서 옮김)."""
 
 from datetime import timedelta
 from urllib.parse import urlencode
@@ -15,11 +15,9 @@ EMPTY_MEMO_AGE = timedelta(hours=1)
 
 
 def board_url(folder_id=None):
-    """추억 › 메모 칩 주소 (폴더를 고르면 그 폴더)."""
-    params = {"cat": MEMO_CATEGORY}
-    if folder_id:
-        params["folder"] = folder_id
-    return reverse("tastes") + "?" + urlencode(params)
+    """메모 탭 주소 (폴더를 고르면 그 폴더)."""
+    url = reverse("memos")
+    return f"{url}?{urlencode({'folder': folder_id})}" if folder_id else url
 
 
 def board(request, folder_id):

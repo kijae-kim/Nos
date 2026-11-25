@@ -20,7 +20,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.avatars import fix_color_on_join
 from anniversaries import services as anniversary_services
-from memos.board import MEMO_CATEGORY, board as memo_board
+from memos.board import MEMO_CATEGORY, board_url as memo_board_url
 from memos.models import Memo
 
 from . import ics, linkpreview, places, placesearch, quickparse, quota, services
@@ -635,12 +635,8 @@ def taste(request):
 
     partner = user.partner
     category = request.GET.get("cat", "전체")
-    if category == MEMO_CATEGORY:
-        # 메모 칩: 폴더 칩과 메모 목록 (memos.board)
-        return render(request, "couples/taste.html", {
-            **common, "categories": ["전체", *Taste.MOMENT_TAGS, MEMO_CATEGORY], "category": category,
-            **memo_board(request, request.GET.get("folder", "")),
-        })
+    if category == MEMO_CATEGORY:  # 예전 '메모' 칩 주소: 메모 탭으로
+        return redirect(memo_board_url(request.GET.get("folder") or None))
     if category not in Taste.MOMENT_TAGS:
         category = "전체"
     who = request.GET.get("who", "all")
@@ -671,7 +667,7 @@ def taste(request):
         {
             **common,
             "tastes": tastes,
-            "categories": ["전체", *Taste.MOMENT_TAGS, MEMO_CATEGORY],
+            "categories": ["전체", *Taste.MOMENT_TAGS],
             "category": category,
             "who": who,
             "who_label": who_label,

@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 
 from .forms import FolderForm
 from .lines import MAX_TOTAL, clean_lines, ensure_default_folders, ordered_folders, title_and_preview
-from .board import board_url
+from .board import board, board_url
 from .models import Memo, MemoFolder
 from .notify import notify_partner
 
@@ -28,9 +28,10 @@ def _memo(request, pk):
 
 
 @login_required
+@never_cache  # 메모를 고치고 뒤로 와도 새 목록이 보이게
 def memos(request):
-    """메모는 추억 › 순간의 '메모' 칩에서 본다 (예전 주소는 그리로)."""
-    return redirect(board_url())
+    """메모 탭: 폴더 칩(누르면 그 폴더만)과 메모 목록 (memos.board)."""
+    return render(request, "memos/board.html", board(request, request.GET.get("folder", "")))
 
 
 @login_required
