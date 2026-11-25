@@ -481,3 +481,24 @@ class SignupClosedTests(TestCase):
         request = RequestFactory().get("/")
         self.assertFalse(AccountAdapter().is_open_for_signup(request))
         self.assertTrue(SocialAccountAdapter().is_open_for_signup(request, sociallogin=None))
+
+
+
+class SecurityAccountTests(TestCase):
+    def test_password_reset_hidden_and_closed(self):
+        html = self.client.get(reverse("account_login")).content.decode()
+        self.assertNotIn("account_reset_password", html)
+        self.assertNotIn(reverse("account_reset_password"), html)
+        res = self.client.get(reverse("account_reset_password"))
+        self.assertRedirects(res, reverse("account_login"), fetch_redirect_response=False)
+
+    def test_admin_closed_unless_enabled(self):
+        from django.conf import settings
+
+        import os
+
+        # 운영(DEBUG 끔)은 DJANGO_ADMIN=1 일 때만 연다
+        # (테스트 실행기는 DEBUG 를 끄므로 설정을 읽을 때의 환경 변수로 비교)
+        self.assertEqual(settings.ADMIN_ENABLED, os.getenv("DJANGO_DEBUG", "0") == "1" or os.getenv("DJANGO_ADMIN", "0") == "1")
+        if not settings.ADMIN_ENABLED:
+            self.assertEqual(self.client.get("/admin/").status_code, 404)

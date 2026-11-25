@@ -90,6 +90,9 @@ def folder(request, pk):
 
 @login_required
 def memo_new(request):
+    # 다른 사이트가 이 주소를 불러(예: <img src>) 빈 메모를 만들게 하지 못하게. 우리 화면·주소창·홈 화면 앱만
+    if request.headers.get("Sec-Fetch-Site", "same-origin") not in ("same-origin", "none"):
+        return redirect("memos")
     """빈 메모를 만들고 쓰기 화면으로. 폴더: ?folder= → 마지막으로 쓴 폴더 → 첫 폴더."""
     couple = request.user.couple
     ensure_default_folders(couple)

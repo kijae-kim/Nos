@@ -6,7 +6,8 @@
 <form method="post" action="{% url 'account_login' %}">
   {% csrf_token %}
   {% for error in form.non_field_errors %}<p class="error">{{ error }}</p>{% endfor %}
-  {% for field in form %}{% include "_field.html" %}{% endfor %}
+  {# 비밀번호 칸 아래 '비밀번호를 잊으셨나요?' 는 메일을 보낼 수 없어 뺀다 #}
+  {% for field in form %}{% include "_field.html" with no_help=True %}{% endfor %}
   {% if redirect_field_value %}<input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">{% endif %}
   <button type="submit" class="btn primary">로그인</button>
 </form>

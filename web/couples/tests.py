@@ -3395,3 +3395,60 @@ class PhoneOverflowGuardTests(TestCase):
         self.assertIn(".page > * { min-width: 0; }", css)
         self.assertIn("grid-template-columns: auto minmax(0, 1fr) auto", css)  # 오늘 카드 일정 줄
         self.assertIn("input, textarea, select { font-size: max(16px, 1em) !important; }", css)
+
+
+
+class SecurityReviewTests(TestCase):
+    """보안 점검 (2026-11-25)."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        self.couple = Couple.objects.create()
+        self.a = User.objects.create_user("a", password="pw", couple=self.couple)
+        self.b = User.objects.create_user("b", password="pw", couple=self.couple)
+
+    def test_invite_code_rotates_when_partner_leaves_and_when_full(self):
+        old = self.couple.invite_code
+        self.client.force_login(self.b)
+        self.client.post(reverse("couple_leave"))
+        self.couple.refresh_from_db()
+        self.assertNotEqual(self.couple.invite_code, old)
+        # 나간 사람은 옛 코드로 다시 못 들어온다
+        res = self.client.post(reverse("couple_join"), {"code": old})
+        self.assertContains(res, "초대 코드를 찾을 수 없어요.")
+        self.b.refresh_from_db()
+        self.assertIsNone(self.b.couple_id)
+        # 새 코드로 들어오면(두 사람이 차면) 코드가 또 바뀐다
+        new = self.couple.invite_code
+        self.client.post(reverse("couple_join"), {"code": new})
+        self.couple.refresh_from_db()
+        self.assertEqual(self.couple.members.count(), 2)
+        self.assertNotEqual(self.couple.invite_code, new)
+
+    def test_join_attempts_are_limited(self):
+        u = User.objects.create_user("c", password="pw")
+        self.client.force_login(u)
+        for _ in range(10):
+            self.client.post(reverse("couple_join"), {"code": "ZZZZZZ"})
+        target = Couple.objects.create()
+        res = self.client.post(reverse("couple_join"), {"code": target.invite_code})
+        self.assertContains(res, "잠시 뒤 다시 해 볼까요?")
+        u.refresh_from_db()
+        self.assertIsNone(u.couple_id)
+
+    def test_link_preview_card_built_without_html_strings(self):
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/app.js").read_text()
+        start = js.index("function show(data)")
+        block = js[start:js.index("function look()", start)]
+        self.assertNotIn("innerHTML =", block.replace('card.innerHTML = ""', ""))
+        self.assertIn("img.src = data.image", block)
+
+    def test_hsts_one_year_in_production_settings(self):
+        from pathlib import Path
+
+        settings_py = (Path(__file__).resolve().parent.parent / "config/settings.py").read_text()
+        self.assertIn("SECURE_HSTS_SECONDS = 60 * 60 * 24 * 365", settings_py)
