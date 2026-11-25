@@ -56,34 +56,34 @@
   {% endif %}
 </section>
 
-{# 오늘: 오늘·내일 일정과 상대가 최근에 남긴 것. 나머지는 각 탭에서 #}
+{# 오늘: 오늘·내일 일정과 두 사람이 최근에 남긴 것. 기념일 줄과 같은 크기의 줄로 (카드 안에 넣으면 안쪽으로 좁아 보였다) #}
 <section class="section">
   <div class="section-head">
     <h2>오늘</h2>
     <a href="{% url 'calendar' %}">캘린더 보기</a>
   </div>
-  <div class="card today-card">
-    {% if today_events %}
-      <ul class="today-events">
-        {% for e in today_events %}
-          <li><a href="{% url 'event_update' e.pk %}" style="--c: var(--{{ e.color }})">
-            <em>{% if e.date <= today %}오늘{% else %}내일{% endif %}</em>
-            <strong>{{ e.title }}</strong>
-            <small>{% if e.start_time %}{{ e.start_time|time:"A g" }}시{% if e.start_time.minute %} {{ e.start_time.minute }}분{% endif %}{% else %}하루 종일{% endif %}</small>
-          </a></li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <p class="today-empty">오늘은 일정이 없어요.{% if next_event %} 다음은 <a href="{% url 'event_update' next_event.pk %}">{{ next_event.date|date:"n월 j일" }} {{ next_event.title }}</a>이에요.{% endif %}</p>
-    {% endif %}
-    {% if recent_news %}
-      <p class="today-sub">최근에 남긴 것</p>
-      <ul class="today-news">
-        {% for n in recent_news %}
-          <li><a href="{{ n.url }}"><svg class="i" aria-hidden="true"><use href="#{{ n.icon }}"/></svg><b class="who">{{ n.who|truncatechars:6 }}</b><span>{{ n.text }}</span><time>{{ n.ago }}</time></a></li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-  </div>
+  {% if today_events %}
+    <ul class="rows today-rows">
+      {% for e in today_events %}
+        <li class="link"><a href="{% url 'event_update' e.pk %}">
+          <span class="icon-tile" style="background:var(--{{ e.color }})"><svg class="i" aria-hidden="true"><use href="#i-cal"/></svg></span>
+          <span class="main"><small>{% if e.date <= today %}오늘{% else %}내일{% endif %} · {% if e.start_time %}{{ e.start_time|time:"A g" }}시{% if e.start_time.minute %} {{ e.start_time.minute }}분{% endif %}{% else %}하루 종일{% endif %}</small><strong>{{ e.title }}</strong></span>
+        </a></li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="today-empty card">오늘은 일정이 없어요.{% if next_event %} 다음은 <a href="{% url 'event_update' next_event.pk %}">{{ next_event.date|date:"n월 j일" }} {{ next_event.title }}</a>이에요.{% endif %}</p>
+  {% endif %}
+  {% if recent_news %}
+    <p class="today-sub">최근에 남긴 것</p>
+    <ul class="rows today-rows">
+      {% for n in recent_news %}
+        <li class="link"><a href="{{ n.url }}">
+          <span class="icon-tile" style="background:var(--{{ n.color }})"><svg class="i" aria-hidden="true"><use href="#{{ n.icon }}"/></svg></span>
+          <span class="main"><small>{{ n.who|truncatechars:6 }} · {{ n.ago }}</small><strong>{{ n.text }}</strong></span>
+        </a></li>
+      {% endfor %}
+    </ul>
+  {% endif %}
 </section>
 {% endblock %}

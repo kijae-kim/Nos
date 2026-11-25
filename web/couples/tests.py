@@ -3393,7 +3393,7 @@ class PhoneOverflowGuardTests(TestCase):
         css = (Path(__file__).resolve().parent.parent / "static/css/app.css").read_text()
         self.assertIn(".page { grid-template-columns: minmax(0, 1fr); }", css)
         self.assertIn(".page > * { min-width: 0; }", css)
-        self.assertIn("grid-template-columns: auto minmax(0, 1fr) auto", css)  # 오늘 카드 일정 줄
+        self.assertIn(".today-rows .main strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }", css)  # 오늘 줄 긴 제목
         self.assertIn("input, textarea, select { font-size: max(16px, 1em) !important; }", css)
 
 

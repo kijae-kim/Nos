@@ -1196,20 +1196,13 @@ html.splash-on { background: var(--hero-bg); } /* 위·아래 안전 영역(상�
 .quick-add-go { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 0; display: grid; place-items: center; background: var(--primary); color: #fff; cursor: pointer; }
 .quick-add-go svg.i { width: 18px; height: 18px; }
 
-/* 홈 '오늘' 카드 */
-.today-card { display: grid; gap: 10px; padding: 16px; }
-.today-events, .today-news { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.today-events a { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; text-decoration: none; color: var(--text); background: color-mix(in srgb, var(--c, var(--sky)) 28%, var(--surface)); }
-.today-events em { font-style: normal; font-size: 12px; font-weight: 700; color: var(--muted); }
-.today-events strong { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.today-events small { font-size: 12px; color: var(--muted); white-space: nowrap; }
-.today-empty { margin: 0; font-size: 14px; color: var(--muted); }
+/* 홈 '오늘': 기념일 줄(.rows)과 같은 크기의 줄. 줄 전체가 링크 */
+.rows li.link { padding: 0; }
+.rows li.link > a { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding: 13px 16px 13px 13px; color: var(--text); text-decoration: none; border-radius: inherit; }
+.today-rows .main strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.today-empty { margin: 0; padding: 16px; font-size: 14px; color: var(--muted); }
 .today-empty a { color: var(--text); font-weight: 600; }
-.today-sub { margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--muted); }
-.today-news a { display: flex; align-items: center; gap: 10px; padding: 6px 2px; text-decoration: none; color: var(--text); font-size: 14px; }
-.today-news svg.i { width: 18px; height: 18px; color: var(--primary); flex: none; }
-.today-news span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.today-news time { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.today-sub { margin: 4px 2px -4px; font-size: 12px; font-weight: 600; color: var(--muted); }
 
 /* + 추가 팝업 (폰): 아래 바 위에 올라오는 판. 모달이 아니라 아래 바와 + 가 위에 남고, + 는 × 가 된다 */
 @media (max-width: 899px) {
@@ -1254,7 +1247,6 @@ html[data-mode="dark"] { --bar-bg: color-mix(in srgb, var(--surface), #fff 9%); 
 .day.today, .cell.today { background: color-mix(in srgb, var(--primary) 14%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--primary) 55%, transparent); }
 .day.today { border-radius: 10px; }
 .day.today b, .cell.today b { box-shadow: none; color: var(--primary); font-weight: 700; }
-.today-news .who { flex: none; font-size: 12px; font-weight: 700; color: var(--muted); }
 
 /* 추억 태그·메모 폴더 칩: 가로로 넘기는 줄은 바깥이 잘려서 큰 그림자(--shadow)가 띠처럼 보였다.
    칩 모양에 붙는 작은 그림자로, 줄 아래에 그림자가 들어갈 여백 */
