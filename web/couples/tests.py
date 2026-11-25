@@ -3344,3 +3344,17 @@ class PartnerPersonalEventTests(TestCase):
         body = self.client.get(reverse("calendar_feed", args=[feed.token])).content.decode()
         self.assertIn("하늘 개인", body)
         self.assertNotIn("바다 개인", body)
+
+
+class PersonalEventNameTests(TestCase):
+    """개인 일정은 '개인' 대신 만든 사람 닉네임으로 표시."""
+
+    setUp = ScreenTests.setUp
+
+    def test_personal_event_shows_creator_nickname(self):
+        Event.objects.create(couple=self.couple, created_by=self.b, title="야근", date=timezone.localdate() + timedelta(days=1), scope=Event.PERSONAL)
+        Event.objects.create(couple=self.couple, created_by=self.a, title="운동", date=timezone.localdate() + timedelta(days=2), scope=Event.PERSONAL)
+        html = self.client.get(reverse("calendar")).content.decode()
+        self.assertIn('야근<span class="kind">바다</span>', html)
+        self.assertIn('운동<span class="kind">하늘</span>', html)
+        self.assertNotIn('<span class="kind">개인</span>', html)
