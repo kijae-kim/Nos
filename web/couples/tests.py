@@ -3452,3 +3452,14 @@ class SecurityReviewTests(TestCase):
 
         settings_py = (Path(__file__).resolve().parent.parent / "config/settings.py").read_text()
         self.assertIn("SECURE_HSTS_SECONDS = 60 * 60 * 24 * 365", settings_py)
+
+
+class CalendarLabelZoneTests(TestCase):
+    """태그를 누르면 태그 줄·목록만 바꿔 끼운다 (calendar-labels.js)."""
+
+    setUp = ScreenTests.setUp
+
+    def test_zones_and_script(self):
+        html = self.client.get(reverse("calendar")).content.decode()
+        self.assertEqual(html.count("data-label-zone"), 2)  # 폰·넓은 화면
+        self.assertIn("js/calendar-labels.js", html)

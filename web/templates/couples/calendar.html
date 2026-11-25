@@ -41,6 +41,8 @@
     </div>
   </section>
 
+  {# 태그 줄과 목록: 태그를 누르면 이 부분만 바꿔 끼운다 (calendar-labels.js) #}
+  <div class="label-zone" data-label-zone>
   {% include "couples/_label_strip.html" %}
 
   {% if label %}
@@ -57,12 +59,13 @@
       {% endfor %}
     </ul>
   {% endif %}
+  </div>
 </div>
 
 {# 넓은 화면: 왼쪽에 다가오는 일정, 오른쪽에 큰 달력 #}
 <div class="desktop-only">
   <aside class="panel">
-    <div>
+    <div data-label-zone>
       {% include "couples/_label_strip.html" %}
       {% if label %}
         {% include "couples/_label_events.html" %}
@@ -115,4 +118,5 @@
 {% endblock %}
 {% block extra_body %}
 <script src="{% static 'js/calendar-drag.js' %}" defer></script>
+<script src="{% static 'js/calendar-labels.js' %}" defer></script>
 {% endblock %}
