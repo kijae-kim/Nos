@@ -66,9 +66,9 @@
 
 ### 2. 어디서나: 키 발급과 설정
 
-- [x] 카카오 로그인 키·Redirect URI → README "소셜 로그인 설정"
-- [x] 구글 로그인: Google Cloud 프로젝트 `nos`, 테스트 상태, 테스트 사용자 등록 → README 같은 곳
-- [x] 드라이브 가져오기: Picker API·Drive API 켜기, API 키(웹사이트 제한에 `https://docs.google.com/*` 포함), 프로젝트 번호 → README "드라이브에서 골라 가져오기"
+- [x] 카카오 로그인 키·Redirect URI → docs/SETUP.md "소셜 로그인 설정"
+- [x] 구글 로그인: Google Cloud 프로젝트 `nos`, 테스트 상태, 테스트 사용자 등록 → docs/SETUP.md 같은 곳
+- [x] 드라이브 가져오기: Picker API·Drive API 켜기, API 키(웹사이트 제한에 `https://docs.google.com/*` 포함), 프로젝트 번호 → docs/SETUP.md "드라이브에서 골라 가져오기"
 - [x] 위 값들을 Vercel 환경 변수(Production)에 넣고 재배포 (2026-11-13. 폰에서 카카오·구글 로그인 됨. 카카오는 새 콘솔에서 Redirect URI 를 "앱 › 플랫폼 키 › REST API 키" 안에 넣어야 했다(KOE006))
 - [x] 카카오 버튼·연결된 계정에 카카오 말풍선 심볼 (2026-11-14)
 - [x] 소셜 로그인 창에서 취소하면 "로그인을 취소했어요." 안내만 띄우고 로그인 화면으로 (연결하다 취소하면 연결된 계정 화면으로) (2026-11-14)
@@ -197,7 +197,7 @@
   - 폰에서 확인: **카카오맵 핀을 손가락으로 눌러 장소 카드가 뜨는지** (에뮬레이터에서는 확인 못 함), 장소 검색·지도에서 찍기·사진에서, 안드로이드 키보드 "검색" 키가 저장 대신 검색하는지, 사진 자동 연결
   - 장소를 지우면 거기 연결됐던 사진(직접 붙인 것 포함)은 다시 자동 연결로 돌아간다.
 - [x] ~~사진 지도 (2026-11-16, 앨범 › 지도)~~ → 추억 › 기록으로 옮김: 국내 카카오맵·해외 Leaflet, 간 시·군·구/나라 색칠, 핀 묶음, 누르면 사진 줄. 위치는 올릴 때 브라우저(exifr)가 줄이기 전에 읽고, 없으면 서버가 JPEG EXIF 에서. 설계 `docs/superpowers/specs/2026-11-16-photo-map-design.md`. 마이그레이션 `couples.0010_photo_location` → 맥 migrate 확인 숫자 48.
-  - 남은 일 (내가): 카카오 JavaScript 키를 Vercel `KAKAO_JS_KEY` 에 (README "사진 지도"), Neon migrate 뒤 `fill_photo_locations` 한 번
+  - 남은 일 (내가): 카카오 JavaScript 키를 Vercel `KAKAO_JS_KEY` 에 (docs/SETUP.md "사진 지도"), Neon migrate 뒤 `fill_photo_locations` 한 번
   - 폰에서 확인: 아이폰·안드로이드에서 고른 사진에 위치가 남는지 (사진 선택기가 지울 수 있음), 카카오맵이 국내 칸에 뜨는지
   - 알아 둘 것: 해외 나라 이름은 영어로 보인다. 독도는 울릉군으로 색칠된다.
 - [x] 일정 메모 (2026-11-15, `Event.memo`): 일정 추가·고치기에 메모 칸, 목록에 한 줄 미리 보기, 캘린더 앱 구독(ICS) 설명에도 들어간다. 마이그레이션 `couples.0009_event_memo` → 맥 migrate 확인 숫자 47. 글상자(textarea)가 한 줄 칸 높이(52px)로 묶여 있던 것도 고침.
@@ -257,7 +257,7 @@
 ## 무료 한도 (2026-11-13)
 
 - **과금이 생기면 안 된다.** Neon Free 는 한도를 넘으면 멈추기만 하고, R2 는 카드로 청구된다.
-- 앱이 R2 를 지킨다: 전체 8GB, 커플당 2GB, 커플당 하루 300장 (`couples/quota.py`, 환경 변수로 조정). 자세한 것은 README "무료 한도 지키기".
+- 앱이 R2 를 지킨다: 전체 8GB, 커플당 2GB, 커플당 하루 300장 (`couples/quota.py`, 환경 변수로 조정). 자세한 것은 docs/SETUP.md "무료 한도 지키기".
 - 파일을 저장하는 새 기능은 크기를 DB 에 기록하고 같은 한도 검사를 거치게 한다.
 
 ## 정해야 할 것
