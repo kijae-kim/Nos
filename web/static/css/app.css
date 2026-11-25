@@ -1228,26 +1228,11 @@ html.splash-on { background: var(--hero-bg); } /* 위·아래 안전 영역(상�
 .in-sheet .brand-head { display: none; }
 
 
-/* NÓS 사이드바 (폰) */
-.drawer {
-  position: fixed; z-index: 7; top: 0; bottom: 0; left: 0; width: min(300px, 82vw); overflow-y: auto;
-  padding: calc(20px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));
-  background: var(--surface); color: var(--text); box-shadow: var(--shadow);
-  transform: translateX(-105%); transition: transform .26s var(--ease);
-}
-.drawer-open .drawer { transform: none; }
-.drawer-open .dim { opacity: 1; pointer-events: auto; z-index: 6; }
-.drawer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.drawer-title { margin: 18px 2px 10px; font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
-.drawer-new { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 8px; }
-.drawer-new a { display: grid; justify-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text); text-decoration: none; }
-.drawer-new i { width: 50px; height: 50px; border-radius: 16px; display: grid; place-items: center; color: var(--on-pastel); }
-.drawer-new i svg.i { width: 22px; height: 22px; }
-.drawer-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.drawer-links a { display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-radius: 12px; color: var(--text); text-decoration: none; font-size: 15px; font-weight: 600; }
-.drawer-links a:active { background: var(--tile); }
-.drawer-links svg.i { width: 20px; height: 20px; color: var(--muted); }
-@media (min-width: 900px) { .drawer { display: none; } }
+/* 추억 › 메모: 폴더 칩 */
+.memo-folder-chips .cat { display: inline-flex; align-items: center; gap: 5px; }
+.memo-folder-chips .cat svg.i { width: 15px; height: 15px; }
+.memo-folder-chips .cat small { font-size: 11px; opacity: .7; }
+.memo-folder-edit { justify-self: start; }
 
 /* 아래 바: 페이지 바탕과 구분되게. 라이트는 짙은 바(밝은 글자), 다크는 한 단계 밝은 바 + 위 경계 */
 html[data-mode="light"] { --bar-bg: color-mix(in srgb, var(--text) 88%, var(--primary)); --bar-fg: rgba(255, 255, 255, .62); --bar-on: #fff; --bar-line: transparent; }

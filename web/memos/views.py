@@ -14,6 +14,7 @@ from django.views.decorators.http import require_POST
 
 from .forms import FolderForm
 from .lines import MAX_TOTAL, clean_lines, ensure_default_folders, ordered_folders, title_and_preview
+from .board import board_url
 from .models import Memo, MemoFolder
 from .notify import notify_partner
 
@@ -28,12 +29,8 @@ def _memo(request, pk):
 
 @login_required
 def memos(request):
-    """폴더 화면: 폴더마다 메모 수."""
-    couple = request.user.couple
-    ensure_default_folders(couple)
-    # 수는 글이 있는 메모만 (제목이 비면 빈 메모)
-    folders = ordered_folders(couple.memo_folders.annotate(count=Count("memos", filter=~Q(memos__title=""))))
-    return render(request, "memos/index.html", {"folders": folders})
+    """메모는 추억 › 순간의 '메모' 칩에서 본다 (예전 주소는 그리로)."""
+    return redirect(board_url())
 
 
 @login_required
@@ -47,8 +44,8 @@ def folder_create(request):
         except IntegrityError:  # 상대가 같은 이름을 방금 만든 경우
             form.add_error("name", "이미 있는 폴더 이름이에요.")
         else:
-            return redirect("memo_folder", pk=folder.pk)
-    return render(request, "memos/folder_form.html", {"form": form, "folder": None})
+            return redirect(board_url(folder.pk))
+    return render(request, "memos/folder_form.html", {"form": form, "folder": None, "back": board_url()})
 
 
 @login_required
@@ -61,8 +58,8 @@ def folder_update(request, pk):
         except IntegrityError:  # 상대가 같은 이름을 방금 만든 경우
             form.add_error("name", "이미 있는 폴더 이름이에요.")
         else:
-            return redirect("memo_folder", pk=folder.pk)
-    return render(request, "memos/folder_form.html", {"form": form, "folder": folder})
+            return redirect(board_url(folder.pk))
+    return render(request, "memos/folder_form.html", {"form": form, "folder": folder, "back": board_url(folder.pk)})
 
 
 @login_required
@@ -72,35 +69,22 @@ def folder_delete(request, pk):
     # 목록에 안 보이는 빈 메모(쓰다 만 것)는 폴더와 함께 지운다. 글이 있는 메모가 있으면 못 지운다
     if folder.memos.exclude(title="").exists():
         messages.error(request, "메모를 옮기거나 지운 뒤에 지울 수 있어요.")
-        return redirect("memo_folder", pk=folder.pk)
+        return redirect(board_url(folder.pk))
     try:
         with transaction.atomic():
             folder.memos.filter(title="").delete()
             folder.delete()
     except ProtectedError:  # 그 사이 상대가 메모를 쓴 경우
         messages.error(request, "메모를 옮기거나 지운 뒤에 지울 수 있어요.")
-        return redirect("memo_folder", pk=folder.pk)
+        return redirect(board_url(folder.pk))
     messages.success(request, "폴더를 지웠어요.")
-    return redirect("memos")
-
-
-EMPTY_MEMO_AGE = timedelta(hours=1)
+    return redirect(board_url())
 
 
 @login_required
-@never_cache
 def folder(request, pk):
-    """메모 목록 (최근 고친 순). 글이 없는 메모는 숨기고, 1시간 넘게 빈 채인 것만 지운다
-    (상대가 방금 열어 아직 쓰는 중인 새 메모를 지우지 않게)."""
-    folder = _folder(request, pk)
-    items = list(folder.memos.select_related("updated_by"))
-    stale = timezone.now() - EMPTY_MEMO_AGE
-    old_empty = [m.pk for m in items if m.is_empty and m.updated_at < stale]
-    if old_empty:
-        Memo.objects.filter(pk__in=old_empty).delete()
-    items = [m for m in items if not m.is_empty]
-    request.session["memo_folder"] = folder.pk  # + 메뉴 '메모' 가 이 폴더에 새 메모를 연다
-    return render(request, "memos/folder.html", {"folder": folder, "items": items})
+    """예전 폴더 화면 주소: 추억 › 메모 의 그 폴더로."""
+    return redirect(board_url(_folder(request, pk).pk))
 
 
 @login_required
@@ -128,7 +112,7 @@ def memo_edit(request, pk):
     memo = _memo(request, pk)
     folders = ordered_folders(request.user.couple.memo_folders.all())
     data = {"lines": memo.lines or [{"t": "text", "on": False, "s": ""}], "version": memo.version}
-    return render(request, "memos/edit.html", {"memo": memo, "folders": folders, "data": data})
+    return render(request, "memos/edit.html", {"back_url": board_url(memo.folder_id), "memo": memo, "folders": folders, "data": data})
 
 
 @login_required
@@ -192,4 +176,4 @@ def memo_delete(request, pk):
     folder_pk = memo.folder_id
     memo.delete()
     messages.success(request, "메모를 지웠어요.")
-    return redirect("memo_folder", pk=folder_pk)
+    return redirect(board_url(folder_pk))

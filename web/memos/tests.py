@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from couples.models import Couple
 
+from .board import board_url
 from .models import Memo, MemoFolder
 
 User = get_user_model()
@@ -44,14 +45,14 @@ class MemoTests(TestCase):
         return memo
 
     def test_default_folders(self):
-        res = self.client.get(reverse("memos"))
+        res = self.client.get(board_url())
         self.assertEqual(list(MemoFolder.objects.filter(couple=self.couple).values_list("name", flat=True)), ["버킷리스트", "여행계획"])
         self.assertContains(res, "버킷리스트")
-        self.client.get(reverse("memos"))
+        self.client.get(board_url())
         self.assertEqual(MemoFolder.objects.count(), 2)  # 두 번 만들지 않음
 
     def test_folder_create_duplicate_and_delete_rules(self):
-        self.client.get(reverse("memos"))
+        self.client.get(board_url())
         self.client.post(reverse("memo_folder_create"), {"name": "데이트"})
         self.assertContains(self.client.post(reverse("memo_folder_create"), {"name": "데이트"}), "이미 있는 폴더 이름이에요.")
         bucket = MemoFolder.objects.get(name="버킷리스트")
@@ -96,20 +97,20 @@ class MemoTests(TestCase):
         self.assertEqual(res.status_code, 400)
 
     def test_folder_list_and_empty_cleanup(self):
-        bucket = self.client.get(reverse("memos")) and MemoFolder.objects.get(name="버킷리스트")
+        bucket = self.client.get(board_url()) and MemoFolder.objects.get(name="버킷리스트")
         full = self.new_memo(bucket)
         self.save(full, L("오로라", "아이슬란드에서"))
         empty = self.new_memo(bucket)
-        res = self.client.get(reverse("memo_folder", args=[bucket.pk]))
+        res = self.client.get(board_url(bucket.pk))
         self.assertContains(res, "오로라")
         self.assertContains(res, "아이슬란드에서")
-        self.assertContains(res, "메모 1개")  # 글 없는 메모는 목록에 안 보임
+        self.assertEqual(len(res.context["memo_items"]), 1)  # 글 없는 메모는 목록에 안 보임
         Memo.objects.filter(pk=empty.pk).update(updated_at=timezone.now() - timedelta(hours=2))
-        self.client.get(reverse("memo_folder", args=[bucket.pk]))
+        self.client.get(board_url(bucket.pk))
         self.assertFalse(Memo.objects.filter(pk=empty.pk).exists())  # 오래 빈 메모는 정리
 
     def test_move_and_delete(self):
-        self.client.get(reverse("memos"))
+        self.client.get(board_url())
         bucket, trip = MemoFolder.objects.get(name="버킷리스트"), MemoFolder.objects.get(name="여행계획")
         memo = self.new_memo(bucket)
         self.save(memo, L("제주"))
@@ -130,7 +131,8 @@ class MemoTests(TestCase):
             self.assertEqual(method(reverse(name, args=[memo.pk])).status_code, 404, name)
         self.assertEqual(self.save(memo, L("가로채기")).status_code, 404)
         self.assertEqual(self.client.get(reverse("memo_folder", args=[memo.folder.pk])).status_code, 404)
-        self.assertNotContains(self.client.get(reverse("memos")), "우리 메모")
+        self.assertNotContains(self.client.get(board_url()), "우리 메모")
+        self.assertNotContains(self.client.get(board_url(memo.folder.pk)), "우리 메모")
 
     def test_edit_page_has_initial_json(self):
         memo = self.new_memo()
@@ -141,14 +143,14 @@ class MemoTests(TestCase):
 
     def test_login_required(self):
         self.client.logout()
-        self.assertEqual(self.client.get(reverse("memos")).status_code, 302)
+        self.assertEqual(self.client.get(board_url()).status_code, 302)
 
 
 class MemoEditorPageTests(TestCase):
     setUp = MemoTests.setUp
 
     def test_editor_page_assets(self):
-        self.client.get(reverse("memos"))
+        self.client.get(board_url())
         res = self.client.get(reverse("memo_new"))
         page = self.client.get(res["Location"])
         self.assertContains(page, "data-memo-editor")
@@ -176,13 +178,10 @@ class MemoHomeTests(TestCase):
         self.assertIn("오로라 보기", html)
         self.assertIn(reverse("memo_edit", args=[m.pk]), html)
 
-    def test_quick_menu_has_memo_and_remembers_folder(self):
-        html = self.client.get(reverse("home")).content.decode()
-        self.assertIn(f'href="{reverse("memo_new")}"', html)
-        self.assertEqual(html[html.index('class="drawer-new"'):].split("</div>")[0].count("<a "), 6)  # 사이드바 새로 만들기
-        self.client.get(reverse("memos"))
+    def test_memo_board_remembers_folder(self):
+        self.client.get(board_url())
         trip = MemoFolder.objects.get(name="여행계획")
-        self.client.get(reverse("memo_folder", args=[trip.pk]))
+        self.client.get(board_url(trip.pk))
         self.client.get(reverse("memo_new"))
         self.assertEqual(Memo.objects.latest("pk").folder, trip)
 
@@ -208,13 +207,13 @@ class MemoReviewFixTests(TestCase):
         old = Memo.objects.create(couple=self.couple, folder=fresh.folder, lines=[], created_by=self.b)
         Memo.objects.filter(pk=old.pk).update(updated_at=timezone.now() - timedelta(hours=2))
         self.client.force_login(self.b)
-        self.client.get(reverse("memo_folder", args=[fresh.folder.pk]))
+        self.client.get(board_url(fresh.folder.pk))
         self.assertTrue(Memo.objects.filter(pk=fresh.pk).exists())
         self.assertFalse(Memo.objects.filter(pk=old.pk).exists())
 
     def test_edit_and_list_not_cached(self):
         memo = self.new_memo()
-        for url in (reverse("memo_edit", args=[memo.pk]), reverse("memo_folder", args=[memo.folder.pk])):
+        for url in (reverse("memo_edit", args=[memo.pk]), board_url(memo.folder.pk)):
             self.assertIn("no-cache", self.client.get(url)["Cache-Control"], url)
 
     def test_editor_guards(self):
@@ -247,13 +246,13 @@ class MemoMinorTests(TestCase):
         self.assertEqual(Memo.objects.count(), 2)
 
     def test_folder_counts_skip_empty_and_order(self):
-        self.client.get(reverse("memos"))
+        self.client.get(board_url())
         self.client.post(reverse("memo_folder_create"), {"name": "가나다"})
         self.new_memo()  # 빈 메모
-        res = self.client.get(reverse("memos"))
-        names = [f.name for f in res.context["folders"]]
+        res = self.client.get(board_url())
+        names = [f.name for f in res.context["memo_folders"]]
         self.assertEqual(names, ["버킷리스트", "여행계획", "가나다"])  # 기본 두 개 먼저, 그다음 이름 순
-        self.assertEqual([f.count for f in res.context["folders"]], [0, 0, 0])
+        self.assertEqual([f.count for f in res.context["memo_folders"]], [0, 0, 0])
 
     def test_default_folders_race_safe(self):
         from .lines import ensure_default_folders
@@ -315,7 +314,7 @@ class MemoPreDeployTests(TestCase):
         return (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
 
     def test_folder_with_only_empty_memos_can_be_deleted(self):
-        self.client.get(reverse("memos"))
+        self.client.get(board_url())
         self.client.post(reverse("memo_folder_create"), {"name": "데이트"})
         folder = MemoFolder.objects.get(name="데이트")
         self.new_memo(folder)  # 쓰다 만 빈 메모
@@ -329,7 +328,7 @@ class MemoPreDeployTests(TestCase):
         self.assertIn("touchstart", js)
 
     def test_new_memo_fallback_folder_is_default_first(self):
-        self.client.get(reverse("memos"))
+        self.client.get(board_url())
         MemoFolder.objects.create(couple=self.couple, name="가가")
         self.new_memo()
         self.assertEqual(Memo.objects.latest("pk").folder.name, "버킷리스트")
@@ -450,3 +449,79 @@ class MemoNotifyWithSaveTests(TestCase):
 
         js = (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
         self.assertIn("notify: !!notify", js)
+
+
+class MemoInMemoriesTests(TestCase):
+    """메모는 추억 › 순간의 '메모' 칩으로 (사이드바 없앰, 2026-11-25)."""
+
+    setUp = MemoTests.setUp
+
+    def make(self, folder, title, **kw):
+        lines = [{"t": "text", "on": False, "s": title}]
+        return Memo.objects.create(couple=self.couple, folder=folder, lines=lines, title=title, version=1,
+                                   created_by=self.a, updated_by=self.a, **kw)
+
+    def board(self, **params):
+        from urllib.parse import urlencode
+
+        return self.client.get(reverse("tastes") + "?" + urlencode({"cat": "메모", **params}))
+
+    def test_memo_chip_lists_folders_and_recent_memos(self):
+        res = self.board()
+        trip = MemoFolder.objects.get(couple=self.couple, name="여행계획")
+        bucket = MemoFolder.objects.get(couple=self.couple, name="버킷리스트")
+        self.make(trip, "부산 여행")
+        self.make(bucket, "오로라 보기")
+        html = self.board().content.decode()
+        self.assertIn('>메모</a>', html)
+        self.assertIn("부산 여행", html)
+        self.assertIn("오로라 보기", html)
+        self.assertIn(f"folder={trip.pk}", html)
+        self.assertIn(reverse("memo_folder_create"), html)
+        self.assertNotIn("who-pill", html)
+        self.assertEqual(res.status_code, 200)
+
+    def test_folder_filter_and_plus_writes_memo_there(self):
+        import re
+
+        self.board()
+        trip = MemoFolder.objects.get(couple=self.couple, name="여행계획")
+        bucket = MemoFolder.objects.get(couple=self.couple, name="버킷리스트")
+        self.make(trip, "부산 여행")
+        self.make(bucket, "오로라 보기")
+        html = self.board(folder=trip.pk).content.decode()
+        self.assertIn("부산 여행", html)
+        self.assertNotIn("오로라 보기", html)
+        self.assertIn(reverse("memo_folder_update", args=[trip.pk]), html)
+        fab = re.search(r'<a class="fab"[^>]*>', html).group(0)
+        self.assertIn(f'href="{reverse("memo_new")}?folder={trip.pk}"', fab)
+        self.assertNotIn("data-fab-page", fab)
+
+    def test_memos_not_in_all_and_old_addresses_redirect(self):
+        self.board()
+        trip = MemoFolder.objects.get(couple=self.couple, name="여행계획")
+        self.make(trip, "부산 여행")
+        self.assertNotIn("부산 여행", self.client.get(reverse("tastes")).content.decode())
+        self.assertRedirects(self.client.get(reverse("memos")), reverse("tastes") + "?cat=%EB%A9%94%EB%AA%A8", fetch_redirect_response=False)
+        self.assertRedirects(self.client.get(reverse("memo_folder", args=[trip.pk])),
+                             reverse("tastes") + f"?cat=%EB%A9%94%EB%AA%A8&folder={trip.pk}", fetch_redirect_response=False)
+
+    def test_editor_back_goes_to_memories_folder(self):
+        self.board()
+        trip = MemoFolder.objects.get(couple=self.couple, name="여행계획")
+        m = self.make(trip, "부산 여행")
+        html = self.client.get(reverse("memo_edit", args=[m.pk])).content.decode()
+        self.assertIn(f'href="{reverse("tastes")}?cat=%EB%A9%94%EB%AA%A8&amp;folder={trip.pk}"', html)
+
+    def test_empty_old_memos_cleaned_and_hidden(self):
+        self.board()
+        trip = MemoFolder.objects.get(couple=self.couple, name="여행계획")
+        old = Memo.objects.create(couple=self.couple, folder=trip, lines=[], title="", created_by=self.a, updated_by=self.a)
+        Memo.objects.filter(pk=old.pk).update(updated_at=timezone.now() - timedelta(hours=2))
+        self.board(folder=trip.pk)
+        self.assertFalse(Memo.objects.filter(pk=old.pk).exists())
+
+    def test_no_sidebar(self):
+        html = self.client.get(reverse("home")).content.decode()
+        self.assertNotIn('id="drawer"', html)
+        self.assertNotIn("data-drawer-open", html)

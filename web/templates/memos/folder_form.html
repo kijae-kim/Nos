@@ -2,7 +2,7 @@
 {% block head_title %}{% if folder %}폴더 고치기{% else %}새 폴더{% endif %} · {{ APP_NAME }}{% endblock %}
 {% block header %}
 <header class="row-between bar-head">
-  <a class="circle" href="{% if folder %}{% url 'memo_folder' folder.pk %}{% else %}{% url 'memos' %}{% endif %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <a class="circle" href="{{ back }}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
   <h1 class="bar-title">{% if folder %}폴더 고치기{% else %}새 폴더{% endif %}</h1>
   <span class="spacer"></span>
 </header>
