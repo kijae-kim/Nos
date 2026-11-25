@@ -139,13 +139,14 @@ class ScreenTests(TestCase):
         self.assertEqual(event.place, "서울숲")
         self.assertEqual([str(l) for l in event.labels.all()], ["#산책"])
 
-    def test_personal_event_is_visible_only_to_its_owner(self):
+    def test_personal_event_is_visible_to_partner_too(self):
+        # 서로의 일정을 파악하려는 캘린더: 개인 일정도 상대가 본다 (2026-11-25)
         self.client.post(reverse("event_create"), self.event_form(text="혼자 운동", scope="personal"))
         event = Event.objects.get()
         self.client.force_login(self.b)
-        self.assertEqual(self.client.get(reverse("event_update", args=[event.pk])).status_code, 404)
+        self.assertEqual(self.client.get(reverse("event_update", args=[event.pk])).status_code, 200)
         response = self.client.get(reverse("calendar"))
-        self.assertNotIn(event, list(response.context["upcoming"]))
+        self.assertIn(event, list(response.context["upcoming"]))
 
     def test_partner_can_edit_and_delete_shared_event(self):
         self.client.post(reverse("event_create"), self.event_form())
@@ -248,7 +249,7 @@ class HomeDataTests(TestCase):
             {"text": title, "date": timezone.localdate() + timedelta(days=2), "start_time": None, "end_time": None, "place": "", "scope": scope, "color": "sky"},
         )
 
-    def test_home_lists_shared_and_own_personal_events_only(self):
+    def test_calendar_lists_shared_and_both_personal_events(self):
         shared = self.add_event(self.a, "공통 데이트", Event.SHARED)
         mine = self.add_event(self.a, "내 운동", Event.PERSONAL)
         partners = self.add_event(self.b, "바다의 개인 약속", Event.PERSONAL)
@@ -256,7 +257,7 @@ class HomeDataTests(TestCase):
         events = list(response.context["upcoming"])
         self.assertIn(shared, events)
         self.assertIn(mine, events)
-        self.assertNotIn(partners, events)
+        self.assertIn(partners, events)  # 개인 일정도 상대가 본다
 
     def test_home_shows_recent_tastes_and_photos(self):
         Taste.objects.create(couple=self.couple, author=self.b, category="영화", title="헤어질 결심")
@@ -545,12 +546,12 @@ class PolishTests(TestCase):
         self.assertContains(response, "@여행 일정")
         self.assertIn(other.labels.first(), list(response.context["labels"]))
 
-    def test_label_filter_hides_partners_personal_events(self):
-        self.add_event(self.b, "바다 혼자 @운동", 1, Event.PERSONAL)
+    def test_label_filter_includes_partners_personal_events(self):
+        theirs = self.add_event(self.b, "바다 혼자 @운동", 1, Event.PERSONAL)
         mine = self.add_event(self.a, "같이 @운동", 2)
         label = Label.objects.get(couple=self.couple, name="운동")
         response = self.client.get(reverse("calendar"), {"label": label.pk})
-        self.assertEqual(response.context["label_upcoming"], [mine])
+        self.assertEqual(response.context["label_upcoming"], [theirs, mine])
 
     def test_other_couples_label_is_ignored(self):
         other = Couple.objects.create()
@@ -2052,10 +2053,10 @@ class EventMoveTests(TestCase):
         e.refresh_from_db()
         self.assertEqual(e.date, today - timedelta(days=3))
 
-    def test_partner_personal_and_other_couple_404(self):
+    def test_partner_personal_movable_and_other_couple_404(self):
         today = timezone.localdate()
         theirs = self.make(today + timedelta(days=1), user=self.b, scope=Event.PERSONAL)
-        self.assertEqual(self.move(theirs, today + timedelta(days=2)).status_code, 404)
+        self.assertEqual(self.move(theirs, today + timedelta(days=2)).status_code, 200)  # 개인 일정도 함께 보고 고친다
         other = Couple.objects.create()
         u = User.objects.create_user("c", password="pw", couple=other)
         foreign = Event.objects.create(couple=other, created_by=u, title="남", date=today + timedelta(days=1))
@@ -2213,11 +2214,11 @@ class LabelManageTests(TestCase):
         self.assertEqual(self.client.post(reverse("label_delete", args=[lab.pk])).status_code, 404)
         self.assertNotContains(self.client.get(reverse("labels")), "남의것")
 
-    def test_counts_hide_partner_personal(self):
+    def test_counts_include_partner_personal(self):
         lab = self.label("운동")
         self.event(lab)
         self.event(lab, user=self.b, scope=Event.PERSONAL)
-        self.assertEqual([l.count for l in self.client.get(reverse("labels")).context["tags"] if l.pk == lab.pk], [1])
+        self.assertEqual([l.count for l in self.client.get(reverse("labels")).context["tags"] if l.pk == lab.pk], [2])
 
     def test_calendar_links(self):
         self.assertContains(self.client.get(reverse("calendar")), reverse("labels"))
@@ -2787,7 +2788,7 @@ class DayPopupTests(TestCase):
         html = self.client.get(self.url(day)).content.decode()
         self.assertIn("저녁", html)
         self.assertIn("여행", html)
-        self.assertNotIn("바다 개인", html)
+        self.assertIn("바다 개인", html)  # 개인 일정도 상대가 본다 (2026-11-25)
         self.assertNotIn("남의 일정", html)
         self.assertIn(reverse("event_update", args=[mine.pk]), html)
         self.assertIn(f"{day.month}월 {day.day}일", html)
@@ -3161,10 +3162,13 @@ class HomeTodayTests(TestCase):
         partner = self.user.partner
         mine = Event.objects.create(couple=self.couple, created_by=self.user, title="오늘 저녁", date=today)
         tomorrow = Event.objects.create(couple=self.couple, created_by=self.user, title="내일 산책", date=today + timedelta(days=1))
-        Event.objects.create(couple=self.couple, created_by=partner, title="상대 개인", date=today, scope=Event.PERSONAL)
+        theirs = Event.objects.create(couple=self.couple, created_by=partner, title="상대 개인", date=today, scope=Event.PERSONAL)
         Event.objects.create(couple=self.couple, created_by=self.user, title="모레", date=today + timedelta(days=2))
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("z", password="pw", couple=other)
+        Event.objects.create(couple=other, created_by=stranger, title="남의 일정", date=today)
         ctx = self.ctx()
-        self.assertEqual([e.title for e in ctx["today_events"]], [mine.title, tomorrow.title])
+        self.assertEqual([e.title for e in ctx["today_events"]], [mine.title, theirs.title, tomorrow.title])
         self.assertIsNone(ctx["next_event"])
         html = self.client.get(reverse("home")).content.decode()
         for gone in ("최근 남긴 추억", "최근 사진", "<h2>메모</h2>", "다가오는 일정"):
@@ -3311,3 +3315,32 @@ class AddSheetReviewTests(TestCase):
         app = self.read("static/js/app.js")
         self.assertIn('searchParams.delete("sheet")', app)  # 팝업 밖에서 ?sheet=1 로 열리면 보통 화면으로
         self.assertIn('e.key === "Escape"', app)
+
+
+class PartnerPersonalEventTests(TestCase):
+    """개인 일정도 상대가 본다 (서로의 일정을 파악하려는 캘린더). 다른 커플은 여전히 못 본다."""
+
+    setUp = ScreenTests.setUp
+
+    def test_partner_sees_my_personal_event_everywhere(self):
+        today = timezone.localdate()
+        mine = Event.objects.create(couple=self.couple, created_by=self.b, title="바다 야근", date=today, scope=Event.PERSONAL)
+        other = Couple.objects.create()
+        stranger = User.objects.create_user("z", password="pw", couple=other)
+        hidden = Event.objects.create(couple=other, created_by=stranger, title="남의 개인", date=today, scope=Event.PERSONAL)
+        self.assertIn(mine, list(Event.objects.visible_to(self.a)))
+        self.assertNotIn(hidden, list(Event.objects.visible_to(self.a)))
+        self.assertIn(mine, list(self.client.get(reverse("calendar")).context["upcoming"]))
+        self.assertIn(mine, list(self.client.get(reverse("day_popup", args=[today.isoformat()])).context["events"]))
+        self.assertIn(mine, self.client.get(reverse("home")).context["today_events"])
+        self.assertEqual(self.client.get(reverse("event_update", args=[mine.pk])).status_code, 200)
+
+    def test_ics_still_only_my_personal(self):
+        from .models import CalendarFeed
+
+        Event.objects.create(couple=self.couple, created_by=self.b, title="바다 개인", date=timezone.localdate(), scope=Event.PERSONAL)
+        Event.objects.create(couple=self.couple, created_by=self.a, title="하늘 개인", date=timezone.localdate(), scope=Event.PERSONAL)
+        feed = CalendarFeed.objects.create(user=self.a, include_personal=True)
+        body = self.client.get(reverse("calendar_feed", args=[feed.token])).content.decode()
+        self.assertIn("하늘 개인", body)
+        self.assertNotIn("바다 개인", body)
