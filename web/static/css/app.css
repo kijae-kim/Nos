@@ -1170,13 +1170,8 @@ html.splash-on { background: var(--hero-bg); } /* 위·아래 안전 영역(상�
 .memo-editor .ln.todo.on::before { background: var(--primary); border-color: var(--primary);
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M5.5 10.3l3 3 6-6.2' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg>"); background-size: cover; }
 .memo-editor .ln.todo:first-child { font-size: 17px; font-weight: 500; }
-.memo-toolbar { position: sticky; bottom: calc(108px + env(safe-area-inset-bottom)); display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 12px; border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); z-index: 4; }
-.memo-tool { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; height: 40px; border-radius: 12px; color: var(--primary); font-weight: 700; }
-.memo-tool .i { width: 24px; height: 24px; }
 .memo-conflict { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .memo-conflict[hidden] { display: none; }
-@media (min-width: 900px) { .memo-toolbar { bottom: 24px; } }
 
 /* 추억: 누가 남겼는지 작은 버튼 (머리 줄 오른쪽) */
 .who-pill { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 7px 12px; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow); color: var(--text); font-size: 13px; font-weight: 600; text-decoration: none; max-width: 40vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1267,3 +1262,22 @@ html[data-mode="dark"] { --bar-bg: color-mix(in srgb, var(--surface), #fff 9%); 
 .cat { box-shadow: 0 1px 2px rgba(var(--shadow-rgb), .08), 0 2px 6px rgba(var(--shadow-rgb), .08); }
 html[data-mode="dark"] .cat { box-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
 .cat.on { box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 35%, transparent); }
+
+/* 메모 쓰기 도구 버튼: 화면 왼쪽·오른쪽 끝에 붙는 원 (끌어서 옮김). 누르면 도구가 원 옆으로 펼쳐진다 */
+.memo-dock { position: fixed; z-index: 6; width: 52px; height: 52px; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.memo-dock-btn { width: 52px; height: 52px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: grab;
+  background: var(--text); color: var(--surface); box-shadow: 0 6px 18px rgba(var(--shadow-rgb), .28); transition: transform .2s var(--spring); }
+.memo-dock-btn svg.i { width: 24px; height: 24px; }
+.memo-dock.open .memo-dock-btn { transform: scale(.92); }
+.memo-dock.dragging { transition: none; }
+.memo-dock.dragging .memo-dock-btn { cursor: grabbing; transform: scale(1.06); }
+.memo-dock-menu { position: absolute; top: 50%; display: grid; gap: 12px; transform: translateY(-50%); }
+.memo-dock-menu[hidden] { display: none; }
+.memo-dock[data-side="right"] .memo-dock-menu { right: 64px; justify-items: end; }
+.memo-dock[data-side="left"] .memo-dock-menu { left: 64px; justify-items: start; }
+.dock-item { display: flex; align-items: center; gap: 10px; border: 0; padding: 0; background: none; color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer; animation: dock-pop .22s var(--spring) both; }
+.memo-dock[data-side="left"] .dock-item { flex-direction: row-reverse; }
+.dock-item span { padding: 6px 10px; border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); white-space: nowrap; }
+.dock-item i { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: var(--on-pastel); box-shadow: 0 4px 12px rgba(var(--shadow-rgb), .2); }
+.dock-item i svg.i { width: 22px; height: 22px; }
+@keyframes dock-pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }

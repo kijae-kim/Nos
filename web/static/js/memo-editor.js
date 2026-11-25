@@ -224,13 +224,87 @@
     }
   });
 
-  var makeCheck = document.querySelector("[data-make-check]");
-  if (makeCheck) {
-    makeCheck.addEventListener("mousedown", function (e) { e.preventDefault(); }); // 쓰기 칸의 커서를 잃지 않게
-    makeCheck.addEventListener("click", toggleCheckLine);
+  // ---------- 도구 버튼: 왼쪽·오른쪽 끝에 붙는 원. 누르면 도구가 펼쳐지고, 끌면 옮겨진다 ----------
+  // 쓰기 칸의 커서(와 폰 자판)를 잃지 않게 누르는 순간의 기본 동작을 막고, 동작은 손을 뗄 때 한다
+  var dock = document.querySelector("[data-memo-dock]");
+  var dockBtn = dock && dock.querySelector("[data-dock-toggle]");
+  var dockMenu = dock && dock.querySelector(".memo-dock-menu");
+  var TOOLS = { "data-make-check": toggleCheckLine, "data-done": function () { editor.blur(); saveNow(); } };
+  function runTool(item) {
+    Object.keys(TOOLS).forEach(function (attr) { if (item.hasAttribute(attr)) TOOLS[attr](); });
+    setMenu(false);
   }
-  var done = document.querySelector("[data-done]");
-  if (done) done.addEventListener("click", function () { editor.blur(); saveNow(); });
+  function setMenu(open) {
+    if (!dock) return;
+    dockMenu.hidden = !open;
+    dock.classList.toggle("open", open);
+    dockBtn.setAttribute("aria-expanded", String(open));
+  }
+  if (dock) {
+    var SIZE = 52, EDGE = 10, saved = null;
+    try { saved = JSON.parse(localStorage.getItem("nos.memoDock") || "null"); } catch (e) { saved = null; }
+    var pos = saved && (saved.side === "left" || saved.side === "right") && typeof saved.y === "number"
+      ? saved : { side: "right", y: Math.round(window.innerHeight * 0.55) };
+    // 보이는 화면(폰 자판을 뺀 높이) 안에 두기
+    function limits() {
+      var vv = window.visualViewport;
+      var top = (vv ? vv.offsetTop : 0) + 70;
+      var bottom = (vv ? vv.offsetTop + vv.height : window.innerHeight) - SIZE - 16;
+      return [top, Math.max(top, bottom)];
+    }
+    function place() {
+      var lim = limits();
+      var y = Math.min(Math.max(pos.y, lim[0]), lim[1]);
+      dock.dataset.side = pos.side;
+      dock.style.top = y + "px";
+      dock.style.left = pos.side === "left" ? EDGE + "px" : "";
+      dock.style.right = pos.side === "right" ? EDGE + "px" : "";
+    }
+    place();
+    window.addEventListener("resize", place);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", place);
+    if (window.visualViewport) window.visualViewport.addEventListener("scroll", place);
+
+    var drag = null;
+    dock.addEventListener("touchstart", function (e) { e.preventDefault(); }, { passive: false }); // 화면 스크롤·커서 잃기 막기
+    dock.addEventListener("mousedown", function (e) { e.preventDefault(); });
+    dockBtn.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      drag = { x: e.clientX, y: e.clientY, top: dock.getBoundingClientRect().top, moved: false };
+      try { dockBtn.setPointerCapture(e.pointerId); } catch (err) { /* 괜찮다 */ }
+    });
+    dockBtn.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      if (!drag.moved && Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) < 8) return;
+      if (!drag.moved) { drag.moved = true; setMenu(false); dock.classList.add("dragging"); }
+      dock.style.top = (drag.top + e.clientY - drag.y) + "px";
+      dock.style.right = "";
+      dock.style.left = Math.min(Math.max(e.clientX - SIZE / 2, 0), window.innerWidth - SIZE) + "px";
+    });
+    dockBtn.addEventListener("pointerup", function (e) {
+      if (!drag) return;
+      var moved = drag.moved;
+      drag = null;
+      dock.classList.remove("dragging");
+      if (!moved) { setMenu(dockMenu.hidden); return; } // 누름: 도구 펼치기·접기
+      // 놓으면 가까운 쪽 끝에 붙는다
+      pos = { side: e.clientX < window.innerWidth / 2 ? "left" : "right", y: dock.getBoundingClientRect().top };
+      place();
+      pos.y = parseFloat(dock.style.top);
+      try { localStorage.setItem("nos.memoDock", JSON.stringify(pos)); } catch (err) { /* 저장 못 해도 괜찮다 */ }
+    });
+    dockBtn.addEventListener("pointercancel", function () { drag = null; dock.classList.remove("dragging"); place(); });
+    // 키보드(Enter·Space)로 누른 경우
+    dockBtn.addEventListener("click", function (e) { if (e.detail === 0) setMenu(dockMenu.hidden); });
+    dockMenu.querySelectorAll(".dock-item").forEach(function (item) {
+      item.addEventListener("pointerdown", function (e) { e.preventDefault(); });
+      item.addEventListener("pointerup", function (e) { e.preventDefault(); runTool(item); });
+      item.addEventListener("click", function (e) { if (e.detail === 0) runTool(item); });
+    });
+    // 바깥을 누르거나 Esc 면 접기
+    document.addEventListener("pointerdown", function (e) { if (!dock.contains(e.target)) setMenu(false); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") setMenu(false); });
+  }
 
   // ---------- 저장 (고친 뒤 0.8초, 떠날 때) ----------
   var dirty = false, saving = false, again = false, timer = null;

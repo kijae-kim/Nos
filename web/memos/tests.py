@@ -524,3 +524,29 @@ class MemoTabTests(TestCase):
             self.assertIn(f"<span>{name}</span>", html)
         self.assertIn(f'class="home-brand" href="{reverse("home")}"', html)
         self.assertNotIn('id="drawer"', html)
+
+
+class MemoDockTests(TestCase):
+    """메모 쓰기: 아래 도구줄 대신 화면 가장자리에 붙는 도구 버튼 (누르면 도구가 펼쳐짐, 끌어서 옮김)."""
+
+    setUp = MemoTests.setUp
+    new_memo = MemoTests.new_memo
+
+    def test_dock_button_with_tools_and_no_toolbar(self):
+        html = self.client.get(reverse("memo_edit", args=[self.new_memo().pk])).content.decode()
+        self.assertNotIn("memo-toolbar", html)
+        self.assertIn('class="memo-dock"', html)
+        self.assertIn('data-dock-toggle aria-label="메모 도구" aria-expanded="false"', html)
+        menu = html[html.index('class="memo-dock-menu"'):]
+        self.assertIn("data-make-check", menu)
+        self.assertIn("체크 항목", menu)
+        self.assertIn("data-done", menu)
+        self.assertIn('id="i-pen"', html)
+
+    def test_dock_script_snaps_to_edges_and_remembers(self):
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
+        self.assertIn('"nos.memoDock"', js)  # 위치 기억
+        self.assertIn('innerWidth / 2 ? "left" : "right"', js)  # 놓으면 가까운 쪽 끝에 붙는다
+        self.assertIn("visualViewport", js)  # 자판에 가리지 않게

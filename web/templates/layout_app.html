@@ -43,7 +43,7 @@
     <a class="tab{% if tab == 'tastes' %} on{% endif %}" style="left:28.7%" href="{% url 'tastes' %}"{% if tab == 'tastes' %} aria-current="page"{% endif %}>
       <svg class="i" aria-hidden="true"><use href="#i-journal"/></svg><span>추억</span>
     </a>
-    <a class="tab{% if tab == 'memos' %} on{% endif %}" style="left:71.3%" href="{% url 'memos' %}"{% if tab == 'memos' %} aria-current="page"{% endif %}>
+    <a class="tab{% if tab == 'memos' or tab == 'memo_edit' or tab == 'memo_folder_create' or tab == 'memo_folder_update' %} on{% endif %}" style="left:71.3%" href="{% url 'memos' %}"{% if tab == 'memos' %} aria-current="page"{% endif %}>
       <svg class="i" aria-hidden="true"><use href="#i-list"/></svg><span>메모</span>
     </a>
     <a class="tab{% if tab == 'albums' %} on{% endif %}" style="left:88.3%" href="{% url 'albums' %}"{% if tab == 'albums' %} aria-current="page"{% endif %}>
