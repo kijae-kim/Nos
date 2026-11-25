@@ -1,10 +1,10 @@
-{# 일정 한 줄. 이름표는 줄 링크 밖에 두어 따로 누를 수 있게 한다 (링크 안에 링크를 넣을 수 없다). #}
+{# 일정 한 줄. 개인 일정은 제목 옆에 만든 사람 닉네임. 이름표는 줄 링크 밖에 두어 따로 누를 수 있게 한다 (링크 안에 링크를 넣을 수 없다). #}
 <li class="rise event-li">
   <a class="event-row" href="{% url 'event_update' event.pk %}">
     <i class="bar" style="background:var(--{{ event.color }})"></i>
     <span class="main">
       <small>{{ event.date|date:"n. j." }}{% if event.is_multi_day %} – {{ event.end_date|date:"n. j." }} · 하루 종일{% elif event.start_time %} · {{ event.start_time|time:"A g:i" }}{% if event.end_time %} – {{ event.end_time|time:"g:i" }}{% endif %}{% else %} · 하루 종일{% endif %}{% if event.place %} · {{ event.place }}{% endif %}</small>
-      <strong>{{ event.title }}{% if event.scope == 'personal' %}<span class="kind">개인</span>{% endif %}</strong>
+      <strong>{{ event.title }}{% if event.scope == 'personal' %}<span class="kind">{{ event.created_by.display_name|truncatechars:6 }}</span>{% endif %}</strong>
       {% if event.memo %}<em class="memo">{{ event.memo|truncatechars:60 }}</em>{% endif %}
     </span>
     {% if event.scope == 'shared' %}
