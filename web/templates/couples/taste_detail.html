@@ -69,10 +69,10 @@
 </section>
 {% endif %}
 <div class="action-row">
-  <a class="btn" href="{% url 'taste_update' taste.pk %}">고치기</a>
-  <form method="post" action="{% url 'taste_delete' taste.pk %}" data-confirm="{% if taste.is_place %}이 장소를 지울까요? 연결된 사진은 그대로 남아요.{% else %}이 순간을 지울까요?{% endif %}">
+  <a class="btn" href="{% url 'taste_update' taste.pk %}">수정</a>
+  <form method="post" action="{% url 'taste_delete' taste.pk %}" data-confirm="{% if taste.is_place %}이 장소를 삭제할까요? 연결된 사진은 그대로 남아요.{% else %}이 순간을 삭제할까요?{% endif %}">
     {% csrf_token %}
-    <button type="submit" class="btn danger">지우기</button>
+    <button type="submit" class="btn danger">삭제</button>
   </form>
 </div>
 
@@ -88,9 +88,9 @@
             <p>{{ c.text|linebreaksbr }}</p>
           </div>
           {% if c.author == user %}
-            <form method="post" action="{% url 'taste_comment_delete' c.pk %}" data-confirm="이 댓글을 지울까요?">
+            <form method="post" action="{% url 'taste_comment_delete' c.pk %}" data-confirm="이 댓글을 삭제할까요?">
               {% csrf_token %}
-              <button type="submit" class="comment-del" aria-label="댓글 지우기"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg></button>
+              <button type="submit" class="comment-del" aria-label="댓글 삭제"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg></button>
             </form>
           {% endif %}
         </li>

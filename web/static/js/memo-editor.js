@@ -369,7 +369,7 @@
         version = res.data.version; show("저장했어요");
         if (!dirty) clearDraft(); else keepDraft();
       } else if (res.status === 409) conflict(res.data);
-      else if (res.status === 404) { gone = true; show("메모가 지워졌어요"); } // 쓴 글은 기기에 남겨 둔다
+      else if (res.status === 404) { gone = true; show("메모가 삭제됐어요"); } // 쓴 글은 기기에 남겨 둔다
       else if (res.status === 400) { dirty = false; show(res.data.error || "저장하지 못했어요"); } // 너무 긴 글 등: 고쳐야 저장
       else retryLater();
     }).catch(retryLater)

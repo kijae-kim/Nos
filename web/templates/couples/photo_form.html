@@ -1,9 +1,9 @@
 {% extends "layout_app.html" %}
-{% block head_title %}{% if photo %}사진 고치기{% else %}사진 올리기{% endif %} · {{ APP_NAME }}{% endblock %}
+{% block head_title %}{% if photo %}사진 수정{% else %}사진 올리기{% endif %} · {{ APP_NAME }}{% endblock %}
 {% block header %}
 <header class="row-between bar-head">
   <a class="circle" href="{% if photo %}{% url 'photo_detail' photo.pk %}{% else %}{% url 'albums' %}{% endif %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
-  <h1 class="bar-title">{% if photo %}사진 고치기{% else %}사진 올리기{% endif %}</h1>
+  <h1 class="bar-title">{% if photo %}사진 수정{% else %}사진 올리기{% endif %}</h1>
   <span class="spacer"></span>
 </header>
 {% endblock %}

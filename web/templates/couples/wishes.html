@@ -17,7 +17,7 @@
   {% endfor %}
   <a class="cat cat-add" href="{% url 'wishlist_create' %}">+ 새 목록</a>
 </nav>
-{% if current %}<a class="add-link" href="{% url 'wishlist_update' current.pk %}">목록 고치기</a>{% endif %}
+{% if current %}<a class="add-link" href="{% url 'wishlist_update' current.pk %}">목록 수정</a>{% endif %}
 
 {# 가고 싶은 곳 지도 (static/js/map.js 의 wish 모드: 목록 색 핀, 다녀옴은 체크) #}
 <section class="record-block" data-record-map data-mode="wish" data-view="pin"

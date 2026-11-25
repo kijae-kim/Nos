@@ -191,7 +191,7 @@
         var more = document.createElement("a");
         more.className = "strip-more";
         more.href = moreUrl;
-        more.textContent = "모두 보기 ›";
+        more.textContent = "전체 보기 ›";
         strip.appendChild(more);
       }
       return strip;

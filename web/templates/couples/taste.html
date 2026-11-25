@@ -114,7 +114,7 @@
 <script src="{% static 'js/coloring-map.js' %}" defer></script>
 {% else %}
 {# 순간: 태그(영화·음악·영상·책)로 걸러 본다 #}
-<nav class="cats" aria-label="태그">
+<nav class="cats" aria-label="분류">
   {% for c in categories %}
     <a class="cat{% if c == category %} on{% endif %}" href="?cat={{ c|urlencode }}{% if who != 'all' %}&amp;who={{ who }}{% endif %}">{{ c }}</a>
   {% endfor %}

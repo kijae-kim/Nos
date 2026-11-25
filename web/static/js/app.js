@@ -113,7 +113,7 @@
     });
   });
 
-  // 이름표 바로 넣기: 누르면 일정 글 끝에 @이름 또는 #이름 이 붙는다
+  // 태그 바로 넣기: 누르면 일정 글 끝에 @이름 또는 #이름 이 붙는다
   var textField = document.getElementById("id_text");
   $$("[data-insert]").forEach(function (b) {
     b.addEventListener("click", function () {
@@ -409,7 +409,7 @@
       document.body.appendChild(confirmBox);
     }
     confirmBox.querySelector("p").textContent = text;
-    confirmBox.querySelector(".ok").textContent = okLabel || "지울게요";
+    confirmBox.querySelector(".ok").textContent = okLabel || "삭제할게요";
     confirmBox.returnValue = "";
     return new Promise(function (resolve) {
       confirmBox.addEventListener("close", function () { resolve(confirmBox.returnValue === "ok"); }, { once: true });
@@ -1126,7 +1126,7 @@
     refresh();
   }
 
-  // ---------- 프로필 바꾸기 ----------
+  // ---------- 프로필 수정 ----------
   // 사진은 가운데 정사각형 256px JPEG 로 줄여서 보낸다 (서버도 다시 줄이고 촬영 정보를 지운다).
   var avatarInput = document.querySelector("[data-avatar-input]");
   if (avatarInput) {

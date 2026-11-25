@@ -13,7 +13,7 @@
 {% endblock %}
 {% block fab %}aria-label="메모 쓰기" href="{% url 'memo_new' %}{% if memo_folder %}?folder={{ memo_folder.pk }}{% endif %}"{% endblock %}
 {% block content %}
-{# 폴더 칩(누르면 그 폴더만) · 새 폴더 · 고른 폴더 고치기, 아래 메모 목록 (최근 고친 순) #}
+{# 폴더 칩(누르면 그 폴더만) · 새 폴더 · 고른 폴더 수정, 아래 메모 목록 (최근 고친 순) #}
 <nav class="cats memo-folder-chips" aria-label="메모 폴더">
   <a class="cat{% if not memo_folder %} on{% endif %}" href="{% url 'memos' %}">모든 폴더</a>
   {% for f in memo_folders %}
@@ -21,7 +21,7 @@
   {% endfor %}
   <a class="cat add" href="{% url 'memo_folder_create' %}" aria-label="새 폴더"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>폴더</a>
 </nav>
-{% if memo_folder %}<a class="add-link memo-folder-edit" href="{% url 'memo_folder_update' memo_folder.pk %}"><svg class="i"><use href="#i-dots"/></svg>'{{ memo_folder.name }}' 폴더 고치기</a>{% endif %}
+{% if memo_folder %}<a class="add-link memo-folder-edit" href="{% url 'memo_folder_update' memo_folder.pk %}"><svg class="i"><use href="#i-dots"/></svg>'{{ memo_folder.name }}' 폴더 수정</a>{% endif %}
 {% if memo_items %}
   <ul class="memo-list card">
     {% for m in memo_items %}
