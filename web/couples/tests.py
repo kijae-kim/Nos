@@ -267,10 +267,10 @@ class HomeDataTests(TestCase):
         self.assertContains(response, "사진 1장")
 
     def test_home_empty_state_links_to_create_pages(self):
-        response = self.client.get(reverse("home"))
-        self.assertContains(response, reverse("event_create"))
-        self.assertContains(response, reverse("taste_create"))
-        self.assertContains(response, reverse("photo_create"))
+        # 홈의 + 는 일정 추가, 추억·앨범의 + 는 그 화면의 추가 (사이드바 없앰)
+        self.assertContains(self.client.get(reverse("home")), reverse("event_create"))
+        self.assertContains(self.client.get(reverse("tastes")), reverse("taste_create"))
+        self.assertContains(self.client.get(reverse("albums")), reverse("photo_create"))
 
 
 class TastePhotoTests(TestCase):
@@ -1423,6 +1423,7 @@ class MemoriesScreenTests(TestCase):
         html = self.client.get(reverse("home")).content.decode()
         self.assertIn("<span>추억</span>", html)
         self.assertNotIn("<span>취향</span>", html)
+        html = self.client.get(reverse("tastes")).content.decode()
         self.assertIn(">순간</a>", html)
         self.assertIn(">기록</a>", html)
 
@@ -3263,25 +3264,6 @@ class AddSheetTests(TestCase):
     def test_memories_has_no_add_button(self):
         html = self.client.get(reverse("tastes")).content.decode()
         self.assertNotIn(f'<a class="btn primary" href="{reverse("taste_create")}">', html)  # 폰은 + 로 (넓은 화면만 wide-add)
-
-
-class DrawerTests(TestCase):
-    """NÓS 사이드바: 새로 만들기 6개와 바로가기."""
-
-    setUp = ScreenTests.setUp
-
-    def test_drawer_on_screens_with_links(self):
-        for url in (reverse("home"), reverse("calendar")):
-            html = self.client.get(url).content.decode()
-            self.assertIn('id="drawer"', html)
-            self.assertIn("data-drawer-open", html)
-            start = html.index('id="drawer"')
-            drawer = html[start:html.index("</nav>", start)]
-            for link in (reverse("taste_create"), reverse("photo_create"), reverse("memo_new"), reverse("anniversary_create"),
-                         reverse("memos"), reverse("anniversary_index"), reverse("wishes"), reverse("us")):
-                self.assertIn(f'href="{link}', drawer)
-            self.assertEqual(drawer.count("data-sheet-page"), 3)
-            self.assertIn("data-day-popup", drawer)
 
 
 class SheetFrameHeaderTests(TestCase):

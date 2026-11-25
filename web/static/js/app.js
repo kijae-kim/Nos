@@ -97,32 +97,6 @@
     }
   }
 
-  // NÓS 사이드바: 로고를 누르면 왼쪽에서. 바깥·Esc·닫기·항목을 누르면 닫는다 (스크립트 없으면 로고는 홈 링크)
-  var drawer = document.getElementById("drawer");
-  var drawerDim = document.getElementById("dim");
-  function setDrawer(open) {
-    if (!drawer) return;
-    if (open) {
-      drawer.hidden = false;
-      requestAnimationFrame(function () { document.documentElement.classList.add("drawer-open"); });
-      var first = drawer.querySelector("a");
-      if (first) first.focus({ preventScroll: true });
-    } else if (!drawer.hidden) {
-      document.documentElement.classList.remove("drawer-open");
-      setTimeout(function () { if (!document.documentElement.classList.contains("drawer-open")) drawer.hidden = true; }, 260);
-    }
-  }
-  if (drawer) {
-    document.querySelectorAll("[data-drawer-open]").forEach(function (a) {
-      a.addEventListener("click", function (e) { e.preventDefault(); setDrawer(true); });
-    });
-    drawer.addEventListener("click", function (e) {
-      if (e.target.closest("a, [data-drawer-close]")) setDrawer(false);
-    });
-    if (drawerDim) drawerDim.addEventListener("click", function () { setDrawer(false); });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape") setDrawer(false); });
-  }
-
   // 탭 전환형 선택 (연결 방식, 앨범 보기): data-tabs 안의 버튼은 data-target 패널을 연다
   $$("[data-tabs]").forEach(function (group) {
     var buttons = $$("button", group);

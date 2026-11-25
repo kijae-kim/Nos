@@ -3,7 +3,7 @@
 {% block head_title %}{{ memo.title|default:"새 메모" }} · {{ APP_NAME }}{% endblock %}
 {% block header %}
 <header class="row-between bar-head memo-head">
-  <a class="circle" href="{% url 'memo_folder' memo.folder_id %}" aria-label="{{ memo.folder.name }}로"><svg class="i"><use href="#i-left"/></svg></a>
+  <a class="circle" href="{{ back_url }}" aria-label="{{ memo.folder.name }}로"><svg class="i"><use href="#i-left"/></svg></a>
   <span class="memo-status muted" data-memo-status aria-live="polite"></span>
   <details class="memo-more">
     <summary class="circle" aria-label="더 보기"><svg class="i"><use href="#i-dots"/></svg></summary>

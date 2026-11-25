@@ -56,31 +56,6 @@
 
 </div>
 {% if sheet != "1" %}
-{# NÓS 사이드바: 왼쪽 위 로고를 누르면 (app.js). 무엇을 새로 만들지와 아래 탭에 없는 화면 #}
-{% now "Y-m-d" as today_str %}
-<nav class="drawer" id="drawer" aria-label="메뉴" hidden>
-  <div class="drawer-head">
-    <span class="home-brand"><svg class="logo-boat" aria-hidden="true"><use href="#boat"/></svg>{{ APP_NAME }}</span>
-    <button type="button" class="circle" data-drawer-close aria-label="메뉴 닫기"><svg class="i"><use href="#i-close"/></svg></button>
-  </div>
-  <p class="drawer-title">새로 만들기</p>
-  <div class="drawer-new">
-    <a href="{% url 'event_create' %}?date={{ today_str }}" data-day-popup="{% url 'day_popup' today_str %}"><i style="background:var(--sky)"><svg class="i"><use href="#i-cal"/></svg></i>일정</a>
-    <a href="{% url 'taste_create' %}" data-sheet-page><i style="background:var(--rose)"><svg class="i"><use href="#i-note"/></svg></i>순간</a>
-    <a href="{% url 'taste_create' %}?kind=place" data-sheet-page><i style="background:var(--peach)"><svg class="i"><use href="#i-pin"/></svg></i>기록</a>
-    <a href="{% url 'memo_new' %}"><i style="background:var(--sage)"><svg class="i"><use href="#i-check-circle"/></svg></i>메모</a>
-    <a href="{% url 'photo_create' %}" data-sheet-page><i style="background:var(--lav)"><svg class="i"><use href="#i-album"/></svg></i>사진</a>
-    <a href="{% url 'anniversary_create' %}"><i style="background:var(--sand)"><svg class="i"><use href="#i-gift"/></svg></i>기념일</a>
-  </div>
-  <p class="drawer-title">바로가기</p>
-  <ul class="drawer-links">
-    <li><a href="{% url 'memos' %}"><svg class="i"><use href="#i-list"/></svg>메모</a></li>
-    <li><a href="{% url 'anniversary_index' %}"><svg class="i"><use href="#i-gift"/></svg>기념일</a></li>
-    <li><a href="{% url 'wishes' %}"><svg class="i"><use href="#i-heart"/></svg>가고 싶은 곳</a></li>
-    <li><a href="{% url 'us' %}"><svg class="i"><use href="#i-home"/></svg>우리 · 프로필과 설정</a></li>
-    {% if WEBPUSH_ENABLED %}<li><a href="{% url 'notifications' %}"><svg class="i"><use href="#i-bell"/></svg>알림 설정</a></li>{% endif %}
-  </ul>
-</nav>
 {# 추가 팝업 (날짜 팝업과 등록 화면 팝업). 폰은 아래 바 위에 올라오는 판, 넓은 화면은 가운데 창 #}
 <dialog class="day-sheet" aria-label="추가"><div class="day-sheet-body" data-popup-body></div></dialog>
 <script src="{% static 'js/calendar-popup.js' %}" defer></script>

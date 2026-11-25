@@ -15,10 +15,12 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
 from accounts.avatars import fix_color_on_join
 from anniversaries import services as anniversary_services
+from memos.board import MEMO_CATEGORY, board as memo_board
 from memos.models import Memo
 
 from . import ics, linkpreview, places, placesearch, quickparse, quota, services
@@ -602,6 +604,7 @@ def _event_initial(event):
 # ---------- 취향 ----------
 
 @login_required
+@never_cache  # 메모를 고치고 뒤로 와도 새 목록이 보이게
 def taste(request):
     """추억. 순간(영화·음악·영상·책)과 기록(장소 지도·목록)."""
     couple, user = request.user.couple, request.user
@@ -611,7 +614,7 @@ def taste(request):
         places = (
             Taste.objects.filter(couple=couple, category=Taste.PLACE)
             .annotate(photo_count=Count("place_photos", distinct=True))
-            .order_by(F("latitude").asc(nulls_last=True), "-created_at", "-pk")
+            .order_by("-created_at", "-pk")  # 최근 등록한 곳이 위
         )
         # 가고 싶은 곳 카드를 누르면 바로 아래에 펼쳐 보이는 목록(태그)들. 숫자는 아직 안 다녀온 곳
         from django.db.models import Q
@@ -624,6 +627,12 @@ def taste(request):
 
     partner = user.partner
     category = request.GET.get("cat", "전체")
+    if category == MEMO_CATEGORY:
+        # 메모 칩: 폴더 칩과 메모 목록 (memos.board)
+        return render(request, "couples/taste.html", {
+            **common, "categories": ["전체", *Taste.MOMENT_TAGS, MEMO_CATEGORY], "category": category,
+            **memo_board(request, request.GET.get("folder", "")),
+        })
     if category not in Taste.MOMENT_TAGS:
         category = "전체"
     who = request.GET.get("who", "all")
@@ -654,7 +663,7 @@ def taste(request):
         {
             **common,
             "tastes": tastes,
-            "categories": ["전체", *Taste.MOMENT_TAGS],
+            "categories": ["전체", *Taste.MOMENT_TAGS, MEMO_CATEGORY],
             "category": category,
             "who": who,
             "who_label": who_label,
