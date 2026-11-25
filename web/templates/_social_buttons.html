@@ -1,7 +1,7 @@
 {% load socialaccount %}
 {% get_providers as providers %}
 {% if providers %}
-<div class="divider"><span>또는</span></div>
+{% if not no_divider %}<div class="divider"><span>또는</span></div>{% endif %}
 <div class="social-list">
 {% for provider in providers %}
 <form method="post" action="{% provider_login_url provider %}" data-provider="{{ provider.id }}"{% if provider.id == "google" %} data-needs-browser{% endif %}>
