@@ -82,11 +82,11 @@ class Label(models.Model):
 
 class EventQuerySet(models.QuerySet):
     def visible_to(self, user):
-        """공통 일정은 두 사람 모두, 개인 일정은 만든 사람만 본다."""
-        return self.filter(
-            models.Q(couple=user.couple_id, scope=Event.SHARED)
-            | models.Q(couple=user.couple_id, scope=Event.PERSONAL, created_by=user)
-        )
+        """우리 커플의 모든 일정. 개인 일정도 두 사람 모두 본다 (서로의 일정을 파악하려는 캘린더, 2026-11-25).
+        '개인' 은 함께 하는 일정이 아니라 한 사람의 일정이라는 뜻이다. 다른 커플 것은 보이지 않는다."""
+        if not user.couple_id:
+            return self.none()
+        return self.filter(couple=user.couple_id)
 
     def overlapping(self, start, end):
         """[start, end] 기간에 하루라도 걸치는 일정 (여러 날 일정 포함)."""

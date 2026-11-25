@@ -6,6 +6,7 @@
 """
 from datetime import datetime, timedelta, timezone as dt_timezone
 
+from django.db.models import Q
 from django.utils import timezone
 
 from anniversaries import services as anniversary_services
@@ -116,9 +117,10 @@ def build_calendar(feed, now=None):
     ]
     couple = user.couple
     if couple is not None:  # 커플 연결을 끊었으면 빈 캘린더
-        # 공통 일정은 늘, 개인 일정은 켜 두었을 때 내 것만 (상대 개인 일정은 절대 넣지 않는다)
+        # 공통 일정은 늘, 개인 일정은 켜 두었을 때 내 것만 (구독 캘린더에는 상대 개인 일정을 넣지 않는다)
         if feed.include_personal:
-            events = Event.objects.visible_to(user)
+            events = Event.objects.filter(couple=couple).filter(
+                Q(scope=Event.SHARED) | Q(scope=Event.PERSONAL, created_by=user))
         else:
             events = Event.objects.filter(couple=couple, scope=Event.SHARED)
         since = timezone.localdate() - timedelta(days=PAST_DAYS)

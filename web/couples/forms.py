@@ -67,7 +67,7 @@ class EventForm(forms.Form):
         required=False,
         widget=forms.Textarea(attrs={"rows": 3, "placeholder": "준비물, 예약 번호처럼 적어 두고 싶은 것"}),
     )
-    scope = forms.ChoiceField(label="공개", choices=[("shared", "공통 일정"), ("personal", "개인 일정")], widget=forms.RadioSelect, initial="shared")
+    scope = forms.ChoiceField(label="구분", choices=[("shared", "공통 일정"), ("personal", "개인 일정")], widget=forms.RadioSelect, initial="shared")
     color = forms.ChoiceField(label="색", choices=COLOR_CHOICES, widget=forms.RadioSelect, initial="sky")
 
     def clean(self):
