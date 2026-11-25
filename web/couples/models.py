@@ -29,6 +29,17 @@ class Couple(models.Model):
     def is_full(self):
         return self.members.count() >= self.MAX_MEMBERS
 
+    def rotate_invite_code(self):
+        """초대 코드를 새로 만든다. 두 사람이 연결되거나 한 사람이 나가면 부른다
+        (옛 코드로 나간 사람이나 코드를 본 사람이 다시 들어오지 못하게)."""
+        for _ in range(10):
+            code = generate_invite_code()
+            if not Couple.objects.filter(invite_code=code).exists():
+                Couple.objects.filter(pk=self.pk).update(invite_code=code)
+                self.invite_code = code
+                return code
+        raise RuntimeError("초대 코드를 만들지 못했어요")
+
     @property
     def days_together(self):
         """사귄 날을 1일째로 세는 D+day. 시작일이 없거나 미래면 None."""

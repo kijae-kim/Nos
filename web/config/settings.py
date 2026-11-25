@@ -213,6 +213,9 @@ CRON_SECRET = os.getenv("CRON_SECRET", "")
 # + 추가 팝업이 등록 화면을 같은 사이트 iframe 으로 띄운다 (calendar-popup.js). 다른 사이트는 여전히 못 띄운다
 X_FRAME_OPTIONS = "SAMEORIGIN"
 
+# 관리자 화면(/admin/)은 개발에서만, 운영은 DJANGO_ADMIN=1 일 때만 연다 (로그인 시도 제한이 없어 닫아 둔다)
+ADMIN_ENABLED = DEBUG or os.getenv("DJANGO_ADMIN", "0") == "1"
+
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -220,4 +223,4 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_SSL_REDIRECT = True
-    SECURE_HSTS_SECONDS = 3600  # 처음에는 짧게 (1시간). 익숙해지면 늘린다.
+    SECURE_HSTS_SECONDS = 60 * 60 * 24 * 365  # 1년 (보안 점검 2026-11-25)

@@ -572,3 +572,18 @@ class MemoShareTests(TestCase):
         self.assertIn("navigator.share", js)
         self.assertIn("navigator.clipboard", js)  # 공유 창이 없는 브라우저는 복사
         self.assertIn('"data-share": shareMemo', js)
+
+
+
+class MemoNewCrossSiteTests(TestCase):
+    setUp = MemoTests.setUp
+
+    def test_cross_site_get_does_not_create_memo(self):
+        res = self.client.get(reverse("memo_new"), HTTP_SEC_FETCH_SITE="cross-site")
+        self.assertRedirects(res, reverse("memos"), fetch_redirect_response=False)
+        self.assertFalse(Memo.objects.exists())
+        self.client.get(reverse("memo_new"), HTTP_SEC_FETCH_SITE="same-origin")
+        self.assertEqual(Memo.objects.count(), 1)
+        self.client.get(reverse("memo_new"), HTTP_SEC_FETCH_SITE="none")  # 주소창·홈 화면 앱
+        self.client.get(reverse("memo_new"))  # 헤더 없는 오래된 브라우저
+        self.assertEqual(Memo.objects.count(), 1)  # 방금 만든 빈 메모를 다시 연다

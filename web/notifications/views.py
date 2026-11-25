@@ -127,6 +127,10 @@ def push_subscribe(request):
     )
     if not valid:
         return JsonResponse({"ok": False}, status=400)
+    existing = PushSubscription.objects.filter(endpoint=endpoint).first()
+    if existing and existing.user_id != request.user.pk and (existing.p256dh, existing.auth) != (p256dh, auth):
+        # 남의 기기 주소만 알아서는 그 알림을 가져가지 못하게: 같은 기기(같은 열쇠)일 때만 주인을 바꾼다
+        return JsonResponse({"ok": False}, status=409)
     PushSubscription.objects.update_or_create(
         endpoint=endpoint, defaults={"user": request.user, "p256dh": p256dh, "auth": auth}
     )

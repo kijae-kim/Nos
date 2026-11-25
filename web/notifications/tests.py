@@ -346,3 +346,33 @@ class CronConcurrencyTests(TestCase):
             self.call()
         self.assertEqual(calls, ["auto:500일:2026-12-01:0"])
         self.assertEqual(Log.objects.count(), 1)
+
+
+
+class PushTakeoverTests(TestCase):
+    def test_known_endpoint_not_moved_without_same_keys(self):
+        import json as _json
+
+        from django.test import override_settings
+
+        from accounts.models import User
+        from .models import PushSubscription
+
+        from couples.models import Couple
+
+        victim = User.objects.create_user("v", password="pw", couple=Couple.objects.create())
+        attacker = User.objects.create_user("x", password="pw", couple=Couple.objects.create())
+        sub = PushSubscription.objects.create(user=victim, endpoint="https://push.example/abc", p256dh="KEY1", auth="AUTH1")
+        body = {"endpoint": sub.endpoint, "keys": {"p256dh": "EVIL", "auth": "EVIL"}}
+        with override_settings(WEBPUSH_ENABLED=True, VAPID_PUBLIC_KEY="k", VAPID_PRIVATE_KEY="k", VAPID_SUBJECT="mailto:x@x"):
+            self.client.force_login(attacker)
+            res = self.client.post(reverse("push_subscribe"), _json.dumps(body), content_type="application/json")
+            self.assertEqual(res.status_code, 409)
+            sub.refresh_from_db()
+            self.assertEqual((sub.user, sub.p256dh), (victim, "KEY1"))
+            # 같은 기기(같은 열쇠)에서 다른 사람이 로그인하면 주인을 바꾼다
+            body["keys"] = {"p256dh": "KEY1", "auth": "AUTH1"}
+            res = self.client.post(reverse("push_subscribe"), _json.dumps(body), content_type="application/json")
+            self.assertEqual(res.status_code, 200)
+            sub.refresh_from_db()
+            self.assertEqual(sub.user, attacker)

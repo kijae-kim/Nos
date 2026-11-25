@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import date, time, timedelta
 
 from django.conf import settings
+from django.core.cache import cache
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -60,12 +61,26 @@ def create(request):
     return redirect("home")
 
 
+JOIN_FAIL_LIMIT = 10  # 한 시간에 틀릴 수 있는 횟수 (초대 코드를 마구 넣어 남의 공간을 찾지 못하게)
+JOIN_FAIL_WINDOW = 60 * 60
+
+
+def _join_fail_keys(request):
+    ip = (request.META.get("HTTP_X_FORWARDED_FOR") or request.META.get("REMOTE_ADDR") or "").split(",")[0].strip()
+    return [f"join-fail:user:{request.user.pk}", f"join-fail:ip:{ip}"]
+
+
 @login_required
 @require_POST
 def join(request):
     if request.user.couple_id:
         return redirect("home")
     form = JoinForm(request.POST)
+    keys = _join_fail_keys(request)
+    if any((cache.get(k) or 0) >= JOIN_FAIL_LIMIT for k in keys):
+        form.is_valid()
+        form.add_error("code", "여러 번 틀려서 잠시 막아 두었어요. 잠시 뒤 다시 해 볼까요?")
+        return _render_connect(request, join_form=form)
     if form.is_valid():
         with transaction.atomic():
             couple = Couple.objects.select_for_update().filter(invite_code=form.cleaned_data["code"]).first()
@@ -77,7 +92,14 @@ def join(request):
                 request.user.couple = couple
                 request.user.save(update_fields=["couple"])
                 fix_color_on_join(request.user)  # 상대와 같은 색이면 다른 색으로
+                couple.rotate_invite_code()  # 다 찼으니 쓴 코드는 버린다
                 return redirect("home")
+    for k in keys:  # 틀린 횟수 (형식이 틀린 것도 센다)
+        cache.add(k, 0, JOIN_FAIL_WINDOW)
+        try:
+            cache.incr(k)
+        except ValueError:
+            cache.set(k, 1, JOIN_FAIL_WINDOW)
     return _render_connect(request, join_form=form)
 
 
@@ -97,6 +119,8 @@ def leave(request):
             for name in names:
                 delete_file(name)
             couple.delete()
+        else:
+            couple.rotate_invite_code()  # 나간 사람이 옛 코드로 다시 들어오지 못하게
     return redirect("couple_connect")
 
 

@@ -336,18 +336,26 @@
     var card = form.querySelector("[data-link-card]");
     var title = form.querySelector("[name=title]");
     var timer = null, last = "", seq = 0;
-    var esc = function (s) {
-      var d = document.createElement("div");
-      d.textContent = s || "";
-      return d.innerHTML;
-    };
     function show(data) {
       if (!data || !data.ok) { card.hidden = true; card.innerHTML = ""; return; }
-      card.innerHTML =
-        (data.image ? '<img src="' + esc(data.image) + '" alt="" referrerpolicy="no-referrer">' : "") +
-        '<span class="text"><strong>' + esc(data.title) + "</strong><small>" + esc(data.site) + "</small></span>";
-      var img = card.querySelector("img");
-      if (img) img.addEventListener("error", function () { img.hidden = true; });
+      // 외부 사이트가 준 값이라 문자열 HTML 로 붙이지 않고 요소로 만든다 (사진 주소의 따옴표로 스크립트를 끼워 넣지 못하게)
+      card.innerHTML = "";
+      if (data.image && /^https:\/\//.test(data.image)) {
+        var img = document.createElement("img");
+        img.alt = "";
+        img.referrerPolicy = "no-referrer";
+        img.addEventListener("error", function () { img.hidden = true; });
+        img.src = data.image;
+        card.appendChild(img);
+      }
+      var text = document.createElement("span");
+      text.className = "text";
+      var strong = document.createElement("strong");
+      strong.textContent = data.title || "";
+      var small = document.createElement("small");
+      small.textContent = data.site || "";
+      text.append(strong, small);
+      card.appendChild(text);
       card.hidden = false;
       if (title && !title.value.trim() && data.title) title.value = data.title;
       var picked = form.querySelector("[name=category]:checked");
