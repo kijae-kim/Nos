@@ -596,3 +596,13 @@ class MemoDockDragTests(TestCase):
         js = (Path(__file__).resolve().parent.parent / "static/js/memo-editor.js").read_text()
         self.assertIn("top: dock.offsetTop, left: dock.offsetLeft", js)  # 아이폰 자판이 떠도 어긋나지 않게
         self.assertIn("if (drag && drag.moved) return;", js)  # 끄는 동안 되돌리지 않음
+
+
+class MemoTabIconTests(TestCase):
+    setUp = MemoTests.setUp
+
+    def test_memo_tab_uses_pen_icon_like_guide(self):
+        html = self.client.get(reverse("memos")).content.decode()
+        tab = html[html.index("<span>메모</span>") - 80:html.index("<span>메모</span>")]
+        self.assertIn("#i-pen", tab)
+        self.assertIn('aria-label="메모"><svg class="i"><use href="#i-pen"/>', html)  # 넓은 화면 왼쪽 메뉴
