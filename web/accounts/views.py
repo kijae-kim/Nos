@@ -7,6 +7,7 @@ from django.views.decorators.http import require_POST
 from .avatars import free_color
 from .forms import EMOJIS, ProfileForm
 from .models import COLOR_CHOICES, Avatar, User
+from .news import LATEST, NEWS
 
 
 @login_required
@@ -91,3 +92,31 @@ def avatar(request, pk):
     res["Cache-Control"] = "private, max-age=86400"
     return res
 
+
+
+@login_required
+@require_POST
+def tutorial_done(request):
+    """튜토리얼을 끝냈거나 건너뜀. 지금 소식까지 본 것으로 친다 (처음 온 사람에게 지난 소식은 필요 없다)."""
+    User.objects.filter(pk=request.user.pk).update(tutorial_done=True, news_seen=LATEST)
+    return HttpResponse(status=204)
+
+
+@login_required
+@require_POST
+def news_seen(request):
+    """업데이트 소식 팝업을 닫음."""
+    User.objects.filter(pk=request.user.pk).update(news_seen=LATEST)
+    return HttpResponse(status=204)
+
+
+@login_required
+def guide(request):
+    """우리 › 사용법: 튜토리얼 다시 보기와 기능별 짧은 안내."""
+    return render(request, "accounts/guide.html")
+
+
+@login_required
+def news(request):
+    """우리 › 업데이트 소식: 지금까지의 소식."""
+    return render(request, "accounts/news.html", {"news": NEWS})

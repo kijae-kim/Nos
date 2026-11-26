@@ -33,6 +33,9 @@ class User(AbstractUser):
     notify_week_before = models.BooleanField("일주일 전 알림", default=False)
     # 상대가 메모를 고치고 나가면 알림 (memos.notify). 웹 푸시를 켠 기기가 있을 때만 실제로 간다
     notify_memo = models.BooleanField("메모 알림", default=True)
+    # 처음 한 번 튜토리얼을 봤는지, 마지막으로 본 업데이트 소식 (accounts/news.py). 기기를 바꿔도 다시 뜨지 않게 계정에 둔다
+    tutorial_done = models.BooleanField("튜토리얼 봄", default=False)
+    news_seen = models.CharField("마지막으로 본 소식", max_length=20, blank=True)
     # 프로필: 내 색(일정 만든 사람 점·아바타 바탕), 이모지, 사진(256px JPEG 바이트, DB 에 둔다)
     color = models.CharField("내 색", max_length=10, choices=COLOR_CHOICES, default="sky")
     emoji = models.CharField("이모지", max_length=16, blank=True)

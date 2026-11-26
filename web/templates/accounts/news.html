@@ -1,0 +1,18 @@
+{% extends "layout_app.html" %}
+{% block head_title %}업데이트 소식 · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'us' %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">업데이트 소식</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+{% for n in news %}
+  <article class="card news-card">
+    <p class="news-date">{{ n.date }}</p>
+    <h2>{{ n.title }}</h2>
+    <ul class="news-items">{% for item in n.items %}<li>{{ item }}</li>{% endfor %}</ul>
+  </article>
+{% endfor %}
+{% endblock %}

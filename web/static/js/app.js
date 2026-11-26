@@ -685,6 +685,61 @@
     }
   })();
 
+  // ---------- 처음 한 번 튜토리얼 · 업데이트 소식 ----------
+  // 둘 다 dialog 안의 form 이 끝났다고 서버에 알린다 (CSRF 토큰은 form 안). 시작 화면이 끝난 뒤에 연다
+  function afterSplash(fn) {
+    if (!root.classList.contains("splash-on")) return fn();
+    var t = setInterval(function () { if (!root.classList.contains("splash-on")) { clearInterval(t); fn(); } }, 250);
+  }
+  function tellServer(form) {
+    try { fetch(form.action, { method: "POST", body: new FormData(form), credentials: "same-origin", keepalive: true }); } catch (e) { /* 다음에 다시 뜬다 */ }
+  }
+  function openDialog(d) { if (typeof d.showModal === "function") d.showModal(); else d.setAttribute("open", ""); }
+  (function () {
+    var dlg = document.querySelector("[data-tutorial]");
+    if (!dlg) return;
+    var form = dlg.querySelector("[data-tutorial-form]");
+    var track = dlg.querySelector("[data-tutorial-track]");
+    var slides = $$(".tutorial-slide", dlg);
+    var dots = $$(".tutorial-dots i", dlg);
+    var next = dlg.querySelector("[data-tutorial-next]");
+    var told = false;
+    function index() { return Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); }
+    function sync() {
+      var i = index();
+      dots.forEach(function (d, k) { d.classList.toggle("on", k === i); });
+      next.textContent = i >= slides.length - 1 ? "시작하기" : "다음";
+    }
+    function finish() {
+      if (!told) { told = true; tellServer(form); }
+      if (dlg.open) dlg.close();
+    }
+    track.addEventListener("scroll", function () { window.requestAnimationFrame(sync); }, { passive: true });
+    next.addEventListener("click", function () {
+      var i = index();
+      if (i >= slides.length - 1) return finish();
+      track.scrollTo({ left: (i + 1) * track.clientWidth, behavior: "smooth" });
+    });
+    form.addEventListener("submit", function (e) { e.preventDefault(); finish(); }); // 건너뛰기
+    dlg.addEventListener("cancel", function () { finish(); }); // Esc
+    $$("[data-tutorial-replay]").forEach(function (b) {
+      b.addEventListener("click", function () { track.scrollLeft = 0; sync(); openDialog(dlg); });
+    });
+    sync();
+    if (dlg.hasAttribute("data-auto")) afterSplash(function () { openDialog(dlg); });
+  })();
+  (function () {
+    var dlg = document.querySelector("[data-news-popup]");
+    if (!dlg) return;
+    var form = dlg.querySelector("[data-news-form]");
+    var told = false;
+    function done() { if (!told) { told = true; tellServer(form); } }
+    form.addEventListener("submit", function (e) { e.preventDefault(); done(); dlg.close(); });
+    dlg.addEventListener("close", done);
+    dlg.querySelector("a[href]").addEventListener("click", done); // 지난 소식 보기로 가도 본 것으로
+    afterSplash(function () { openDialog(dlg); });
+  })();
+
   // ---------- 로딩 화면 ----------
   // 화면을 옮기거나 저장할 때, 다음 화면이 0.35초 안에 안 뜨면 보여 준다.
   var loadTimer = null, giveUpTimer = null;

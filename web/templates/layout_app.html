@@ -62,6 +62,7 @@
 {# 추가 팝업 (날짜 팝업과 등록 화면 팝업). 폰은 아래 바 위에 올라오는 판, 넓은 화면은 가운데 창 #}
 <dialog class="day-sheet" aria-label="추가"><div class="day-sheet-body" data-popup-body></div></dialog>
 <script src="{% static 'js/calendar-popup.js' %}" defer></script>
+{% if show_tutorial %}{% include "_tutorial.html" with auto=True %}{% elif show_news %}{% include "_news_popup.html" %}{% endif %}
 {% endif %}
 {% endwith %}
 {% endblock %}
