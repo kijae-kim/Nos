@@ -79,6 +79,20 @@
     </a>
   </li>
   {% endif %}
+  <li>
+    <a href="{% url 'guide' %}">
+      <span class="icon-tile" style="background:var(--sage)"><svg class="i"><use href="#i-check-circle"/></svg></span>
+      <span class="main"><strong>사용법</strong><small>처음 안내 다시 보기와 기능별 설명</small></span>
+      <svg class="i chev"><use href="#i-right"/></svg>
+    </a>
+  </li>
+  <li>
+    <a href="{% url 'news' %}">
+      <span class="icon-tile" style="background:var(--rose)"><svg class="i"><use href="#i-bell"/></svg></span>
+      <span class="main"><strong>업데이트 소식</strong><small>새로 생기고 바뀐 것</small></span>
+      <svg class="i chev"><use href="#i-right"/></svg>
+    </a>
+  </li>
   {# 앱처럼 쓰기: 홈 화면 앱으로 열려 있으면 숨긴다 (app.js) #}
   <li data-install hidden>
     <a href="#" data-install-open>

@@ -1,0 +1,38 @@
+{# 처음 한 번 튜토리얼: 장면을 옆으로 넘긴다. 끝내거나 건너뛰면 계정에 기억 (app.js). auto 면 앱을 열 때 저절로 #}
+<dialog class="tutorial" data-tutorial{% if auto %} data-auto{% endif %} aria-label="NÓS 사용법">
+  <form method="post" action="{% url 'tutorial_done' %}" data-tutorial-form>
+    {% csrf_token %}
+    <div class="tutorial-track" data-tutorial-track>
+      <section class="tutorial-slide">
+        <span class="tutorial-art" style="background:var(--sky)"><svg class="logo-boat" aria-hidden="true"><use href="#boat"/></svg></span>
+        <h2>{{ APP_NAME }}에 오신 걸 환영해요</h2>
+        <p>둘만 쓰는 공간이에요. 일정, 추억, 메모, 사진을 함께 보고 함께 고쳐요.</p>
+      </section>
+      <section class="tutorial-slide">
+        <span class="tutorial-art" style="background:var(--primary)"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></span>
+        <h2>+ 는 그 화면의 '추가'</h2>
+        <p>캘린더에서는 일정, 추억에서는 순간·기록, 메모에서는 새 메모, 앨범에서는 사진을 바로 추가해요.</p>
+      </section>
+      <section class="tutorial-slide">
+        <span class="tutorial-art" style="background:var(--peach)"><svg class="i" aria-hidden="true"><use href="#i-cal"/></svg></span>
+        <h2>날짜를 누르거나, 글로 쓰거나</h2>
+        <p>달력에서 날짜를 누르면 그날 일정과 추가 칸이 떠요. 맨 위 칸에 '12월 25일 저녁 7시 찜질방'처럼 써도 알아들어요.</p>
+      </section>
+      <section class="tutorial-slide">
+        <span class="tutorial-art" style="background:var(--sage)"><svg class="i" aria-hidden="true"><use href="#i-pen"/></svg></span>
+        <h2>메모는 펜 버튼으로</h2>
+        <p>메모를 쓸 때 화면 옆 펜 버튼을 누르면 todo 와 공유가 나와요. 줄 맨 앞에 '- ' 를 쳐도 체크 항목이 돼요.</p>
+      </section>
+      <section class="tutorial-slide">
+        <span class="tutorial-art" style="background:var(--lav)"><svg class="i" aria-hidden="true"><use href="#i-home"/></svg></span>
+        <h2>홈 화면에 추가하면 앱처럼</h2>
+        <p>브라우저 공유 버튼에서 '홈 화면에 추가'를 하면 아이콘으로 바로 열려요. 우리 › 앱처럼 쓰기에서 다시 볼 수 있어요.</p>
+      </section>
+    </div>
+    <div class="tutorial-dots" aria-hidden="true">{% for _ in "12345" %}<i></i>{% endfor %}</div>
+    <div class="tutorial-actions">
+      <button type="submit" class="link-btn" data-tutorial-skip>건너뛰기</button>
+      <button type="button" class="btn primary" data-tutorial-next>다음</button>
+    </div>
+  </form>
+</dialog>

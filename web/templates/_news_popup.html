@@ -1,0 +1,15 @@
+{# 새 소식이 있으면 앱을 열 때 한 번. 닫으면 계정에 기억 (app.js) #}
+<dialog class="news-popup" data-news-popup aria-labelledby="news-popup-title">
+  <form method="post" action="{% url 'news_seen' %}" data-news-form>
+    {% csrf_token %}
+    <p class="news-date">{{ news_latest.date }} · 업데이트 소식</p>
+    <h2 id="news-popup-title">{{ news_latest.title }}</h2>
+    <ul class="news-items">
+      {% for item in news_latest.items %}<li>{{ item }}</li>{% endfor %}
+    </ul>
+    <div class="news-actions">
+      <a class="link-btn" href="{% url 'news' %}">지난 소식 보기</a>
+      <button type="submit" class="btn primary">확인</button>
+    </div>
+  </form>
+</dialog>

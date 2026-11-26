@@ -1310,3 +1310,30 @@ form > button.add-link { background: none; border: 0; padding: 0; cursor: pointe
 .step-icon svg.i { width: 20px; height: 20px; }
 .install-inapp { font-size: 14px; margin: 0; }
 .install-inapp[hidden] { display: none; }
+
+/* 처음 한 번 튜토리얼: 옆으로 넘기는 장면 */
+.tutorial, .news-popup { border: 0; padding: 0; width: min(400px, calc(100vw - 24px)); border-radius: 26px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.tutorial::backdrop, .news-popup::backdrop { background: var(--scrim); }
+.tutorial form { display: grid; gap: 14px; padding: 0 0 18px; }
+.tutorial-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.tutorial-track::-webkit-scrollbar { display: none; }
+.tutorial-slide { flex: 0 0 100%; scroll-snap-align: start; display: grid; justify-items: center; gap: 10px; padding: 30px 24px 4px; text-align: center; }
+.tutorial-art { width: 88px; height: 88px; border-radius: 28px; display: grid; place-items: center; color: #fff; margin-bottom: 6px; }
+.tutorial-art svg.i { width: 40px; height: 40px; }
+.tutorial-art .logo-boat { width: 52px; height: 52px; }
+.tutorial-slide h2 { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.tutorial-slide p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--muted); }
+.tutorial-dots { display: flex; justify-content: center; gap: 6px; }
+.tutorial-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--track); transition: width .2s, background .2s; }
+.tutorial-dots i.on { width: 18px; border-radius: 3px; background: var(--primary); }
+.tutorial-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 20px; }
+.tutorial-actions .btn { width: auto; flex: none; padding: 12px 26px; margin: 0; }
+/* 업데이트 소식 */
+.news-popup form { display: grid; gap: 10px; padding: 22px 20px 18px; }
+.news-date { margin: 0; font-size: 12px; font-weight: 700; color: var(--primary); }
+.news-popup h2, .news-card h2 { font-size: 18px; font-weight: 800; letter-spacing: -.02em; }
+.news-items { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; line-height: 1.5; }
+.news-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; }
+.news-actions .btn { width: auto; flex: none; padding: 12px 26px; margin: 0; }
+.news-card { display: grid; gap: 8px; padding: 18px; }
+.guide-rows .main small { white-space: normal; line-height: 1.45; }

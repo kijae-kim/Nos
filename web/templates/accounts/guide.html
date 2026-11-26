@@ -1,0 +1,21 @@
+{% extends "layout_app.html" %}
+{% block head_title %}사용법 · {{ APP_NAME }}{% endblock %}
+{% block header %}
+<header class="row-between bar-head">
+  <a class="circle" href="{% url 'us' %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">사용법</h1>
+  <span class="spacer"></span>
+</header>
+{% endblock %}
+{% block content %}
+<button type="button" class="btn primary" data-tutorial-replay>처음 안내 다시 보기</button>
+<ul class="rows guide-rows">
+  <li><span class="icon-tile" style="background:var(--primary)"><svg class="i"><use href="#i-plus"/></svg></span><span class="main"><strong>+ 버튼</strong><small>지금 화면의 '추가'예요. 팝업이 열리면 × 로 닫아요.</small></span></li>
+  <li><span class="icon-tile" style="background:var(--peach)"><svg class="i"><use href="#i-cal"/></svg></span><span class="main"><strong>캘린더</strong><small>날짜를 누르면 추가 칸, 맨 위 칸에 글로 쓰면 날짜를 알아들어요. 태그를 누르면 그 태그 일정만.</small></span></li>
+  <li><span class="icon-tile" style="background:var(--rose)"><svg class="i"><use href="#i-journal"/></svg></span><span class="main"><strong>추억</strong><small>순간은 영화·음악·영상·책, 기록은 함께 간 곳. 링크를 붙이면 제목과 사진을 가져와요.</small></span></li>
+  <li><span class="icon-tile" style="background:var(--sage)"><svg class="i"><use href="#i-pen"/></svg></span><span class="main"><strong>메모</strong><small>펜 버튼으로 todo·공유. 끌어서 왼쪽·오른쪽 끝에 붙여 둘 수 있어요.</small></span></li>
+  <li><span class="icon-tile" style="background:var(--lav)"><svg class="i"><use href="#i-album"/></svg></span><span class="main"><strong>앨범</strong><small>여러 장을 한 번에 올리고, 사진 화면에서 앨범 대표 사진을 골라요.</small></span></li>
+  <li><span class="icon-tile" style="background:var(--sky)"><svg class="i"><use href="#i-home"/></svg></span><span class="main"><strong>홈</strong><small>왼쪽 위 NÓS 를 누르면 홈. 기념일과 오늘·최근 소식이 모여요.</small></span></li>
+</ul>
+{% include "_tutorial.html" %}
+{% endblock %}
