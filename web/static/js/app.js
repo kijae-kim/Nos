@@ -417,8 +417,10 @@
       confirmBox.querySelector("[value=cancel]").focus(); // 실수로 Enter 를 눌러도 지워지지 않게
     });
   }
-  $$("form[data-confirm]").forEach(function (form) {
-    form.addEventListener("submit", function (event) {
+  // 문서에 한 번 걸어 둔다 (사진 넘기기처럼 나중에 바꿔 끼운 폼도 묻게). 잡는 단계라 폼의 다른 처리보다 먼저 돈다.
+  document.addEventListener("submit", function (event) {
+      var form = event.target;
+      if (!form.matches || !form.matches("form[data-confirm]")) return;
       if (form._confirmed) { form._confirmed = false; return; }
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -429,8 +431,7 @@
         if (form.requestSubmit) form.requestSubmit(submitter && submitter.form === form ? submitter : undefined);
         else { showLoaderSoon(); form.submit(); }
       });
-    });
-  });
+  }, true);
 
   // ---------- 취향 좋아요 ----------
   // 화면을 다시 읽지 않고 하트만 바꾼다. 스크립트가 없으면 보통 폼으로 보내진다.
@@ -741,18 +742,96 @@
   })();
 
   // ---------- 사진 옆으로 넘겨 보기 ----------
-  // 손가락을 따라 사진이 움직이고, 충분히 밀면 앞·뒤 사진으로 (기록을 쌓지 않아 '뒤로'는 사진을 연 곳으로)
+  // 손가락을 따라 사진이 움직이고, 충분히 밀면 앞·뒤 사진으로. 화면을 다시 받지 않는다:
+  // 앞뒤 사진은 미리 받아 두고(같은 서명 주소라야 다시 안 받는다) 바로 바꿔 끼우고,
+  // 아래 정보(한마디·앨범·수정 버튼)만 그 사진 화면에서 받아 바꾼다. 주소는 바꾸되 기록은 쌓지 않아 '뒤로'는 연 곳으로.
   (function () {
     var view = document.querySelector("[data-photo-swipe]");
-    if (!view || !(view.dataset.prev || view.dataset.next)) return;
+    var stripEl = document.getElementById("photo-strip");
+    if (!view || !stripEl) return;
     var img = view.querySelector("img");
+    var body = document.querySelector("[data-photo-body]");
+    var posEl = document.querySelector("[data-photo-pos]");
+    var navPrev = view.querySelector(".photo-nav.prev"), navNext = view.querySelector(".photo-nav.next");
+    var cache = {}; // 화면 주소 → { page, prev, next, pos, src, thumb, img, doc }
+    var learn = function (items) {
+      items.forEach(function (it) { if (!cache[it.page]) cache[it.page] = it; });
+    };
+    try { learn(JSON.parse(stripEl.textContent)); } catch (e) { return; }
+    var current = cache[location.pathname + location.search];
+    if (!current) return;
+    current.img = img; // 지금 사진은 이미 받았다
+    var loadDoc = function (c) {
+      if (c.doc) return c.doc;
+      c.doc = fetch(c.page, { credentials: "same-origin" })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+        .then(function (t) {
+          var doc = new DOMParser().parseFromString(t, "text/html");
+          var s = doc.getElementById("photo-strip");
+          if (s) learn(JSON.parse(s.textContent));
+          return doc;
+        });
+      c.doc.catch(function () { c.doc = null; });
+      return c.doc;
+    };
+    // 앞뒤 한 장씩 사진과 정보를 미리 받는다
+    var warm = function (c) {
+      [c.prev, c.next].forEach(function (u) {
+        var n = u && cache[u];
+        if (!n) return;
+        if (!n.img) { n.img = new Image(); n.img.decoding = "async"; n.img.src = n.src; }
+        loadDoc(n).catch(function () {});
+      });
+    };
+    var show = function (c, dir) {
+      current = c;
+      // 다 받은 사진은 바로, 아직이면 작은 사진을 먼저 보여 주고 다 받으면 바꾼다
+      var ready = c.img && c.img.complete && c.img.naturalWidth;
+      img.src = ready ? c.src : c.thumb;
+      if (!ready) {
+        if (!c.img) { c.img = new Image(); c.img.src = c.src; }
+        c.img.addEventListener("load", function () { if (current === c) img.src = c.src; }, { once: true });
+      }
+      // 반대쪽에서 들어온다
+      img.style.transition = "none";
+      img.style.transform = "translateX(" + (dir * 30) + "%)";
+      void img.offsetWidth;
+      img.style.transition = "transform .2s ease, opacity .2s ease";
+      img.style.transform = "";
+      img.style.opacity = "1";
+      view.dataset.prev = c.prev || "";
+      view.dataset.next = c.next || "";
+      if (navPrev) { navPrev.hidden = !c.prev; navPrev.setAttribute("href", c.prev || ""); }
+      if (navNext) { navNext.hidden = !c.next; navNext.setAttribute("href", c.next || ""); }
+      if (posEl) posEl.textContent = c.pos;
+      try { history.replaceState(history.state, "", c.page); } catch (e) {}
+      body.style.opacity = ".4";
+      loadDoc(c).then(function (doc) {
+        if (current !== c) return;
+        var nb = doc.querySelector("[data-photo-body]");
+        if (nb) body.innerHTML = nb.innerHTML;
+        var ni = doc.querySelector("[data-photo-swipe] img");
+        if (ni) img.alt = ni.alt;
+        body.style.opacity = "";
+        warm(c);
+      }, function () { location.replace(c.page); }); // 못 받으면 화면째로
+      warm(c);
+    };
+    var busy = false;
     var go = function (url, dir) {
       if (!url) { img.style.transform = ""; return; }
-      img.style.transition = "transform .18s ease, opacity .18s ease";
+      var c = cache[url];
+      if (!c) { location.replace(url); return; }
+      if (busy) return;
+      busy = true;
+      img.style.transition = "transform .15s ease, opacity .15s ease";
       img.style.transform = "translateX(" + (dir * -40) + "%)";
       img.style.opacity = "0";
-      setTimeout(function () { location.replace(url); }, 150);
+      setTimeout(function () { busy = false; show(c, dir); }, 150);
     };
+    // 한 시간이 지나 서명 주소가 끝나면 화면째로 다시 받는다
+    img.addEventListener("error", function () { location.replace(current.page); });
+    warm(current);
     var start = null;
     view.addEventListener("touchstart", function (e) {
       if (e.touches.length !== 1) { start = null; return; }
@@ -775,8 +854,8 @@
       var dx = start.dx;
       start = null;
       img.style.transition = "transform .2s ease";
-      if (dx < -60) go(view.dataset.next, 1);
-      else if (dx > 60) go(view.dataset.prev, -1);
+      if (dx < -60 && view.dataset.next) go(view.dataset.next, 1);
+      else if (dx > 60 && view.dataset.prev) go(view.dataset.prev, -1);
       else img.style.transform = "";
     });
     document.addEventListener("keydown", function (e) {
@@ -784,8 +863,8 @@
       if (e.key === "ArrowRight" && view.dataset.next) go(view.dataset.next, 1);
       if (e.key === "ArrowLeft" && view.dataset.prev) go(view.dataset.prev, -1);
     });
-    $$(".photo-nav", view).forEach(function (a) {
-      a.addEventListener("click", function (e) { e.preventDefault(); go(a.getAttribute("href"), a.classList.contains("next") ? 1 : -1); });
+    [navPrev, navNext].forEach(function (a) {
+      if (a) a.addEventListener("click", function (e) { e.preventDefault(); go(a.getAttribute("href"), a === navNext ? 1 : -1); });
     });
   })();
 

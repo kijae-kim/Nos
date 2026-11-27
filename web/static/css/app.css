@@ -1366,3 +1366,5 @@ form > button.add-link { background: none; border: 0; padding: 0; cursor: pointe
 .crop-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
 .crop-zoom input[type="range"] { padding: 0; border: 0; background: none; height: 28px; min-height: 0; box-shadow: none; }
 .crop-actions .btn { margin-top: 0; }
+.photo-body { transition: opacity .15s ease; }
+.photo-nav[hidden] { display: none; }

@@ -3559,3 +3559,18 @@ class PhotoSwipeTests(TestCase):
         self.assertContains(self.client.get(reverse("album_detail", args=[album.pk])), reverse("photo_detail", args=[p.pk]) + "?from=album")
         html = self.client.get(reverse("photo_detail", args=[p.pk]) + "?from=all").content.decode()
         self.assertIn("data-photo-swipe", html)
+
+    def test_strip_lists_neighbors_for_in_page_swipe(self):
+        """넘길 때 화면을 다시 받지 않도록 앞뒤 두 장까지의 주소·사진을 함께 내려준다."""
+        album = Album.objects.create(couple=self.couple, title="제주")
+        self.make(6, album=album)
+        order = [p.pk for p in self.client.get(reverse("album_detail", args=[album.pk])).context["photos"]]
+        page = lambda pk: reverse("photo_detail", args=[pk]) + "?from=album"
+        strip = self.client.get(page(order[2])).context["strip"]
+        self.assertEqual([s["page"] for s in strip], [page(pk) for pk in order[0:5]])
+        mid = strip[2]
+        self.assertEqual((mid["prev"], mid["next"], mid["pos"]), (page(order[1]), page(order[3]), "3 / 6"))
+        self.assertIsNone(strip[0]["prev"])
+        self.assertTrue(all(s["src"] and s["thumb"] for s in strip))
+        # 다른 곳에서 열면 넘기지 않으니 비어 있다
+        self.assertEqual(self.client.get(reverse("photo_detail", args=[order[2]])).context["strip"], [])
