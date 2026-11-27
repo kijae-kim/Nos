@@ -1248,17 +1248,22 @@ def photo_detail(request, pk):
         origin, order = None, []
         back_url = reverse("album_detail", args=[photo.album_id]) if photo.album_id else reverse("albums")
     prev_url = next_url = position = None
+    strip = []
     if origin and photo.pk in order:
         i = order.index(photo.pk)
-        url = lambda pk_: f"{reverse('photo_detail', args=[pk_])}?from={origin}"
-        if i > 0:
-            prev_url = url(order[i - 1])
-        if i < len(order) - 1:
-            next_url = url(order[i + 1])
+        url = lambda j: f"{reverse('photo_detail', args=[order[j]])}?from={origin}" if 0 <= j < len(order) else None
+        prev_url, next_url = url(i - 1), url(i + 1)
         position = (i + 1, len(order))
+        # 앞뒤 두 장까지: 넘길 때 화면을 다시 받지 않고 이 주소로 사진을 바꿔 끼운다 (app.js).
+        # 서명 주소는 화면마다 새로 만들어지니, 이 화면 안에서 같은 주소를 써야 미리 받은 사진이 그대로 쓰인다.
+        near = range(max(0, i - 2), min(len(order), i + 3))
+        objs = Photo.objects.in_bulk([order[j] for j in near])
+        strip = [{"page": url(j), "prev": url(j - 1), "next": url(j + 1), "pos": f"{j + 1} / {len(order)}",
+                  "src": objs[order[j]].image.url, "thumb": objs[order[j]].thumb_url}
+                 for j in near if order[j] in objs]
     return render(request, "couples/photo_detail.html", {
         "photo": photo, "back_url": back_url, "prev_url": prev_url, "next_url": next_url,
-        "position": position,
+        "position": position, "strip": strip,
     })
 
 
