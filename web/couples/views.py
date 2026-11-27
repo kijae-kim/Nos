@@ -1152,9 +1152,7 @@ def album(request):
     _uploaded_notice(request)
     today = timezone.localdate()
     photos = list(couple.photos.select_related("album"))
-    by_month = defaultdict(list)
-    for photo in photos:
-        by_month[f"{photo.shot_date:%Y년 %m월}"].append(photo)
+    by_month = _photos_by_month(photos)
     return render(
         request,
         "couples/album.html",
@@ -1225,10 +1223,43 @@ def photo_create(request):
     )
 
 
+def _photos_by_month(photos):
+    """전체 사진 화면의 묶음 (찍은 달별, 들어온 순서 그대로)."""
+    by_month = defaultdict(list)
+    for photo in photos:
+        by_month[f"{photo.shot_date:%Y년 %m월}"].append(photo)
+    return by_month
+
+
 @login_required
 def photo_detail(request, pk):
-    photo = get_object_or_404(Photo, pk=pk, couple=request.user.couple)
-    return render(request, "couples/photo_detail.html", {"photo": photo})
+    """사진 하나. ?from=all(전체 사진)·album(그 앨범)이면 그 화면 순서대로 옆으로 넘기고, 뒤로는 그 화면으로."""
+    couple = request.user.couple
+    photo = get_object_or_404(Photo.objects.select_related("album", "uploaded_by", "place"), pk=pk, couple=couple)
+    origin = request.GET.get("from")
+    if origin == "album" and photo.album_id:
+        order = list(photo.album.photos.values_list("pk", flat=True))
+        back_url = reverse("album_detail", args=[photo.album_id])
+    elif origin == "all":
+        photos = list(couple.photos.only("pk", "taken_on", "created_at"))
+        order = [p.pk for group in _photos_by_month(photos).values() for p in group]
+        back_url = reverse("albums")
+    else:  # 지도·장소 등 다른 곳에서 열면 넘기지 않고, 뒤로는 예전처럼
+        origin, order = None, []
+        back_url = reverse("album_detail", args=[photo.album_id]) if photo.album_id else reverse("albums")
+    prev_url = next_url = position = None
+    if origin and photo.pk in order:
+        i = order.index(photo.pk)
+        url = lambda pk_: f"{reverse('photo_detail', args=[pk_])}?from={origin}"
+        if i > 0:
+            prev_url = url(order[i - 1])
+        if i < len(order) - 1:
+            next_url = url(order[i + 1])
+        position = (i + 1, len(order))
+    return render(request, "couples/photo_detail.html", {
+        "photo": photo, "back_url": back_url, "prev_url": prev_url, "next_url": next_url,
+        "position": position,
+    })
 
 
 @login_required

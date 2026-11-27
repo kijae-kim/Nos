@@ -2,14 +2,18 @@
 {% block head_title %}사진 · {{ APP_NAME }}{% endblock %}
 {% block header %}
 <header class="row-between bar-head">
-  <a class="circle" href="{% if photo.album %}{% url 'album_detail' photo.album.pk %}{% else %}{% url 'albums' %}{% endif %}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
-  <h1 class="bar-title">사진</h1>
+  {# 뒤로: 사진을 연 곳(전체 사진·앨범)으로. 예전에는 늘 사진이 든 앨범으로 갔다 #}
+  <a class="circle" href="{{ back_url }}" aria-label="뒤로"><svg class="i"><use href="#i-left"/></svg></a>
+  <h1 class="bar-title">사진{% if position %} <small class="muted">{{ position.0 }} / {{ position.1 }}</small>{% endif %}</h1>
   <span class="spacer"></span>
 </header>
 {% endblock %}
 {% block content %}
-<figure class="photo-view">
-  <img src="{{ photo.image.url }}" alt="{{ photo.caption|default:'사진' }}">
+{# 옆으로 밀면 앞·뒤 사진 (app.js). 넓은 화면은 양옆 화살표, 키보드 ←·→ #}
+<figure class="photo-view" data-photo-swipe{% if prev_url %} data-prev="{{ prev_url }}"{% endif %}{% if next_url %} data-next="{{ next_url }}"{% endif %}>
+  <img src="{{ photo.image.url }}" alt="{{ photo.caption|default:'사진' }}" draggable="false">
+  {% if prev_url %}<a class="photo-nav prev" href="{{ prev_url }}" aria-label="앞 사진"><svg class="i"><use href="#i-left"/></svg></a>{% endif %}
+  {% if next_url %}<a class="photo-nav next" href="{{ next_url }}" aria-label="다음 사진"><svg class="i"><use href="#i-right"/></svg></a>{% endif %}
 </figure>
 <article class="card">
   {% if photo.caption %}<p class="comment">{{ photo.caption|linebreaksbr }}</p>{% else %}<p class="muted">한마디는 없어요.</p>{% endif %}

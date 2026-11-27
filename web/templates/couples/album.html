@@ -36,7 +36,7 @@
     <h3 class="month-label">{{ g.month }}</h3>
     <div class="photos">
       {% for p in g.photos %}
-        <a class="tile" href="{% url 'photo_detail' p.pk %}" aria-label="{{ p.caption|default:'사진' }} 보기"><img src="{{ p.thumb_url }}" loading="lazy" decoding="async" alt=""></a>
+        <a class="tile" href="{% url 'photo_detail' p.pk %}?from=all" aria-label="{{ p.caption|default:'사진' }} 보기"><img src="{{ p.thumb_url }}" loading="lazy" decoding="async" alt=""></a>
       {% endfor %}
     </div>
   {% empty %}

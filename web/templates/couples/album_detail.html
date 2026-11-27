@@ -11,7 +11,7 @@
 {% block content %}
 <div class="photos">
   {% for p in photos %}
-    <a class="tile" href="{% url 'photo_detail' p.pk %}" aria-label="{{ p.caption|default:'사진' }} 보기"><img src="{{ p.thumb_url }}" loading="lazy" decoding="async" alt=""></a>
+    <a class="tile" href="{% url 'photo_detail' p.pk %}?from=album" aria-label="{{ p.caption|default:'사진' }} 보기"><img src="{{ p.thumb_url }}" loading="lazy" decoding="async" alt=""></a>
   {% empty %}
     <p class="empty wide-empty">이 앨범에는 아직 사진이 없어요.</p>
   {% endfor %}
