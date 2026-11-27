@@ -3513,3 +3513,49 @@ class AlbumCoverTests(TestCase):
         self.client.post(reverse("photo_delete", args=[a.pk]))
         album.refresh_from_db()
         self.assertIsNone(album.cover)
+
+
+class PhotoSwipeTests(TestCase):
+    """사진을 옆으로 넘겨 보기: 연 곳(전체 사진·앨범)의 순서대로, 뒤로는 연 곳으로."""
+
+    setUp = UploadStorageTests.setUp
+    tearDown = UploadStorageTests.tearDown
+    png = UploadStorageTests.png
+
+    def make(self, n, album=None):
+        out = []
+        for i in range(n):
+            p = Photo.objects.create(couple=self.couple, uploaded_by=self.user, image=self.png(), album=album)
+            out.append(p)
+        return out
+
+    def test_from_all_uses_grid_order_and_back_to_all(self):
+        album = Album.objects.create(couple=self.couple, title="제주")
+        a, b, c = self.make(3, album=album)
+        grid = [p.pk for g in self.client.get(reverse("albums")).context["photo_groups"] for p in g["photos"]]
+        mid = grid[1]
+        ctx = self.client.get(reverse("photo_detail", args=[mid]) + "?from=all").context
+        self.assertEqual(ctx["prev_url"], reverse("photo_detail", args=[grid[0]]) + "?from=all")
+        self.assertEqual(ctx["next_url"], reverse("photo_detail", args=[grid[2]]) + "?from=all")
+        self.assertEqual(ctx["back_url"], reverse("albums"))  # 앨범이 있어도 전체 사진으로
+        first = self.client.get(reverse("photo_detail", args=[grid[0]]) + "?from=all").context
+        self.assertIsNone(first["prev_url"])
+
+    def test_from_album_stays_in_album(self):
+        album = Album.objects.create(couple=self.couple, title="제주")
+        inside = self.make(2, album=album)
+        self.make(2)  # 앨범 밖
+        order = [p.pk for p in self.client.get(reverse("album_detail", args=[album.pk])).context["photos"]]
+        ctx = self.client.get(reverse("photo_detail", args=[order[0]]) + "?from=album").context
+        self.assertEqual(ctx["next_url"], reverse("photo_detail", args=[order[1]]) + "?from=album")
+        self.assertIsNone(ctx["prev_url"])
+        self.assertEqual(ctx["back_url"], reverse("album_detail", args=[album.pk]))
+        self.assertEqual(len(inside), 2)
+
+    def test_grid_links_carry_from(self):
+        album = Album.objects.create(couple=self.couple, title="제주")
+        (p,) = self.make(1, album=album)
+        self.assertContains(self.client.get(reverse("albums")), reverse("photo_detail", args=[p.pk]) + "?from=all")
+        self.assertContains(self.client.get(reverse("album_detail", args=[album.pk])), reverse("photo_detail", args=[p.pk]) + "?from=album")
+        html = self.client.get(reverse("photo_detail", args=[p.pk]) + "?from=all").content.decode()
+        self.assertIn("data-photo-swipe", html)

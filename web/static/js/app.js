@@ -740,6 +740,55 @@
     afterSplash(function () { openDialog(dlg); });
   })();
 
+  // ---------- 사진 옆으로 넘겨 보기 ----------
+  // 손가락을 따라 사진이 움직이고, 충분히 밀면 앞·뒤 사진으로 (기록을 쌓지 않아 '뒤로'는 사진을 연 곳으로)
+  (function () {
+    var view = document.querySelector("[data-photo-swipe]");
+    if (!view || !(view.dataset.prev || view.dataset.next)) return;
+    var img = view.querySelector("img");
+    var go = function (url, dir) {
+      if (!url) { img.style.transform = ""; return; }
+      img.style.transition = "transform .18s ease, opacity .18s ease";
+      img.style.transform = "translateX(" + (dir * -40) + "%)";
+      img.style.opacity = "0";
+      setTimeout(function () { location.replace(url); }, 150);
+    };
+    var start = null;
+    view.addEventListener("touchstart", function (e) {
+      if (e.touches.length !== 1) { start = null; return; }
+      start = { x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, horizontal: null };
+      img.style.transition = "none";
+    }, { passive: true });
+    view.addEventListener("touchmove", function (e) {
+      if (!start) return;
+      var dx = e.touches[0].clientX - start.x, dy = e.touches[0].clientY - start.y;
+      if (start.horizontal === null && Math.abs(dx) + Math.abs(dy) > 8) start.horizontal = Math.abs(dx) > Math.abs(dy);
+      if (!start.horizontal) return; // 위아래로 미는 건 화면 스크롤
+      e.preventDefault();
+      // 끝에 다다르면 덜 움직이게
+      var edge = (dx > 0 && !view.dataset.prev) || (dx < 0 && !view.dataset.next);
+      start.dx = edge ? dx / 4 : dx;
+      img.style.transform = "translateX(" + start.dx + "px)";
+    }, { passive: false });
+    view.addEventListener("touchend", function () {
+      if (!start) return;
+      var dx = start.dx;
+      start = null;
+      img.style.transition = "transform .2s ease";
+      if (dx < -60) go(view.dataset.next, 1);
+      else if (dx > 60) go(view.dataset.prev, -1);
+      else img.style.transform = "";
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.target.closest && e.target.closest("input, textarea, [contenteditable]")) return;
+      if (e.key === "ArrowRight" && view.dataset.next) go(view.dataset.next, 1);
+      if (e.key === "ArrowLeft" && view.dataset.prev) go(view.dataset.prev, -1);
+    });
+    $$(".photo-nav", view).forEach(function (a) {
+      a.addEventListener("click", function (e) { e.preventDefault(); go(a.getAttribute("href"), a.classList.contains("next") ? 1 : -1); });
+    });
+  })();
+
   // ---------- 로딩 화면 ----------
   // 화면을 옮기거나 저장할 때, 다음 화면이 0.35초 안에 안 뜨면 보여 준다.
   var loadTimer = null, giveUpTimer = null;
@@ -1227,7 +1276,7 @@
   }
 
   // ---------- 프로필 수정 ----------
-  // 사진은 가운데 정사각형 256px JPEG 로 줄여서 보낸다 (서버도 다시 줄이고 촬영 정보를 지운다).
+  // 사진은 동그라미에 맞춘 정사각형 JPEG 로 보낸다 (서버가 256px 로 다시 줄이고 촬영 정보를 지운다).
   var avatarInput = document.querySelector("[data-avatar-input]");
   if (avatarInput) {
     var face = document.querySelector("[data-preview-face]");
@@ -1247,43 +1296,123 @@
       submitBtn.disabled = on;
       submitBtn.textContent = on ? "사진을 준비하고 있어요…" : "저장";
     };
+    // 고른 사진을 동그라미에 맞춘다: 끌어서 옮기기, 막대·두 손가락·휠로 키우기 → 그 부분만 512px JPEG 로
+    var sheet = document.querySelector("[data-crop-sheet]");
+    var stage = sheet.querySelector("[data-crop-stage]");
+    var cropImg = sheet.querySelector("[data-crop-img]");
+    var zoomInput = sheet.querySelector("[data-crop-zoom]");
+    var crop = null; // { url, w, h, zoom, x, y } — x·y 는 가운데에서 옮긴 거리(px)
+    var stageSize = function () { return stage.clientWidth || 280; };
+    var layout = function () {
+      var S = stageSize();
+      var s = S / Math.min(crop.w, crop.h) * crop.zoom; // 동그라미를 늘 꽉 채우는 배율
+      var dw = crop.w * s, dh = crop.h * s;
+      // 사진 밖 빈 곳이 동그라미에 들어오지 않게
+      var mx = (dw - S) / 2, my = (dh - S) / 2;
+      crop.x = Math.max(-mx, Math.min(mx, crop.x));
+      crop.y = Math.max(-my, Math.min(my, crop.y));
+      crop.s = s;
+      crop.left = (S - dw) / 2 + crop.x;
+      crop.top = (S - dh) / 2 + crop.y;
+      cropImg.style.width = dw + "px";
+      cropImg.style.height = dh + "px";
+      cropImg.style.transform = "translate(" + crop.left + "px," + crop.top + "px)";
+    };
+    var setZoom = function (z) {
+      crop.zoom = Math.max(1, Math.min(4, z));
+      zoomInput.value = crop.zoom;
+      layout();
+    };
+    var closeCrop = function () {
+      if (crop) URL.revokeObjectURL(crop.url);
+      crop = null;
+      if (sheet.open) sheet.close();
+    };
+    var pointers = {}, drag = null;
+    var pinchDist = function () {
+      var p = Object.keys(pointers).map(function (k) { return pointers[k]; });
+      return Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+    };
+    stage.addEventListener("pointerdown", function (e) {
+      if (!crop) return;
+      stage.setPointerCapture(e.pointerId);
+      pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+      var n = Object.keys(pointers).length;
+      if (n === 1) drag = { x: e.clientX, y: e.clientY, ox: crop.x, oy: crop.y };
+      if (n === 2) drag = { pinch: pinchDist(), zoom: crop.zoom };
+    });
+    stage.addEventListener("pointermove", function (e) {
+      if (!crop || !pointers[e.pointerId]) return;
+      pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (drag && drag.pinch) setZoom(drag.zoom * pinchDist() / drag.pinch);
+      else if (drag) { crop.x = drag.ox + e.clientX - drag.x; crop.y = drag.oy + e.clientY - drag.y; layout(); }
+    });
+    var lift = function (e) {
+      delete pointers[e.pointerId];
+      var rest = Object.keys(pointers);
+      // 두 손가락 중 하나를 떼면 남은 손가락으로 이어서 옮긴다
+      drag = rest.length === 1 && crop ? { x: pointers[rest[0]].x, y: pointers[rest[0]].y, ox: crop.x, oy: crop.y } : null;
+    };
+    stage.addEventListener("pointerup", lift);
+    stage.addEventListener("pointercancel", lift);
+    stage.addEventListener("wheel", function (e) {
+      if (!crop) return;
+      e.preventDefault();
+      setZoom(crop.zoom * (e.deltaY < 0 ? 1.08 : 1 / 1.08));
+    }, { passive: false });
+    zoomInput.addEventListener("input", function () { if (crop) setZoom(parseFloat(zoomInput.value)); });
+    sheet.querySelector("[data-crop-cancel]").addEventListener("click", function () {
+      avatarInput.value = ""; // 고르지 않은 것으로 (지금 사진 그대로)
+      closeCrop();
+    });
+    sheet.addEventListener("cancel", function () { avatarInput.value = ""; crop && URL.revokeObjectURL(crop.url); crop = null; });
+    sheet.querySelector("[data-crop-ok]").addEventListener("click", function () {
+      if (!crop) return;
+      var OUT = 512, S = stageSize();
+      var canvas = document.createElement("canvas");
+      canvas.width = canvas.height = OUT;
+      var ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, OUT, OUT);
+      // 화면의 동그라미(정사각형 칸)에 보이는 부분 = 원본의 이 칸
+      ctx.drawImage(cropImg, -crop.left / crop.s, -crop.top / crop.s, S / crop.s, S / crop.s, 0, 0, OUT, OUT);
+      closeCrop();
+      busy(true);
+      canvas.toBlob(function (blob) {
+        busy(false);
+        if (!blob) return;
+        try {
+          var dt = new DataTransfer();
+          dt.items.add(new File([blob], "avatar.jpg", { type: "image/jpeg" }));
+          avatarInput.files = dt.files; // 맞춘 사진으로 바꿔 보낸다
+        } catch (err) { /* 바꿀 수 없는 브라우저는 원본을 보내고 서버가 가운데를 자른다 */ }
+        if (!photoPreview) {
+          photoPreview = document.createElement("img");
+          photoPreview.className = "av big";
+          photoPreview.alt = "";
+          face.parentNode.insertBefore(photoPreview, face);
+        }
+        photoPreview.src = canvas.toDataURL("image/jpeg", 0.85);
+        photoPreview.hidden = false;
+        if (removePhoto) removePhoto.checked = false;
+        showFace();
+      }, "image/jpeg", 0.88);
+    });
     avatarInput.addEventListener("change", function () {
       var file = avatarInput.files && avatarInput.files[0];
       if (!file) return;
+      if (crop) closeCrop();
       busy(true);
       var url = URL.createObjectURL(file);
-      var img = new Image();
-      img.onload = function () {
-        var side = Math.min(img.naturalWidth, img.naturalHeight);
-        var canvas = document.createElement("canvas");
-        canvas.width = canvas.height = 256;
-        var ctx = canvas.getContext("2d");
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(0, 0, 256, 256);
-        ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 256, 256);
-        URL.revokeObjectURL(url);
-        canvas.toBlob(function (blob) {
-          busy(false);
-          if (!blob) return;
-          try {
-            var dt = new DataTransfer();
-            dt.items.add(new File([blob], "avatar.jpg", { type: "image/jpeg" }));
-            avatarInput.files = dt.files; // 줄인 사진으로 바꿔 보낸다
-          } catch (e) { /* 바꿀 수 없는 브라우저는 원본을 보내고 서버가 줄인다 */ }
-          if (!photoPreview) {
-            photoPreview = document.createElement("img");
-            photoPreview.className = "av big";
-            photoPreview.alt = "";
-            face.parentNode.insertBefore(photoPreview, face);
-          }
-          photoPreview.src = canvas.toDataURL("image/jpeg", 0.85);
-          photoPreview.hidden = false;
-          if (removePhoto) removePhoto.checked = false;
-          showFace();
-        }, "image/jpeg", 0.85);
+      cropImg.onload = function () {
+        busy(false);
+        crop = { url: url, w: cropImg.naturalWidth, h: cropImg.naturalHeight, zoom: 1, x: 0, y: 0 };
+        zoomInput.value = 1;
+        sheet.showModal();
+        layout();
       };
-      img.onerror = function () { URL.revokeObjectURL(url); busy(false); }; // 못 읽는 사진(HEIC 등)은 그대로 보내 서버가 판단
-      img.src = url;
+      cropImg.onerror = function () { URL.revokeObjectURL(url); busy(false); }; // 못 읽는 사진(HEIC 등)은 그대로 보내 서버가 판단
+      cropImg.src = url;
     });
     document.querySelectorAll("[data-emoji]").forEach(function (b) {
       b.addEventListener("click", function () { emojiInput.value = b.dataset.emoji; showFace(); });
